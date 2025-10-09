@@ -117,7 +117,7 @@ export const checkIn = onRequest({cors: true}, async (request, response) => {
       timestamp: firestore.Timestamp.now(),
       geo: new firestore.GeoPoint(body.lat, body.lon),
       accuracyM: body.accuracyM,
-      deviceInfo: body.deviceInfo,
+      ...(body.deviceInfo && { deviceInfo: body.deviceInfo }),
     };
 
     const attendanceRef = await db.collection("attendance").add(
@@ -136,13 +136,25 @@ export const checkIn = onRequest({cors: true}, async (request, response) => {
     };
 
     response.status(200).json(result);
-  } catch (error) {
-    logger.error("Error recording check-in", {error});
+  } catch (error: any) {
+    // Detailed error logging
+    logger.error("CHECKIN ERROR - Full details:", {
+      errorMessage: error?.message || "Unknown error",
+      errorStack: error?.stack || "No stack trace",
+      errorCode: error?.code,
+      errorDetails: error?.details,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    });
+
     const apiError: ApiError = {
       ok: false,
-      error: "Internal server error",
-      code: "INTERNAL_ERROR",
-      details: error,
+      error: error?.message || "Internal server error",
+      code: error?.code || "INTERNAL_ERROR",
+      details: {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split("\n")[0], // First line only
+      },
     };
     response.status(500).json(apiError);
   }
@@ -262,7 +274,7 @@ export const checkOut = onRequest({cors: true}, async (request, response) => {
       timestamp: firestore.Timestamp.now(),
       geo: new firestore.GeoPoint(body.lat, body.lon),
       accuracyM: body.accuracyM,
-      deviceInfo: body.deviceInfo,
+      ...(body.deviceInfo && { deviceInfo: body.deviceInfo }),
     };
 
     const attendanceRef = await db.collection("attendance").add(
@@ -281,13 +293,25 @@ export const checkOut = onRequest({cors: true}, async (request, response) => {
     };
 
     response.status(200).json(result);
-  } catch (error) {
-    logger.error("Error recording check-out", {error});
+  } catch (error: any) {
+    // Detailed error logging
+    logger.error("CHECKOUT ERROR - Full details:", {
+      errorMessage: error?.message || "Unknown error",
+      errorStack: error?.stack || "No stack trace",
+      errorCode: error?.code,
+      errorDetails: error?.details,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    });
+
     const apiError: ApiError = {
       ok: false,
-      error: "Internal server error",
-      code: "INTERNAL_ERROR",
-      details: error,
+      error: error?.message || "Internal server error",
+      code: error?.code || "INTERNAL_ERROR",
+      details: {
+        message: error?.message,
+        code: error?.code,
+        stack: error?.stack?.split("\n")[0], // First line only
+      },
     };
     response.status(500).json(apiError);
   }

@@ -20,6 +20,8 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
     throw new ApiError('Not authenticated', 401);
   }
 
+  console.log(`[API] Calling ${endpoint} with data:`, JSON.stringify(data));
+
   const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
     method: 'POST',
     headers: {
@@ -30,8 +32,10 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
   });
 
   const responseData = await response.json();
+  console.log(`[API] ${endpoint} response (${response.status}):`, JSON.stringify(responseData));
 
   if (!response.ok) {
+    console.error(`[API] ${endpoint} error:`, JSON.stringify(responseData));
     throw new ApiError(
       responseData.error || 'API request failed',
       response.status,

@@ -75,10 +75,8 @@ export const AttendanceScreen: React.FC = () => {
   const performCheckIn = async (location: { latitude: number; longitude: number; accuracy: number }) => {
     try {
       await api.checkIn({
-        geo: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
+        lat: location.latitude,
+        lon: location.longitude,
         accuracyM: location.accuracy,
       });
 
@@ -131,10 +129,8 @@ export const AttendanceScreen: React.FC = () => {
   const performCheckOut = async (location: { latitude: number; longitude: number; accuracy: number }) => {
     try {
       await api.checkOut({
-        geo: {
-          latitude: location.latitude,
-          longitude: location.longitude,
-        },
+        lat: location.latitude,
+        lon: location.longitude,
         accuracyM: location.accuracy,
       });
 

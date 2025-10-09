@@ -1,0 +1,86 @@
+{
+  "Royal-Laminates-Delhi": {
+    "id": "Royal-Laminates-Delhi",
+    "name": "Royal Laminates & Hardware",
+    "type": "distributor",
+    "contactPerson": "Mr. Rajesh Sharma",
+    "phone": "+919876543210",
+    "address": "Shop No. 45, Lajpat Nagar Market",
+    "city": "Delhi",
+    "state": "Delhi",
+    "pincode": "110024",
+    "territory": "Delhi NCR",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
+  },
+  "Premier-Ply-Delhi": {
+    "id": "Premier-Ply-Delhi",
+    "name": "Premier Ply & Boards",
+    "type": "dealer",
+    "contactPerson": "Mr. Amit Kumar",
+    "phone": "+919810234567",
+    "address": "G-12, Karol Bagh Industrial Area",
+    "city": "Delhi",
+    "state": "Delhi",
+    "pincode": "110005",
+    "territory": "Delhi NCR",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
+  },
+  "Mumbai-Laminates": {
+    "id": "Mumbai-Laminates",
+    "name": "Mumbai Laminates Corporation",
+    "type": "distributor",
+    "contactPerson": "Mrs. Priya Patel",
+    "phone": "+919823456789",
+    "address": "Andheri Industrial Estate, Unit 23",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "pincode": "400053",
+    "territory": "Mumbai Central",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
+  }
+}

@@ -8,6 +8,8 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { OTPScreen } from '../screens/OTPScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { AttendanceScreen } from '../screens/attendance/AttendanceScreen';
+import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
+import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -30,6 +32,8 @@ export const RootNavigator: React.FC = () => {
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Attendance" component={AttendanceScreen} />
+          <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
+          <Stack.Screen name="LogVisit" component={LogVisitScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

@@ -58,11 +58,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <Text style={styles.menuButtonArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => navigation.navigate('SelectAccount')}
+        >
+          <Text style={styles.menuButtonText}>🏢 Log Visit</Text>
+          <Text style={styles.menuButtonArrow}>›</Text>
+        </TouchableOpacity>
+
         <Text style={styles.note}>
           Coming soon:{'\n'}
-          • Accounts list{'\n'}
-          • Visit logging{'\n'}
-          • Daily Sales Reports
+          • Leads management{'\n'}
+          • Daily Sales Reports{'\n'}
+          • Performance analytics
         </Text>
       </View>
 

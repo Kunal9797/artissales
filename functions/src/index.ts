@@ -28,3 +28,6 @@ export {processOutboxEvents} from "./scheduled/outboxProcessor";
 export {onLeadCreated} from "./triggers/onLeadCreated";
 export {onLeadSLABreach} from "./triggers/onLeadSLAExpired";
 export {onVisitCreated} from "./triggers/onVisitEnded";
+
+// Utilities (one-time use)
+export {seedAccounts} from "./utils/seed-data";
