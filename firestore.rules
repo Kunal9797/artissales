@@ -1,0 +1,176 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================================================
+    // HELPER FUNCTIONS
+    // ========================================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get current user's role from users collection
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Check if user is a sales rep
+    function isRep() {
+      return isAuthenticated() && getUserRole() == 'rep';
+    }
+
+    // Check if user is a manager (any level)
+    function isManager() {
+      return isAuthenticated() && getUserRole() in ['area_manager', 'zonal_head', 'national_head', 'admin'];
+    }
+
+    // Check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+
+    // Check if this is the user's own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ========================================================================
+    // USERS COLLECTION
+    // ========================================================================
+    match /users/{userId} {
+      // Anyone authenticated can read user data
+      allow read: if isAuthenticated();
+
+      // Users can update their own profile
+      // Managers and admins can update any user
+      allow update: if isOwner(userId) || isManager();
+
+      // Only admins can create or delete users
+      allow create, delete: if isAdmin();
+    }
+
+    // ========================================================================
+    // ACCOUNTS COLLECTION (Distributors & Dealers)
+    // ========================================================================
+    match /accounts/{accountId} {
+      // Reps can read accounts assigned to them
+      // Managers can read all accounts
+      allow read: if isAuthenticated() && (
+        resource.data.assignedRepUserId == request.auth.uid || isManager()
+      );
+
+      // Only managers and admins can create/update/delete accounts
+      allow create, update, delete: if isManager();
+    }
+
+    // ========================================================================
+    // VISITS COLLECTION
+    // ========================================================================
+    match /visits/{visitId} {
+      // Reps can read their own visits
+      // Managers can read all visits
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Reps can create visits for themselves only
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+
+      // Reps can update their own visits
+      // Managers can update any visit
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Only admins can delete visits
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================================
+    // ATTENDANCE COLLECTION
+    // ========================================================================
+    match /attendance/{attendanceId} {
+      // Users can read their own attendance
+      // Managers can read all attendance
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Users can create attendance records for themselves only
+      allow create: if isAuthenticated() &&
+                      request.resource.data.userId == request.auth.uid;
+
+      // Only admins can update or delete attendance
+      allow update, delete: if isAdmin();
+    }
+
+    // ========================================================================
+    // LEADS COLLECTION
+    // ========================================================================
+    match /leads/{leadId} {
+      // Reps can read leads assigned to them
+      // Managers can read all leads
+      allow read: if isAuthenticated() && (
+        resource.data.ownerUserId == request.auth.uid || isManager()
+      );
+
+      // Only cloud functions/managers can create leads
+      // (Webhook creates them, not mobile app directly)
+      allow create: if isManager();
+
+      // Reps can update their assigned leads (status, firstTouchAt, etc.)
+      // Managers can update any lead
+      allow update: if isAuthenticated() && (
+        resource.data.ownerUserId == request.auth.uid || isManager()
+      );
+
+      // Only admins can delete leads
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================================
+    // PINCODE ROUTES COLLECTION
+    // ========================================================================
+    match /pincodeRoutes/{pincode} {
+      // Anyone authenticated can read pincode routes
+      allow read: if isAuthenticated();
+
+      // Only managers can create/update/delete routes
+      allow create, update, delete: if isManager();
+    }
+
+    // ========================================================================
+    // DSR REPORTS COLLECTION
+    // ========================================================================
+    match /dsrReports/{reportId} {
+      // Reps can read their own reports
+      // Managers can read all reports
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Cloud functions create DSR reports (not mobile app)
+      // But allow creation if authenticated (function uses service account)
+      allow create: if isAuthenticated();
+
+      // Only managers can update DSR status (approve/reject)
+      allow update: if isManager();
+
+      // Only admins can delete reports
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================================
+    // EVENTS COLLECTION (Outbox Pattern)
+    // ========================================================================
+    match /events/{eventId} {
+      // Only cloud functions access events
+      // Deny all client access
+      allow read, write: if false;
+    }
+  }
+}

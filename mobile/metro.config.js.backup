@@ -1,0 +1,9 @@
+const { getDefaultConfig } = require('expo/metro-config');
+
+const config = getDefaultConfig(__dirname);
+
+// Workaround for React Native Firebase compatibility with Expo SDK 53
+// See: https://github.com/invertase/react-native-firebase/issues/7701
+config.resolver.unstable_enablePackageExports = false;
+
+module.exports = config;

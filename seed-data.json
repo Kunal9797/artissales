@@ -1,0 +1,59 @@
+{
+  "users": {
+    "test_rep_123": {
+      "id": "test_rep_123",
+      "name": "Test Sales Rep",
+      "phone": "+919876543210",
+      "email": "test.rep@artislaminates.com",
+      "role": "rep",
+      "isActive": true,
+      "territory": "Delhi NCR"
+    }
+  },
+  "accounts": {
+    "dist_001": {
+      "id": "dist_001",
+      "name": "ABC Laminates Pvt Ltd",
+      "type": "distributor",
+      "territory": "Delhi NCR",
+      "assignedRepUserId": "test_rep_123",
+      "contactPerson": "Mr. Sharma",
+      "phone": "+919876543211",
+      "email": "sharma@abclaminates.com",
+      "address": "123 Industrial Area, Delhi",
+      "city": "Delhi",
+      "state": "Delhi",
+      "pincode": "110001",
+      "status": "active"
+    },
+    "dist_002": {
+      "id": "dist_002",
+      "name": "XYZ Traders",
+      "type": "distributor",
+      "territory": "Delhi NCR",
+      "assignedRepUserId": "test_rep_123",
+      "contactPerson": "Mr. Kumar",
+      "phone": "+919876543212",
+      "email": "kumar@xyztraders.com",
+      "address": "456 Market Road, Gurgaon",
+      "city": "Gurgaon",
+      "state": "Haryana",
+      "pincode": "122001",
+      "status": "active"
+    },
+    "dealer_001": {
+      "id": "dealer_001",
+      "name": "Ramesh Hardware Store",
+      "type": "dealer",
+      "territory": "Delhi NCR",
+      "assignedRepUserId": "test_rep_123",
+      "contactPerson": "Ramesh Singh",
+      "phone": "+919876543213",
+      "address": "789 Main Market, Noida",
+      "city": "Noida",
+      "state": "Uttar Pradesh",
+      "pincode": "201301",
+      "status": "active"
+    }
+  }
+}
