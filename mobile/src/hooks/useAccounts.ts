@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore, collection, query, where, orderBy, onSnapshot } from '@react-native-firebase/firestore';
 
 export interface Account {
   id: string;
@@ -26,54 +26,61 @@ export const useAccounts = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = auth().currentUser;
+    const authInstance = getAuth();
+    const user = authInstance.currentUser;
     if (!user) {
       setError('Not authenticated');
       setLoading(false);
       return;
     }
 
+    const db = getFirestore();
+
     // Subscribe to accounts assigned to current user
-    const unsubscribe = firestore()
-      .collection('accounts')
-      .where('assignedRepUserId', '==', user.uid)
-      .where('status', '==', 'active')
-      .orderBy('name', 'asc')
-      .onSnapshot(
-        (snapshot) => {
-          const accountsData: Account[] = [];
+    const accountsRef = collection(db, 'accounts');
+    const q = query(
+      accountsRef,
+      where('assignedRepUserId', '==', user.uid),
+      where('status', '==', 'active'),
+      orderBy('name', 'asc')
+    );
 
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            accountsData.push({
-              id: doc.id,
-              name: data.name,
-              type: data.type,
-              contactPerson: data.contactPerson,
-              phone: data.phone,
-              address: data.address,
-              city: data.city,
-              state: data.state,
-              pincode: data.pincode,
-              territory: data.territory,
-              assignedRepUserId: data.assignedRepUserId,
-              status: data.status,
-              lastVisitAt: data.lastVisitAt?.toDate(),
-              createdAt: data.createdAt?.toDate(),
-              updatedAt: data.updatedAt?.toDate(),
-            });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const accountsData: Account[] = [];
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          accountsData.push({
+            id: doc.id,
+            name: data.name,
+            type: data.type,
+            contactPerson: data.contactPerson,
+            phone: data.phone,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            pincode: data.pincode,
+            territory: data.territory,
+            assignedRepUserId: data.assignedRepUserId,
+            status: data.status,
+            lastVisitAt: data.lastVisitAt?.toDate(),
+            createdAt: data.createdAt?.toDate(),
+            updatedAt: data.updatedAt?.toDate(),
           });
+        });
 
-          setAccounts(accountsData);
-          setLoading(false);
-          setError(null);
-        },
-        (err) => {
-          console.error('Accounts fetch error:', err);
-          setError(err.message || 'Failed to fetch accounts');
-          setLoading(false);
-        }
-      );
+        setAccounts(accountsData);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error('Accounts fetch error:', err);
+        setError(err.message || 'Failed to fetch accounts');
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);

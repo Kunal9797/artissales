@@ -52,6 +52,31 @@ export interface LogSheetsSaleRequest {
   notes?: string;
 }
 
+// Manager API Types
+export interface CreateUserByManagerRequest {
+  phone: string; // 10-digit Indian mobile
+  name: string;
+  role: 'rep' | 'area_manager' | 'zonal_head' | 'national_head' | 'admin';
+  territory: string;
+}
+
+export interface CreateUserByManagerResponse {
+  ok: true;
+  userId: string;
+  message: string;
+}
+
+export interface ReviewDSRRequest {
+  reportId: string;
+  status: 'approved' | 'needs_revision';
+  comments?: string;
+}
+
+export interface ReviewDSRResponse {
+  ok: true;
+  message: string;
+}
+
 // API Response Types
 export interface ApiResponse {
   ok: boolean;

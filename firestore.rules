@@ -48,8 +48,12 @@ service cloud.firestore {
       // Managers and admins can update any user
       allow update: if isOwner(userId) || isManager();
 
-      // Only admins can create or delete users
-      allow create, delete: if isAdmin();
+      // Users can create their own document on first login
+      // Admins can create any user
+      allow create: if isOwner(userId) || isAdmin();
+
+      // Only admins can delete users
+      allow delete: if isAdmin();
     }
 
     // ========================================================================
@@ -147,10 +151,11 @@ service cloud.firestore {
     // DSR REPORTS COLLECTION
     // ========================================================================
     match /dsrReports/{reportId} {
-      // Reps can read their own reports
+      // Reps can read their own reports (check reportId format: {userId}_{date})
       // Managers can read all reports
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isManager()
+        (resource == null || resource.data.userId == request.auth.uid) ||
+        isManager()
       );
 
       // Cloud functions create DSR reports (not mobile app)

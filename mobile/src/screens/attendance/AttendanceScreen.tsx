@@ -7,9 +7,11 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { Calendar, CheckCircle } from 'lucide-react-native';
 import { useAttendance } from '../../hooks/useAttendance';
 import { useLocation } from '../../hooks/useLocation';
 import { api } from '../../services/api';
+import { colors, spacing, typography, shadows } from '../../theme';
 
 export const AttendanceScreen: React.FC = () => {
   const { status, loading: statusLoading } = useAttendance();
@@ -144,7 +146,7 @@ export const AttendanceScreen: React.FC = () => {
   if (statusLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Loading attendance...</Text>
       </View>
     );
@@ -154,18 +156,33 @@ export const AttendanceScreen: React.FC = () => {
   const canCheckIn = !status.hasCheckedIn && !isLoading;
   const canCheckOut = status.hasCheckedIn && !status.hasCheckedOut && !isLoading;
 
+  const handleViewMonthlyRecords = () => {
+    Alert.alert(
+      'Monthly Attendance',
+      'Monthly attendance records feature coming soon!\n\nYou will be able to view:\n• All check-ins and check-outs this month\n• Total working hours\n• Days present/absent',
+      [{ text: 'OK' }]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Attendance</Text>
-        <Text style={styles.subtitle}>
-          {new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.title}>Attendance</Text>
+            <Text style={styles.subtitle}>
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.calendarButton} onPress={handleViewMonthlyRecords}>
+            <Calendar size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -224,8 +241,9 @@ export const AttendanceScreen: React.FC = () => {
 
         {status.hasCheckedOut && (
           <View style={styles.completedCard}>
+            <CheckCircle size={20} color={colors.success} />
             <Text style={styles.completedText}>
-              ✅ Attendance marked for today
+              Attendance marked for today
             </Text>
           </View>
         )}
@@ -237,94 +255,110 @@ export const AttendanceScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#007AFF',
-    padding: 24,
+    backgroundColor: colors.primary,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: spacing.xl * 1.5,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
     color: '#fff',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
     color: '#fff',
     opacity: 0.9,
   },
+  calendarButton: {
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
   content: {
     flex: 1,
-    padding: 24,
+    padding: spacing.xl,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    ...shadows.md,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
   statusText: {
-    fontSize: 16,
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   durationText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
     fontStyle: 'italic',
   },
   actionButton: {
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
+    borderWidth: 2,
   },
   checkInButton: {
-    backgroundColor: '#34C759',
+    backgroundColor: colors.success,
+    borderColor: '#2EA043',
   },
   checkOutButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: colors.error,
+    borderColor: colors.errorDark,
   },
   actionButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
   },
   completedCard: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: colors.successLight,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.success,
+    padding: spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   completedText: {
-    fontSize: 16,
-    color: '#2E7D32',
-    fontWeight: '600',
+    fontSize: typography.fontSize.base,
+    color: colors.successDark,
+    fontWeight: typography.fontWeight.semibold,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
   },
 });

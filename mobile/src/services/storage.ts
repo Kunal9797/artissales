@@ -3,8 +3,8 @@
  * Handles photo uploads to Firebase Storage
  */
 
-import storage from '@react-native-firebase/storage';
-import auth from '@react-native-firebase/auth';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
+import { getAuth } from '@react-native-firebase/auth';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 /**
@@ -42,7 +42,8 @@ export async function uploadPhoto(
   folder: 'visits' | 'expenses' = 'visits'
 ): Promise<string> {
   try {
-    const user = auth().currentUser;
+    const authInstance = getAuth();
+    const user = authInstance.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
     }
@@ -58,12 +59,17 @@ export async function uploadPhoto(
 
     console.log('[Storage] Uploading to:', storagePath);
 
-    // Upload to Firebase Storage
-    const reference = storage().ref(storagePath);
-    await reference.putFile(compressedUri);
+    // Convert local URI to blob for upload
+    const response = await fetch(compressedUri);
+    const blob = await response.blob();
+
+    // Upload to Firebase Storage using modular API
+    const storageInstance = getStorage();
+    const storageRef = ref(storageInstance, storagePath);
+    await uploadBytes(storageRef, blob);
 
     // Get download URL
-    const downloadUrl = await reference.getDownloadURL();
+    const downloadUrl = await getDownloadURL(storageRef);
     console.log('[Storage] Upload complete:', downloadUrl);
 
     return downloadUrl;
@@ -93,8 +99,9 @@ export async function uploadPhotos(
  */
 export async function deletePhoto(downloadUrl: string): Promise<void> {
   try {
-    const reference = storage().refFromURL(downloadUrl);
-    await reference.delete();
+    const storageInstance = getStorage();
+    const reference = ref(storageInstance, downloadUrl);
+    await deleteObject(reference);
     console.log('[Storage] Photo deleted:', downloadUrl);
   } catch (error) {
     console.error('[Storage] Delete error:', error);

@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { colors, spacing, typography } from '../theme';
+import { Logo } from '../components/ui/Logo';
 
 interface Props {
   confirmation: FirebaseAuthTypes.ConfirmationResult;
@@ -18,6 +20,8 @@ interface Props {
 export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const isCodeValid = code.length === 6;
 
   const handleVerifyCode = async () => {
     if (!code.trim() || code.length < 6) {
@@ -47,6 +51,8 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
 
+        <Logo variant="full" style={{ width: 280, height: 120, alignSelf: 'center' }} />
+
         <Text style={styles.title}>Enter Verification Code</Text>
         <Text style={styles.subtitle}>
           We've sent a 6-digit code to your phone
@@ -55,7 +61,8 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Enter 6-digit code"
+            placeholder="000000"
+            placeholderTextColor="#999"
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -66,14 +73,20 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
         </View>
 
         <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
+          style={[
+            styles.button,
+            isCodeValid && styles.buttonActive,
+            loading && styles.buttonDisabled,
+          ]}
           onPress={handleVerifyCode}
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={isCodeValid ? colors.primary : '#fff'} />
           ) : (
-            <Text style={styles.buttonText}>Verify Code</Text>
+            <Text style={[styles.buttonText, isCodeValid && styles.buttonTextActive]}>
+              Verify Code
+            </Text>
           )}
         </TouchableOpacity>
 
@@ -88,67 +101,83 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.primary, // Dark brand background
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xl,
   },
   backButton: {
     position: 'absolute',
     top: 60,
-    left: 24,
+    left: spacing.xl,
   },
   backButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: typography.fontSize.base,
+    fontWeight: '600',
+    color: colors.accent, // Gold
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
+    marginBottom: spacing.sm,
+    marginTop: spacing.xl,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 48,
+    fontSize: typography.fontSize.base,
+    color: '#ccc',
+    marginBottom: spacing.xl * 2,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   input: {
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 24,
-    color: '#333',
+    borderWidth: 2,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
     textAlign: 'center',
-    letterSpacing: 8,
+    letterSpacing: 12,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: 'transparent',
+    borderRadius: spacing.borderRadius.full, // Pill shape
+    borderWidth: 2,
+    borderColor: colors.accent,
+    padding: spacing.lg,
     alignItems: 'center',
+    alignSelf: 'center',
+    width: '85%',
+  },
+  buttonActive: {
+    backgroundColor: colors.accent, // Gold when valid
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  buttonTextActive: {
+    color: colors.primary, // Dark text on gold background
   },
   resendButton: {
-    marginTop: 24,
+    marginTop: spacing.xl,
     alignItems: 'center',
   },
   resendButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
+    color: colors.accent,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
 });

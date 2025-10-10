@@ -1,5 +1,21 @@
-import { getAuthToken } from './firebase';
-import { CheckInRequest, CheckOutRequest, LogVisitRequest, SubmitExpenseRequest, LogSheetsSaleRequest } from '../types';
+import { getAuth } from '@react-native-firebase/auth';
+import { getIdToken } from '@react-native-firebase/auth';
+
+async function getAuthToken(): Promise<string | null> {
+  const authInstance = getAuth();
+  const user = authInstance.currentUser;
+  if (!user) return null;
+  return await getIdToken(user);
+}
+import {
+  CheckInRequest,
+  CheckOutRequest,
+  LogVisitRequest,
+  SubmitExpenseRequest,
+  LogSheetsSaleRequest,
+  CreateUserByManagerRequest,
+  ReviewDSRRequest,
+} from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
 
@@ -65,5 +81,18 @@ export const api = {
 
   logSheetsSale: async (data: LogSheetsSaleRequest) => {
     return callFunction('logSheetsSale', data);
+  },
+
+  updateProfile: async (data: { name?: string; email?: string }) => {
+    return callFunction('updateProfile', data);
+  },
+
+  // Manager APIs
+  createUserByManager: async (data: CreateUserByManagerRequest) => {
+    return callFunction('createUserByManager', data);
+  },
+
+  reviewDSR: async (data: ReviewDSRRequest) => {
+    return callFunction('reviewDSR', data);
   },
 };

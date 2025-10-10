@@ -8,7 +8,9 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { Search, X, MapPin, User, Factory, Store, Ruler } from 'lucide-react-native';
 import { useAccounts, Account } from '../../hooks/useAccounts';
+import { colors, spacing, typography, shadows } from '../../theme';
 
 interface SelectAccountScreenProps {
   navigation: any;
@@ -71,12 +73,18 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       </View>
 
       {item.contactPerson && (
-        <Text style={styles.accountContact}>👤 {item.contactPerson}</Text>
+        <View style={styles.infoRow}>
+          <User size={16} color={colors.text.secondary} />
+          <Text style={styles.accountContact}>{item.contactPerson}</Text>
+        </View>
       )}
 
-      <Text style={styles.accountLocation}>
-        📍 {item.city}, {item.state} - {item.pincode}
-      </Text>
+      <View style={styles.infoRow}>
+        <MapPin size={16} color={colors.text.secondary} />
+        <Text style={styles.accountLocation}>
+          {item.city}, {item.state} - {item.pincode}
+        </Text>
+      </View>
 
       {item.lastVisitAt && (
         <Text style={styles.lastVisit}>
@@ -89,7 +97,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Loading accounts...</Text>
       </View>
     );
@@ -111,17 +119,18 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       </View>
 
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Search size={20} color={colors.text.secondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search by name, city, or type..."
+          placeholderTextColor={colors.text.secondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearButton}>✕</Text>
+            <X size={20} color={colors.text.secondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -141,8 +150,9 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           style={[styles.filterBubble, selectedType === 'distributor' && styles.filterBubbleActive]}
           onPress={() => setSelectedType('distributor')}
         >
+          <Factory size={16} color={selectedType === 'distributor' ? colors.primary : colors.text.secondary} />
           <Text style={[styles.filterText, selectedType === 'distributor' && styles.filterTextActive]}>
-            🏭 Distributors
+            Distributors
           </Text>
         </TouchableOpacity>
 
@@ -150,8 +160,9 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           style={[styles.filterBubble, selectedType === 'dealer' && styles.filterBubbleActive]}
           onPress={() => setSelectedType('dealer')}
         >
+          <Store size={16} color={selectedType === 'dealer' ? colors.primary : colors.text.secondary} />
           <Text style={[styles.filterText, selectedType === 'dealer' && styles.filterTextActive]}>
-            🏪 Dealers
+            Dealers
           </Text>
         </TouchableOpacity>
 
@@ -159,8 +170,9 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           style={[styles.filterBubble, selectedType === 'architect' && styles.filterBubbleActive]}
           onPress={() => setSelectedType('architect')}
         >
+          <Ruler size={16} color={selectedType === 'architect' ? colors.primary : colors.text.secondary} />
           <Text style={[styles.filterText, selectedType === 'architect' && styles.filterTextActive]}>
-            📐 Architects
+            Architects
           </Text>
         </TouchableOpacity>
       </View>
@@ -191,168 +203,171 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
+    backgroundColor: colors.primary,
+    padding: spacing.lg,
     paddingTop: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingBottom: spacing.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: typography.fontSize.sm,
+    color: '#fff',
+    opacity: 0.9,
+    marginTop: spacing.xs,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    margin: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.border.default,
+    ...shadows.sm,
   },
   searchIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  clearButton: {
-    fontSize: 20,
-    color: '#999',
-    paddingHorizontal: 8,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    gap: 8,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   filterBubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.border.default,
   },
   filterBubbleActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   filterText: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeight.medium,
   },
   filterTextActive: {
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
   },
   resultsCount: {
-    fontSize: 14,
-    color: '#666',
-    marginHorizontal: 16,
-    marginBottom: 8,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   listContainer: {
-    padding: 16,
-    paddingTop: 8,
+    padding: spacing.lg,
+    paddingTop: spacing.sm,
   },
   accountCard: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border.default,
+    ...shadows.sm,
   },
   accountHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   accountName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.sm,
   },
   distributorBadge: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#E3F2FD',
   },
   dealerBadge: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: '#FFF3E0',
   },
   architectBadge: {
-    backgroundColor: '#f3e5f5',
+    backgroundColor: '#F3E5F5',
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: '#666',
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.secondary,
   },
   accountContact: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 4,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
   },
   accountLocation: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 4,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
   },
   lastVisit: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 4,
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+    marginTop: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
   },
   errorText: {
-    fontSize: 16,
-    color: '#f44336',
+    fontSize: typography.fontSize.base,
+    color: colors.error,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl * 2,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xl * 2,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#999',
+    fontSize: typography.fontSize.base,
+    color: colors.text.tertiary,
     textAlign: 'center',
   },
 });

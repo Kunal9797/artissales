@@ -268,6 +268,16 @@ export interface Expense {
 
 export type DSRStatus = "pending" | "approved" | "needs_revision";
 
+export interface SheetsSalesSummary {
+  catalog: CatalogType;
+  totalSheets: number;
+}
+
+export interface ExpenseSummary {
+  category: string; // ExpenseCategory or custom
+  totalAmount: number;
+}
+
 export interface DSRReport {
   id: string; // Format: {userId}_{YYYY-MM-DD}
   userId: string;
@@ -280,6 +290,14 @@ export interface DSRReport {
   visitIds: string[];
   leadsContacted: number;
   leadIds: string[];
+
+  // Sheets sales summary
+  sheetsSales: SheetsSalesSummary[]; // e.g., [{catalog: "Artis", totalSheets: 50}, ...]
+  totalSheetsSold: number; // Sum across all catalogs
+
+  // Expenses summary
+  expenses: ExpenseSummary[]; // e.g., [{category: "travel", totalAmount: 500}, ...]
+  totalExpenses: number; // Sum of all expenses in INR
 
   // Manager review
   status: DSRStatus;
@@ -379,6 +397,80 @@ export interface LeadFirstTouchResponse {
   ok: boolean;
   leadId: string;
   firstTouchAt: string; // ISO 8601
+}
+
+// ============================================================================
+// MANAGER API TYPES (User Management, DSR Approval, Reports)
+// ============================================================================
+
+// Create User By Manager
+export interface CreateUserByManagerRequest {
+  phone: string; // 10-digit Indian mobile
+  name: string; // User's full name
+  role: UserRole;
+  territory: string; // City name
+}
+
+export interface CreateUserByManagerResponse {
+  ok: true;
+  userId: string;
+  message: string;
+}
+
+// Review DSR
+export interface ReviewDSRRequest {
+  reportId: string; // DSR document ID (format: {userId}_{YYYY-MM-DD})
+  status: "approved" | "needs_revision";
+  comments?: string; // Optional manager comments
+}
+
+export interface ReviewDSRResponse {
+  ok: true;
+  message: string;
+}
+
+// Get Rep Report
+export interface GetRepReportRequest {
+  userId: string; // Rep's user ID
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+}
+
+export interface GetRepReportResponse {
+  ok: true;
+  report: {
+    userId: string;
+    userName: string;
+    dateRange: {
+      start: string;
+      end: string;
+    };
+    attendance: {
+      daysPresent: number;
+      totalWorkingDays: number;
+      attendancePercentage: number;
+    };
+    visits: {
+      total: number;
+      distributor: number;
+      dealer: number;
+      architect: number;
+    };
+    sheetsSales: {
+      total: number;
+      byCatalog: {
+        "Fine Decor": number;
+        "Artvio": number;
+        "Woodrica": number;
+        "Artis": number;
+      };
+    };
+    expenses: {
+      totalAmount: number;
+      count: number;
+      byCategory: Record<string, number>;
+    };
+  };
 }
 
 // ============================================================================

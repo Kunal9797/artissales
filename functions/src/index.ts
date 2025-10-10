@@ -17,6 +17,8 @@ export {logVisit} from "./api/visits";
 export {checkIn, checkOut} from "./api/attendance";
 export {logSheetsSale} from "./api/sheetsSales";
 export {submitExpense} from "./api/expenses";
+export {updateProfile} from "./api/profile";
+export {createUserByManager} from "./api/users";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";
@@ -33,3 +35,4 @@ export {onVisitCreated} from "./triggers/onVisitEnded";
 
 // Utilities (one-time use)
 export {seedAccounts, deleteAllAccounts} from "./utils/seed-data";
+export {createUser} from "./utils/create-user";

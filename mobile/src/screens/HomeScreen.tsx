@@ -1,98 +1,152 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  ScrollView,
 } from 'react-native';
-import { auth } from '../services/firebase';
+import { getAuth } from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import { Card, Logo } from '../components/ui';
+import { colors, spacing, typography, shadows } from '../theme';
+import {
+  MapPin,
+  Building2,
+  IndianRupee,
+  FileBarChart,
+  ClipboardList,
+  User,
+  Palette,
+  ChevronRight,
+} from 'lucide-react-native';
 
 interface HomeScreenProps {
   navigation: any;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
-  const user = auth().currentUser;
+  const authInstance = getAuth();
+  const user = authInstance.currentUser;
+  const [userName, setUserName] = useState<string>('');
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await auth().signOut();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to sign out');
-            }
-          },
-        },
-      ]
-    );
-  };
+  useEffect(() => {
+    const loadUserName = async () => {
+      if (user?.uid) {
+        try {
+          const userDoc = await firestore()
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            setUserName(userData?.name || 'User');
+          }
+        } catch (error) {
+          console.error('Error loading user name:', error);
+          setUserName('User');
+        }
+      }
+    };
+
+    loadUserName();
+  }, [user?.uid]);
 
   return (
     <View style={styles.container}>
+      {/* Header with Brand Background Color */}
       <View style={styles.header}>
-        <Text style={styles.title}>Artis Sales</Text>
-        <Text style={styles.subtitle}>Welcome back!</Text>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>User Info</Text>
-          <Text style={styles.cardText}>Phone: {user?.phoneNumber}</Text>
-          <Text style={styles.cardText}>UID: {user?.uid.substring(0, 8)}...</Text>
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <Logo variant="trans-artis" size="large" style={styles.logo} />
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Artis Sales</Text>
+              <Text style={styles.subtitle}>Welcome {userName || 'User'}!</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <User size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('Attendance')}
-        >
-          <Text style={styles.menuButtonText}>📍 Attendance</Text>
-          <Text style={styles.menuButtonArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('SelectAccount')}
-        >
-          <Text style={styles.menuButtonText}>🏢 Log Visit</Text>
-          <Text style={styles.menuButtonArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('ExpenseEntry')}
-        >
-          <Text style={styles.menuButtonText}>💰 Report Expense</Text>
-          <Text style={styles.menuButtonArrow}>›</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => navigation.navigate('SheetsEntry')}
-        >
-          <Text style={styles.menuButtonText}>📊 Log Sheet Sales</Text>
-          <Text style={styles.menuButtonArrow}>›</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.note}>
-          Coming soon:{'\n'}
-          • Leads management{'\n'}
-          • Daily Sales Reports{'\n'}
-          • Performance analytics
-        </Text>
       </View>
 
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-        <Text style={styles.signOutButtonText}>Sign Out</Text>
-      </TouchableOpacity>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+
+        {/* Feature Cards with Lucide Icons */}
+        <Card elevation="md" onPress={() => navigation.navigate('Attendance')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <MapPin size={24} color={colors.accent} />
+            </View>
+            <Text style={styles.menuCardText}>Attendance</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        <Card elevation="md" onPress={() => navigation.navigate('SelectAccount')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <Building2 size={24} color={colors.accent} />
+            </View>
+            <Text style={styles.menuCardText}>Log Visit</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        <Card elevation="md" onPress={() => navigation.navigate('ExpenseEntry')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <IndianRupee size={24} color={colors.accent} />
+            </View>
+            <Text style={styles.menuCardText}>Report Expense</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        <Card elevation="md" onPress={() => navigation.navigate('SheetsEntry')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <FileBarChart size={24} color={colors.accent} />
+            </View>
+            <Text style={styles.menuCardText}>Log Sheet Sales</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        <Card elevation="md" onPress={() => navigation.navigate('DSR')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
+              <ClipboardList size={24} color={colors.accent} />
+            </View>
+            <Text style={styles.menuCardText}>Daily Report (DSR)</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        {/* Design System Demo */}
+        <Card elevation="md" onPress={() => navigation.navigate('KitchenSink')} style={[styles.menuCard, { backgroundColor: colors.accent }]}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
+              <Palette size={24} color="#fff" />
+            </View>
+            <Text style={[styles.menuCardText, { color: '#fff' }]}>Design System Demo</Text>
+          </View>
+          <ChevronRight size={24} color="#fff" />
+        </Card>
+
+        <Card elevation="sm" style={styles.noteCard}>
+          <Text style={styles.noteTitle}>Coming Soon</Text>
+          <Text style={styles.noteText}>• Leads management</Text>
+          <Text style={styles.noteText}>• Performance analytics</Text>
+          <Text style={styles.noteText}>• Manager dashboard</Text>
+        </Card>
+
+        <View style={{ height: spacing.xl }} />
+      </ScrollView>
     </View>
   );
 };
@@ -100,91 +154,98 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#007AFF',
-    padding: 24,
+    backgroundColor: colors.primary,  // Brand Background #393735
+    paddingHorizontal: spacing.lg,
     paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: spacing.xl + spacing.sm,
+    ...shadows.lg,
+    elevation: 8,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#fff',
-    opacity: 0.9,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  cardText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 6,
-  },
-  note: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 22,
-  },
-  signOutButton: {
-    margin: 24,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  signOutButtonText: {
-    color: '#FF3B30',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  menuButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  menuButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    flex: 1,
   },
-  menuButtonArrow: {
-    fontSize: 24,
-    color: '#007AFF',
+  logo: {
+    // Extra styling for logo if needed
+  },
+  headerText: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  title: {
+    ...typography.styles.h2,
+    color: colors.text.inverse,
+    fontWeight: '700',
+    marginBottom: spacing.xs / 4,
+  },
+  subtitle: {
+    ...typography.styles.body,
+    color: colors.text.inverse,
+    opacity: 0.9,
+    fontSize: 15,
+  },
+  profileButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: spacing.screenPadding,
+  },
+  menuCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  menuCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: spacing.borderRadius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuCardText: {
+    ...typography.styles.h4,
+    color: colors.text.primary,
+  },
+  noteCard: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+  },
+  noteTitle: {
+    ...typography.styles.h4,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  noteText: {
+    ...typography.styles.body,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs / 2,
   },
 });

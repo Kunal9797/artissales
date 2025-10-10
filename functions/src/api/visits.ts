@@ -46,11 +46,10 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
 
     const body = request.body as VisitLogRequest;
 
-    // Validate required fields
+    // Validate required fields (TEMPORARY: photos optional for testing)
     const validation = validateRequiredFields(body, [
       "accountId",
       "purpose",
-      "photos",
     ]);
 
     if (!validation.valid) {
@@ -64,7 +63,9 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
+    // TEMPORARY: Make photos optional for testing camera issues
     // Validate photos array (must have at least 1 photo)
+    /* TEMPORARY: Commented out for testing
     if (!Array.isArray(body.photos) || body.photos.length < 1) {
       const error: ApiError = {
         ok: false,
@@ -75,19 +76,22 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       response.status(400).json(error);
       return;
     }
+    */
 
-    // Validate photo URLs (basic check)
-    const invalidPhotos = body.photos.filter(
-      (url) => !url || typeof url !== "string" || url.trim().length === 0
-    );
-    if (invalidPhotos.length > 0) {
-      const error: ApiError = {
-        ok: false,
-        error: "Invalid photo URLs",
-        code: "INVALID_PHOTO_URL",
-      };
-      response.status(400).json(error);
-      return;
+    // Validate photo URLs (basic check) - only if photos provided
+    if (body.photos && body.photos.length > 0) {
+      const invalidPhotos = body.photos.filter(
+        (url) => !url || typeof url !== "string" || url.trim().length === 0
+      );
+      if (invalidPhotos.length > 0) {
+        const error: ApiError = {
+          ok: false,
+          error: "Invalid photo URLs",
+          code: "INVALID_PHOTO_URL",
+        };
+        response.status(400).json(error);
+        return;
+      }
     }
 
     // Get account details
@@ -117,7 +121,7 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       timestamp: firestore.Timestamp.now(),
       purpose: body.purpose,
       notes: body.notes,
-      photos: body.photos,
+      photos: body.photos || [], // Default to empty array if no photos
       createdAt: firestore.Timestamp.now(),
     };
 

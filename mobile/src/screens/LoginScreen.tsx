@@ -8,8 +8,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { auth } from '../services/firebase';
+import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { colors, spacing, typography } from '../theme';
+import { Logo } from '../components/ui';
 
 interface Props {
   onCodeSent: (confirmation: FirebaseAuthTypes.ConfirmationResult) => void;
@@ -18,6 +20,8 @@ interface Props {
 export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const isPhoneValid = phoneNumber.replace(/\D/g, '').length === 10;
 
   const formatPhoneNumber = (phone: string): string => {
     // Remove all non-digit characters
@@ -46,11 +50,29 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
     setLoading(true);
     try {
       const formattedPhone = formatPhoneNumber(phoneNumber);
-      const confirmation = await auth().signInWithPhoneNumber(formattedPhone);
+      console.log('[Auth] Attempting to send code to:', formattedPhone);
+
+      const authInstance = getAuth();
+      const confirmation = await signInWithPhoneNumber(authInstance, formattedPhone);
+
+      console.log('[Auth] Code sent successfully');
       onCodeSent(confirmation);
     } catch (error: any) {
-      console.error('Phone auth error:', error);
-      Alert.alert('Error', error.message || 'Failed to send verification code');
+      console.error('[Auth] Phone auth error:', error);
+
+      let errorMessage = 'Failed to send verification code';
+
+      if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.code === 'auth/invalid-phone-number') {
+        errorMessage = 'Invalid phone number format. Please enter a valid 10-digit number.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many requests. Please try again later.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -59,36 +81,49 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Artis Sales</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
-
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Phone Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your phone number"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            keyboardType="phone-pad"
-            autoFocus
-            editable={!loading}
-          />
-          <Text style={styles.hint}>
-            Enter 10-digit number (e.g., 9876543210)
-          </Text>
+        <View style={styles.logoSection}>
+          <Logo variant="full" size="large" style={styles.logo} />
         </View>
 
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSendCode}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Send Verification Code</Text>
-          )}
-        </TouchableOpacity>
+        <View style={styles.formSection}>
+          <Text style={styles.title}>Artis Sales Team</Text>
+          <Text style={styles.subtitle}>Sign in to continue</Text>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Phone Number</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your phone number"
+              placeholderTextColor="rgba(0,0,0,0.4)"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              autoFocus
+              editable={!loading}
+            />
+            <Text style={styles.hint}>
+              Enter 10-digit number (e.g., 9876543210)
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.button,
+              isPhoneValid && styles.buttonActive,
+              loading && styles.buttonDisabled
+            ]}
+            onPress={handleSendCode}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={isPhoneValid ? colors.primary : colors.text.inverse} />
+            ) : (
+              <Text style={[styles.buttonText, isPhoneValid && styles.buttonTextActive]}>
+                Send Code
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -97,59 +132,95 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.primary, // Brand Background #393735
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: spacing.xl,
+  },
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: spacing.xxl + spacing.xxl + spacing.xl,
+  },
+  logo: {
+    width: 320,
+    height: 140,
+  },
+  formSection: {
+    width: '100%',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    ...typography.styles.h1,
+    color: colors.text.inverse,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+    fontWeight: '600',
+    fontSize: 28,
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 48,
+    ...typography.styles.body,
+    color: colors.text.inverse,
+    opacity: 0.8,
+    marginBottom: spacing.xxl + spacing.xxl,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '400',
   },
   inputContainer: {
-    marginBottom: 24,
+    marginBottom: spacing.xl,
+    marginTop: spacing.lg,
   },
   label: {
-    fontSize: 14,
+    ...typography.styles.label,
+    color: colors.text.inverse,
+    marginBottom: spacing.sm,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md + 2,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
   },
   hint: {
-    fontSize: 12,
-    color: '#999',
-    marginTop: 6,
+    ...typography.styles.caption,
+    color: colors.text.inverse,
+    opacity: 0.7,
+    marginTop: spacing.sm,
+    fontSize: 13,
   },
   button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: 'transparent',
+    borderRadius: spacing.borderRadius.full,
+    paddingVertical: spacing.md + 4,
+    paddingHorizontal: spacing.xl + spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    alignSelf: 'center',
+    width: '85%',
+  },
+  buttonActive: {
+    backgroundColor: colors.accent,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
+    ...typography.styles.button,
+    color: colors.text.inverse,
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonTextActive: {
+    color: colors.primary,
   },
 });

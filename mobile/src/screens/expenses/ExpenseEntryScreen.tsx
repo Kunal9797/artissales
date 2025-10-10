@@ -17,10 +17,12 @@ import {
   Modal,
   Image,
 } from 'react-native';
+import { Car, UtensilsCrossed, Hotel, FileText, Camera } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { CameraCapture } from '../../components/CameraCapture';
 import { SubmitExpenseRequest, ExpenseItem } from '../../types';
+import { colors, spacing, typography, shadows } from '../../theme';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
@@ -28,11 +30,11 @@ interface ExpenseEntryScreenProps {
 
 type ExpenseCategory = 'travel' | 'food' | 'accommodation' | 'other';
 
-const CATEGORIES: { value: ExpenseCategory; label: string }[] = [
-  { value: 'travel', label: '🚗 Travel' },
-  { value: 'food', label: '🍽️ Food' },
-  { value: 'accommodation', label: '🏨 Accommodation' },
-  { value: 'other', label: '📝 Other' },
+const CATEGORIES: { value: ExpenseCategory; label: string; icon: any; color: string }[] = [
+  { value: 'travel', label: 'Travel', icon: Car, color: '#2196F3' },
+  { value: 'food', label: 'Food', icon: UtensilsCrossed, color: '#FF9800' },
+  { value: 'accommodation', label: 'Accommodation', icon: Hotel, color: '#9C27B0' },
+  { value: 'other', label: 'Other', icon: FileText, color: '#607D8B' },
 ];
 
 // Temp item being edited
@@ -205,13 +207,21 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Report Expenses</Text>
         <Text style={styles.headerSubtitle}>
           Add multiple expense items in one report
         </Text>
       </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
 
       {/* Date Field */}
       <View style={styles.field}>
@@ -229,10 +239,17 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           {items.map((item, index) => (
             <View key={index} style={styles.itemCard}>
               <View style={styles.itemHeader}>
-                <Text style={styles.itemCategory}>
-                  {CATEGORIES.find(c => c.value === item.category)?.label}
-                  {item.category === 'other' && item.categoryOther && ` - ${item.categoryOther}`}
-                </Text>
+                <View style={styles.itemCategoryRow}>
+                  {(() => {
+                    const cat = CATEGORIES.find(c => c.value === item.category);
+                    const IconComponent = cat?.icon;
+                    return IconComponent ? <IconComponent size={16} color={cat.color} /> : null;
+                  })()}
+                  <Text style={styles.itemCategory}>
+                    {CATEGORIES.find(c => c.value === item.category)?.label}
+                    {item.category === 'other' && item.categoryOther && ` - ${item.categoryOther}`}
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={() => handleRemoveItem(index)}>
                   <Text style={styles.removeItemButton}>✕</Text>
                 </TouchableOpacity>
@@ -258,25 +275,32 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         <View style={styles.field}>
           <Text style={styles.label}>Category *</Text>
           <View style={styles.categoryGrid}>
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.categoryButton,
-                  currentItem.category === cat.value && styles.categoryButtonSelected,
-                ]}
-                onPress={() => setCurrentItem({ ...currentItem, category: cat.value })}
-              >
-                <Text
+            {CATEGORIES.map((cat) => {
+              const IconComponent = cat.icon;
+              return (
+                <TouchableOpacity
+                  key={cat.value}
                   style={[
-                    styles.categoryButtonText,
-                    currentItem.category === cat.value && styles.categoryButtonTextSelected,
+                    styles.categoryButton,
+                    currentItem.category === cat.value && styles.categoryButtonSelected,
                   ]}
+                  onPress={() => setCurrentItem({ ...currentItem, category: cat.value })}
                 >
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <IconComponent
+                    size={20}
+                    color={currentItem.category === cat.value ? cat.color : colors.text.secondary}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryButtonText,
+                      currentItem.category === cat.value && styles.categoryButtonTextSelected,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -356,8 +380,9 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           style={styles.addPhotoButton}
           onPress={() => setShowCamera(true)}
         >
+          <Camera size={20} color={colors.primary} />
           <Text style={styles.addPhotoButtonText}>
-            📷 {receiptPhotos.length > 0 ? 'Add Another Receipt' : 'Add Receipt Photo'}
+            {receiptPhotos.length > 0 ? 'Add Another Receipt' : 'Add Receipt Photo'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -387,67 +412,83 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
       >
         <Text style={styles.cancelButtonText}>Cancel</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 40,
+    backgroundColor: colors.background,
   },
   header: {
-    marginBottom: 24,
+    backgroundColor: colors.primary,
+    paddingTop: 60,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  backButton: {
+    marginBottom: spacing.md,
+  },
+  backButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.accent,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
+    marginBottom: spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.fontSize.sm,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
   field: {
-    marginBottom: 20,
+    marginBottom: spacing.lg,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   dateContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border.default,
     flexDirection: 'row',
     alignItems: 'center',
   },
   dateText: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
     fontWeight: '500',
     marginRight: 8,
   },
   dateNote: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: typography.fontSize.sm,
+    color: colors.text.tertiary,
   },
   itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border.default,
   },
   itemHeader: {
     flexDirection: 'row',
@@ -455,48 +496,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  itemCategoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   itemCategory: {
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
     fontWeight: '600',
-    color: '#666',
+    color: colors.text.secondary,
   },
   removeItemButton: {
-    fontSize: 20,
-    color: '#FF3B30',
+    fontSize: typography.fontSize.lg,
+    color: colors.error,
     fontWeight: 'bold',
   },
   itemAmount: {
-    fontSize: 20,
+    fontSize: typography.fontSize.lg,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.primary,
     marginBottom: 4,
   },
   itemDescription: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
   },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#E3F2FD',
-    padding: 16,
-    borderRadius: 8,
+    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
     marginTop: 8,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: typography.fontSize.base,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text.primary,
   },
   totalAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.primary,
   },
   addItemSection: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
     padding: 20,
     marginBottom: 20,
     borderWidth: 2,
@@ -506,7 +552,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: colors.primary,
     marginBottom: 16,
   },
   categoryGrid: {
@@ -517,62 +563,63 @@ const styles = StyleSheet.create({
   categoryButton: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: colors.border.default,
     alignItems: 'center',
+    gap: spacing.xs,
   },
   categoryButtonSelected: {
     borderColor: '#007AFF',
     backgroundColor: '#E3F2FD',
   },
   categoryButtonText: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
     fontWeight: '500',
   },
   categoryButtonTextSelected: {
-    color: '#007AFF',
+    color: colors.primary,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colors.border.default,
   },
   textArea: {
     minHeight: 60,
     textAlignVertical: 'top',
   },
   addItemButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.primary,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
     alignItems: 'center',
     marginTop: 10,
   },
   addItemButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: typography.fontSize.base,
     fontWeight: '600',
   },
   photosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   photoPreviewContainer: {
     position: 'relative',
     width: 100,
     height: 100,
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.lg,
     overflow: 'hidden',
   },
   photoPreview: {
@@ -593,32 +640,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 59, 48, 0.9)',
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: spacing.borderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removePhotoButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: typography.fontSize.base,
     fontWeight: 'bold',
   },
   addPhotoButton: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.lg,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: colors.border.default,
     borderStyle: 'dashed',
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.sm,
   },
   addPhotoButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
+    fontSize: typography.fontSize.base,
+    color: colors.primary,
     fontWeight: '500',
   },
   submitButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    borderRadius: spacing.borderRadius.lg,
     padding: 18,
     alignItems: 'center',
     marginTop: 10,
@@ -633,14 +683,14 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     backgroundColor: 'transparent',
-    borderRadius: 8,
+    borderRadius: spacing.borderRadius.lg,
     padding: 18,
     alignItems: 'center',
     marginTop: 10,
   },
   cancelButtonText: {
-    color: '#666',
-    fontSize: 16,
+    color: colors.text.secondary,
+    fontSize: typography.fontSize.base,
     fontWeight: '500',
   },
 });

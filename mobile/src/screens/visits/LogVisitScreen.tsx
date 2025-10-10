@@ -11,10 +11,12 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import { Camera, MapPin, User, Building2 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { Account } from '../../hooks/useAccounts';
 import { CameraCapture } from '../../components/CameraCapture';
+import { colors, spacing, typography, shadows } from '../../theme';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -71,27 +73,32 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
       return;
     }
 
-    if (!photoUri) {
-      Alert.alert('Error', 'Please take a photo of the counter');
-      return;
-    }
+    // TEMPORARY: Make photo optional for testing
+    // if (!photoUri) {
+    //   Alert.alert('Error', 'Please take a photo of the counter');
+    //   return;
+    // }
 
     setSubmitting(true);
 
     try {
-      // Upload photo to Firebase Storage
-      console.log('[LogVisit] Uploading photo...');
-      setUploading(true);
-      const photoUrl = await uploadPhoto(photoUri, 'visits');
-      setUploading(false);
-      console.log('[LogVisit] Photo uploaded:', photoUrl);
+      let photoUrl = '';
 
-      // Submit visit with photo URL
+      // Upload photo if provided
+      if (photoUri) {
+        console.log('[LogVisit] Uploading photo...');
+        setUploading(true);
+        photoUrl = await uploadPhoto(photoUri, 'visits');
+        setUploading(false);
+        console.log('[LogVisit] Photo uploaded:', photoUrl);
+      }
+
+      // Submit visit with photo URL (or empty array if no photo)
       await api.logVisit({
         accountId: account.id,
         purpose: purpose as any,
         notes: notes.trim() || undefined,
-        photos: [photoUrl],
+        photos: photoUri ? [photoUrl] : [],
       });
 
       Alert.alert('Success', 'Visit logged successfully!', [
@@ -126,20 +133,28 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 
         {/* Account Info */}
         <View style={styles.accountCard}>
-          <Text style={styles.accountName}>{account.name}</Text>
-          <Text style={styles.accountType}>
-            {account.type === 'distributor'
-              ? '🏭 Distributor'
-              : account.type === 'architect'
-              ? '📐 Architect'
-              : '🏪 Dealer'}
-          </Text>
+          <View style={styles.accountHeader}>
+            <Building2 size={20} color={colors.accent} />
+            <Text style={styles.accountName}>{account.name}</Text>
+          </View>
+          <View style={[
+            styles.typeBadge,
+            account.type === 'distributor' ? styles.distributorBadge :
+            account.type === 'architect' ? styles.architectBadge :
+            styles.dealerBadge
+          ]}>
+            <Text style={styles.typeBadgeText}>{account.type.toUpperCase()}</Text>
+          </View>
           {account.contactPerson && (
-            <Text style={styles.accountDetail}>👤 {account.contactPerson}</Text>
+            <View style={styles.detailRow}>
+              <User size={16} color={colors.text.secondary} />
+              <Text style={styles.accountDetail}>{account.contactPerson}</Text>
+            </View>
           )}
-          <Text style={styles.accountDetail}>
-            📍 {account.city}, {account.state}
-          </Text>
+          <View style={styles.detailRow}>
+            <MapPin size={16} color={colors.text.secondary} />
+            <Text style={styles.accountDetail}>{account.city}, {account.state}</Text>
+          </View>
         </View>
 
         {/* Photo Section */}
@@ -172,7 +187,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
               style={styles.cameraButton}
               onPress={() => setShowCamera(true)}
             >
-              <Text style={styles.cameraButtonIcon}>📷</Text>
+              <Camera size={48} color={colors.accent} />
               <Text style={styles.cameraButtonText}>Take Photo</Text>
             </TouchableOpacity>
           )}
@@ -221,7 +236,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         {/* Upload Progress */}
         {uploading && (
           <View style={styles.uploadingCard}>
-            <ActivityIndicator size="small" color="#2196F3" />
+            <ActivityIndicator size="small" color={colors.accent} />
             <Text style={styles.uploadingText}>Uploading photo...</Text>
           </View>
         )}
@@ -230,15 +245,20 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         <TouchableOpacity
           style={[
             styles.submitButton,
-            (!purpose || !photoUri || submitting) && styles.submitButtonDisabled,
+            (!purpose || submitting) && styles.submitButtonDisabled,
           ]}
           onPress={handleSubmit}
-          disabled={!purpose || !photoUri || submitting}
+          disabled={!purpose || submitting}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>Log Visit</Text>
+            <Text style={[
+              styles.submitButtonText,
+              (!purpose || submitting) && styles.submitButtonTextDisabled
+            ]}>
+              Log Visit
+            </Text>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -261,94 +281,118 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.background,
   },
   contentContainer: {
-    paddingBottom: 32,
+    paddingBottom: spacing.xl * 2,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.primary,
     paddingTop: 60,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   backButtonText: {
-    fontSize: 16,
-    color: '#4CAF50',
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.accent,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
   },
   accountCard: {
-    backgroundColor: '#fff',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    margin: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border.default,
+    ...shadows.sm,
+  },
+  accountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
   accountName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    flex: 1,
   },
-  accountType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+  typeBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  distributorBadge: {
+    backgroundColor: '#E3F2FD',
+  },
+  dealerBadge: {
+    backgroundColor: '#FFF3E0',
+  },
+  architectBadge: {
+    backgroundColor: '#F3E5F5',
+  },
+  typeBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.secondary,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   accountDetail: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
   },
   section: {
-    marginHorizontal: 16,
-    marginBottom: 24,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   helpText: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 12,
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
   },
   cameraButton: {
-    backgroundColor: '#2196F3',
-    padding: 24,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    padding: spacing.xl,
+    borderRadius: spacing.borderRadius.lg,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#1976D2',
+    borderColor: colors.accent,
     borderStyle: 'dashed',
-  },
-  cameraButtonIcon: {
-    fontSize: 48,
-    marginBottom: 8,
+    gap: spacing.sm,
   },
   cameraButtonText: {
-    fontSize: 16,
-    color: '#fff',
-    fontWeight: '600',
+    fontSize: typography.fontSize.base,
+    color: colors.accent,
+    fontWeight: typography.fontWeight.semibold,
   },
   photoContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border.default,
   },
   photoPreview: {
     width: '100%',
@@ -357,97 +401,105 @@ const styles = StyleSheet.create({
   },
   photoActions: {
     flexDirection: 'row',
-    padding: 12,
-    gap: 8,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   retakeButton: {
     flex: 1,
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: colors.accent,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
     alignItems: 'center',
   },
   retakeButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.primary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
   removeButton: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: colors.background,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: colors.border.default,
   },
   removeButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.text.secondary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
   purposeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing.sm,
   },
   purposeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.border.default,
+    backgroundColor: colors.surface,
   },
   purposeButtonSelected: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   purposeButtonText: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeight.medium,
   },
   purposeButtonTextSelected: {
-    color: '#fff',
-    fontWeight: '600',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
   },
   notesInput: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
     minHeight: 100,
   },
   uploadingCard: {
-    backgroundColor: '#E3F2FD',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.accentLight,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.md,
   },
   uploadingText: {
-    fontSize: 14,
-    color: '#1976D2',
-    fontWeight: '500',
+    fontSize: typography.fontSize.sm,
+    color: colors.accentDark,
+    fontWeight: typography.fontWeight.medium,
   },
   submitButton: {
-    backgroundColor: '#4CAF50',
-    marginHorizontal: 16,
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.success,
+    marginHorizontal: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 2,
+    borderColor: colors.successDark,
     alignItems: 'center',
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',
+    borderColor: '#999',
   },
   submitButtonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
     color: '#fff',
+  },
+  submitButtonTextDisabled: {
+    color: '#666',
   },
 });
