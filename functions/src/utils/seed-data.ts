@@ -71,7 +71,69 @@ const accounts = [
     pincode: "560058",
     territory: "Bangalore South",
   },
+  {
+    name: "Archspace Design Studio",
+    type: "architect",
+    contactPerson: "Ar. Vikram Singh",
+    phone: "+919876554321",
+    address: "B-204, Green Park Extension",
+    city: "Delhi",
+    state: "Delhi",
+    pincode: "110016",
+    territory: "Delhi NCR",
+  },
+  {
+    name: "Modern Interiors & Associates",
+    type: "architect",
+    contactPerson: "Ar. Sneha Desai",
+    phone: "+919820123456",
+    address: "Prabhadevi, 7th Floor, Tower A",
+    city: "Mumbai",
+    state: "Maharashtra",
+    pincode: "400025",
+    territory: "Mumbai Central",
+  },
+  {
+    name: "Elite Architects & Planners",
+    type: "architect",
+    contactPerson: "Ar. Rahul Menon",
+    phone: "+919845678902",
+    address: "Indiranagar, 100 Feet Road",
+    city: "Bangalore",
+    state: "Karnataka",
+    pincode: "560038",
+    territory: "South India",
+  },
 ];
+
+// Cleanup function to delete all accounts (use before re-seeding)
+export const deleteAllAccounts = onRequest(async (request, response) => {
+  try {
+    const db = admin.firestore();
+    const accountsRef = db.collection("accounts");
+    const snapshot = await accountsRef.get();
+
+    const batch = db.batch();
+    let count = 0;
+
+    snapshot.forEach((doc) => {
+      batch.delete(doc.ref);
+      count++;
+    });
+
+    await batch.commit();
+
+    response.status(200).json({
+      ok: true,
+      message: `Successfully deleted ${count} accounts`,
+    });
+  } catch (error: any) {
+    response.status(500).json({
+      ok: false,
+      error: error.message,
+    });
+  }
+});
 
 export const seedAccounts = onRequest(async (request, response) => {
   try {
@@ -82,16 +144,19 @@ export const seedAccounts = onRequest(async (request, response) => {
     const results: string[] = [];
 
     accounts.forEach((acc) => {
-      const ref = db.collection("accounts").doc();
+      // Generate deterministic ID from account name (to prevent duplicates)
+      const accountId = acc.name.replace(/[^a-zA-Z0-9]/g, "-");
+      const ref = db.collection("accounts").doc(accountId);
       const data = {
         ...acc,
-        id: ref.id,
+        id: accountId,
         assignedRepUserId: repUserId,
         status: "active",
         createdAt: now,
         updatedAt: now,
       };
-      batch.set(ref, data);
+      // Use set with merge to upsert (update if exists, create if not)
+      batch.set(ref, data, {merge: true});
       results.push(`${acc.name} (${acc.type}) - ${acc.city}`);
     });
 

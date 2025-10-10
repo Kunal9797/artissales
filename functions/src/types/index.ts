@@ -233,16 +233,24 @@ export interface SheetsSale {
 export type ExpenseCategory = "travel" | "food" | "accommodation" | "other";
 export type ExpenseStatus = "pending" | "approved" | "rejected";
 
+// Individual expense item within a report
+export interface ExpenseItem {
+  amount: number; // In INR
+  category: ExpenseCategory;
+  categoryOther?: string; // Required when category is "other"
+  description: string; // Brief description
+}
+
+// Daily expense report (can contain multiple items)
 export interface Expense {
   id: string;
   userId: string; // Rep who incurred expense
   date: string; // YYYY-MM-DD
 
-  // Expense details
-  amount: number; // In INR
-  category: ExpenseCategory;
-  description: string; // Brief description
-  receiptPhoto?: string; // Optional receipt photo URL
+  // Expense items (multiple expenses in one report)
+  items: ExpenseItem[]; // Array of expense items
+  totalAmount: number; // Sum of all items (auto-calculated)
+  receiptPhotos: string[]; // Optional receipt photo URLs
 
   // Approval workflow
   status: ExpenseStatus;

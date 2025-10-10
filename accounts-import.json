@@ -82,5 +82,89 @@
         "_nanoseconds": 0
       }
     }
+  },
+  "Design-Studio-Delhi": {
+    "id": "Design-Studio-Delhi",
+    "name": "Archspace Design Studio",
+    "type": "architect",
+    "contactPerson": "Ar. Vikram Singh",
+    "phone": "+919876554321",
+    "address": "B-204, Green Park Extension",
+    "city": "Delhi",
+    "state": "Delhi",
+    "pincode": "110016",
+    "territory": "Delhi NCR",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
+  },
+  "Modern-Interiors-Mumbai": {
+    "id": "Modern-Interiors-Mumbai",
+    "name": "Modern Interiors & Associates",
+    "type": "architect",
+    "contactPerson": "Ar. Sneha Desai",
+    "phone": "+919820123456",
+    "address": "Prabhadevi, 7th Floor, Tower A",
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "pincode": "400025",
+    "territory": "Mumbai Central",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
+  },
+  "Elite-Architects-Bangalore": {
+    "id": "Elite-Architects-Bangalore",
+    "name": "Elite Architects & Planners",
+    "type": "architect",
+    "contactPerson": "Ar. Rahul Menon",
+    "phone": "+919845678901",
+    "address": "Indiranagar, 100 Feet Road",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "pincode": "560038",
+    "territory": "South India",
+    "assignedRepUserId": "kz41QuuZT7dMEs6QmJPSlbYUvAp2",
+    "status": "active",
+    "createdAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    },
+    "updatedAt": {
+      "__datatype__": "timestamp",
+      "value": {
+        "_seconds": 1760019000,
+        "_nanoseconds": 0
+      }
+    }
   }
 }

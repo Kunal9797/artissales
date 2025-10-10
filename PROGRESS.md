@@ -3,7 +3,8 @@
 **Project**: Field Sales Tracking App for Artis Laminates
 **Owner**: Kunal Gupta
 **Started**: October 8, 2025
-**Current Phase**: Phase 1 - Backend Foundation
+**Last Updated**: October 10, 2025
+**Current Phase**: Phase 3 - Core Features (75% complete)
 
 ---
 
@@ -13,7 +14,7 @@
 |-------|--------|------------|----------|
 | Phase 1: Backend Foundation | ✅ **COMPLETE** | **100%** | Week 1 (Done!) |
 | Phase 2: Mobile Foundation | ✅ **COMPLETE** | **100%** | Week 2-3 (Done!) |
-| Phase 3: Core Features | 🟡 **IN PROGRESS** | **50%** | Week 4-6 |
+| Phase 3: Core Features (Updated Scope) | 🟡 **IN PROGRESS** | **75%** | Week 4-6 |
 | Phase 4: Manager Dashboard | ⚪ Not Started | 0% | Week 7 |
 | Phase 5: Testing & Deployment | ⚪ Not Started | 0% | Week 8 |
 
@@ -45,13 +46,15 @@
   - `functions/src/triggers/` - Firestore triggers
   - `functions/src/utils/` - Utility functions
 
-### Type Definitions (Oct 8, 2025)
+### Type Definitions (Oct 8, 2025 - Updated Oct 10, 2025)
 - [x] Defined all TypeScript types in `types/index.ts`:
   - User, UserRole
-  - **Account, AccountType** (Distributors & Dealers) - Added!
+  - **Account, AccountType** (Distributors, Dealers, **Architects**) - Updated!
   - PincodeRoute
   - Lead, LeadStatus, LeadSource
-  - Visit, VisitPurpose (Simplified - single timestamp)
+  - **Visit, VisitPurpose** (Photo-based verification, no GPS) - Updated Oct 10!
+  - **SheetsSale, CatalogType** (4 catalogs: Fine Decor, Artvio, Woodrica, Artis) - Added Oct 10!
+  - **Expense, ExpenseItem, ExpenseCategory, ExpenseStatus** - Added Oct 10! (Multi-item support)
   - Attendance, AttendanceType
   - DSRReport, DSRStatus
   - OutboxEvent, EventType
@@ -93,29 +96,45 @@
   - Collection-level security for all data types
   - Helper functions for auth checks
 - [x] Created Firestore composite indexes (`firestore.indexes.json`):
-  - 13 indexes for optimal query performance
-  - accounts, visits, attendance, leads, dsrReports, events
+  - 22 indexes for optimal query performance (updated Oct 10)
+  - accounts, visits, attendance, leads, dsrReports, events, sheetsSales, **expenses**
 - [x] Deployed rules and indexes to Firebase successfully
 
-### Cloud Functions Implementation (Oct 8, 2025 - Late Evening)
+### Cloud Functions Implementation (Oct 8-10, 2025)
 - [x] Created visit logging Cloud Function (`api/visits.ts`):
-  - Full validation (GPS accuracy, coordinates, required fields)
+  - **Updated Oct 10**: Photo validation (min 1 photo required), removed GPS
   - Account lookup and verification
   - Auto-updates account's lastVisitAt
   - Proper error handling and logging
 - [x] Created attendance Cloud Functions (`api/attendance.ts`):
   - checkIn function with duplicate check (prevents multiple check-ins/day)
   - checkOut function with validation (must check-in first)
-  - GPS validation and accuracy checks
+  - GPS validation and accuracy checks (≤100m)
   - Device info tracking support
-- [x] Fixed TypeScript configuration (skipLibCheck: true)
+- [x] Created sheets sales Cloud Function (`api/sheetsSales.ts`) - Oct 10
+  - Log daily sheets sold per catalog (Fine Decor, Artvio, Woodrica, Artis)
+  - Verification workflow support (verified: boolean)
+  - Optional distributor linking
+- [x] Created expense reporting Cloud Function (`api/expenses.ts`) - Oct 10
+  - **Multi-item support**: Array of ExpenseItem[]
+  - Custom "Other" category with categoryOther field
+  - Auto-calculates totalAmount
+  - Multiple receipt photos support
+  - Manager approval workflow (status: pending/approved/rejected)
+- [x] Created seed data utilities:
+  - `seedAccounts` - Programmatic account seeding with deterministic IDs
+  - `deleteAllAccounts` - Cleanup utility (prevents duplicates)
+  - Fixed duplicate issue (Oct 10): Now uses account name-based IDs with upsert
 - [x] Upgraded to Blaze plan (pay-as-you-go with free tier)
-- [x] Successfully deployed ALL 3 functions to production:
+- [x] Successfully deployed ALL active functions to production:
   - `logVisit`: https://us-central1-artis-sales-dev.cloudfunctions.net/logVisit
   - `checkIn`: https://us-central1-artis-sales-dev.cloudfunctions.net/checkIn
   - `checkOut`: https://us-central1-artis-sales-dev.cloudfunctions.net/checkOut
-- [x] Tested API endpoints - all confirmed working (return proper auth errors)
-- [x] Created seed data template (`seed-data.json`)
+  - `logSheetsSale`: https://us-central1-artis-sales-dev.cloudfunctions.net/logSheetsSale
+  - `submitExpense`: https://us-central1-artis-sales-dev.cloudfunctions.net/submitExpense
+  - `seedAccounts`: One-time seeding utility
+  - `deleteAllAccounts`: Cleanup utility
+- [x] Seeded test data: 9 accounts (3 distributors, 3 dealers, 3 architects) across Delhi, Mumbai, Bangalore
 
 ---
 
@@ -125,91 +144,164 @@
 
 ---
 
-## 🚧 Current Tasks
+## 🚧 Current Tasks (Updated Oct 10, 2025)
 
-### Phase 2: Mobile Foundation (Week 2-3)
+### Phase 3: Core Features - **UPDATED SCOPE** based on Sales Head feedback
 
-**Current Focus**: 🔵 Ready to start mobile app with Expo + React Native
+**Current Focus**: 🟢 Implementing Sheets Sales Tracking & Expense Reporting
+
+### ✅ Recently Completed (Oct 10, 2025)
+1. **Sheets Sales Tracking Module** ✨ **COMPLETE!**
+   - Created Cloud Function: `logSheetsSale` (TypeScript)
+   - Added Firestore security rules for sheetsSales collection
+   - Created 3 composite indexes for query optimization
+   - Built SheetsEntryScreen mobile UI with **multiple catalog support**:
+     - Add multiple catalogs in one session (e.g., 50 Fine Decor + 30 Artis + 20 Woodrica)
+     - Color-coded catalog picker with visual feedback (✓ for added catalogs)
+     - Add/Update/Remove entries before submitting
+     - Shows "Added Catalogs (N)" summary with color-coded cards
+     - Optional distributor selection (applies to all entries)
+     - Notes field (shared across all entries)
+     - Parallel submission of all catalogs at once
+   - Added API method and TypeScript types to mobile
+   - Integrated with Home screen navigation (📊 icon)
+   - Successfully deployed and tested end-to-end ✅
+
+2. **Visit Photo Feature** - Replaced GPS with mandatory counter photo
+   - Camera capture component with preview
+   - Firebase Storage integration
+   - Photo validation in backend
+   - ⚠️ Camera testing pending (needs real device)
+
+3. **Architect Account Type** - Added third account type
+   - Filter bubbles in SelectAccountScreen (All/Distributors/Dealers/Architects)
+   - Purple badge styling for architects
+   - 3 architect accounts seeded
+
+4. **Seed Data Fix** - Resolved duplicate accounts issue
+   - Deterministic IDs based on account name
+   - Upsert logic (merge: true)
+   - Cleanup function created
+
+### ✅ Priority 2 Tasks - **COMPLETE!** (Oct 10, 2025)
+
+#### Task 1: Sheets Sales Tracking ✅ **COMPLETE!** (Oct 10, 2025)
+- [x] Create SheetsSales backend
+  - Cloud Function with full validation
+  - Firestore security rules
+  - Composite indexes deployed
+- [x] Create mobile UI
+  - SheetsEntryScreen with **multi-catalog support**
+  - Number input for sheets count per catalog
+  - Optional distributor selection
+  - Notes field
+- [x] Integration & Testing
+  - Navigation from Home screen (📊 Log Sheets Sold)
+  - API method created
+  - Successfully deployed and tested
+
+#### Task 2: Expense Reporting ✅ **COMPLETE & TESTED!** (Oct 10, 2025)
+- [x] Create Expense backend
+  - **Multi-item expense reports** with ExpenseItem[]
+  - Custom "Other" category support
+  - Cloud Function deployed
+  - Firestore security rules
+- [x] Create mobile UI
+  - ExpenseEntryScreen with **multi-item workflow**
+  - Category picker with custom "Other" field
+  - Amount and description per item
+  - Multiple receipt photos support
+  - Running total display
+- [x] Integration & Testing
+  - Navigation from Home screen (💰 Report Expense)
+  - **User tested and working perfectly** ✅
+  - Manager approval workflow (status: pending)
+
+#### Task 3: Home Screen Enhancement
+- [x] Quick action buttons added:
+  - ✅ "📊 Log Sheets Sold" → SheetsEntryScreen
+  - ✅ "💰 Report Expense" → ExpenseEntryScreen
+- [ ] Show today's summary stats (Future enhancement):
+  - Total sheets logged today
+  - Total expenses submitted today
+
+### 🎯 Next Priority (Phase 3 Remaining)
+**Phase 3 is now 75% complete - Only 1 major module remaining:**
+
+#### DSR (Daily Sales Report) Module
+- [ ] Auto-compile daily reports from activities
+- [ ] Manager review and approval workflow
+- [ ] CSV/PDF export functionality
+
+### 🔮 Future Phases
+- **Phase 4:** Manager Dashboard (Week 7)
+  - Team oversight features
+  - Monthly reports (visits by type, sheets sold)
+  - Performance analytics
+  - CSV/PDF exports
+- **Phase 5:** Testing & Deployment (Week 8)
+- **Post-V1:** Leads Module, Sales Incentive Calculation
 
 ---
 
-## 📋 Next Steps - PHASE 2: Mobile App
+## 📋 Milestone Status
 
-### **Goal**: Build Expo/React Native app with Firebase integration
+### Milestone 2: Mobile App Shell ✅ **COMPLETE!** (Oct 9, 2025)
+**Completed Features:**
+- ✅ Expo project initialized with TypeScript
+- ✅ Firebase SDK integrated (@react-native-firebase/*)
+- ✅ Phone authentication flow working
+- ✅ Navigation set up (Stack + protected routes)
+- ✅ Offline Firestore persistence configured
+- ✅ Home screen with quick actions
+- ✅ Profile/settings basic structure
 
-### Week 2 Tasks:
+### Milestone 3: Core Features ✅ **75% COMPLETE** (Oct 9-10, 2025)
+**Completed Modules:**
+1. ✅ **Attendance Module** (Oct 9)
+   - Check-in with GPS (≤100m accuracy)
+   - Check-out functionality
+   - Duplicate prevention
+   - Real-time status display
+   - Firestore sync working
 
-#### Day 1-2: Project Setup & Auth (4-6 hours)
-1. **Initialize Expo Project**
-   - Create new Expo app with TypeScript
-   - Set up folder structure (screens, components, services, hooks)
-   - Configure navigation (React Navigation)
-   - Set up ESLint + Prettier
+2. ✅ **Visit Logging Module** (Oct 9-10)
+   - Account selection with search
+   - Filter by type (Distributors/Dealers/Architects)
+   - **Photo-based verification** (updated Oct 10)
+   - Camera capture with preview
+   - Firebase Storage upload
+   - Visit purpose selection
+   - Notes field
 
-2. **Firebase Integration**
-   - Install `@react-native-firebase/*` packages
-   - Configure Firebase SDK for Android
-   - Add google-services.json
-   - Set up Firebase Auth (Phone number)
-
-3. **Authentication Flow**
-   - Phone login screen
-   - OTP verification
-   - Auto-login on app launch
-   - JWT token management
-
-#### Day 3-4: Core UI Shell (4-6 hours)
-4. **Navigation Structure**
-   - Tab navigation (Home, Accounts, Visits, Profile)
-   - Stack navigation for details
-   - Protected routes (require auth)
-
-5. **Basic Screens**
-   - Dashboard/Home screen
-   - Account list screen
-   - Visit history screen
-   - Profile screen
-
-6. **Firestore Integration**
-   - Enable offline persistence
-   - Create Firestore hooks (useAccounts, useVisits)
-   - Real-time data sync
-   - Network status indicator
-
-#### Day 5-7: Feature Implementation (8-10 hours)
-7. **Attendance Module**
-   - Check-in button with GPS
-   - Check-out button
-   - Today's status display
-   - Call checkIn/checkOut APIs
-
-8. **Accounts Module**
-   - List distributors & dealers
-   - Filter by type/territory
-   - Account detail view
+3. ✅ **Accounts Management** (Oct 9)
+   - Real-time account listing
    - Search functionality
+   - Type badges (blue/orange/purple)
+   - 9 test accounts seeded
 
-9. **Visit Logging**
-   - Select account screen
-   - Visit form (purpose, notes)
-   - Photo capture
-   - Call logVisit API
-   - Success confirmation
+4. ✅ **Expense Reporting Module** (Oct 10) - **TESTED & WORKING!**
+   - **Multi-item expense reports** (e.g., ₹100 travel + ₹500 hotel in one report)
+   - Custom "Other" category with dynamic name input
+   - Multiple receipt photos support
+   - Running total display
+   - Item cards with remove buttons
+   - Backend validates each item individually
+   - Full offline support
+   - Manager approval workflow (status: pending)
 
-### Deliverables (End of Week 2):
-- ✅ Working Android app (APK)
-- ✅ Phone authentication working
-- ✅ Can check-in/check-out
-- ✅ Can log visits
-- ✅ View accounts list
-- ✅ All data syncs with Firestore
+5. ✅ **Sheets Sales Tracking Module** (Oct 10) - **COMPLETE!**
+   - **Multi-catalog support** (log multiple catalogs in one session)
+   - Color-coded catalog picker with visual feedback
+   - Add/Update/Remove entries workflow
+   - Optional distributor selection
+   - Backend validation and deployed
+   - Tested and working
 
-### Testing Strategy:
-1. Create test user in Firebase Auth
-2. Add seed data to Firestore manually
-3. Test on Android emulator
-4. Test on real device
-5. Test offline functionality
+**Not Started:**
+6. ⚪ **DSR (Daily Sales Report)** - Auto-compilation (Next priority)
+7. ⚪ **Leads Module** - Deferred (lower priority)
+8. ⚪ **Monthly Reports** - Requires manager dashboard (Week 7)
 
 ---
 
@@ -307,20 +399,23 @@ ArtisSales/
 - [x] TypeScript types defined for all data models
 - [x] Utility functions (validation, auth, geo) implemented
 
-### Milestone 2: Mobile App Shell 🔵 (In Progress - Next)
-**Target**: End of Week 3 (Oct 25, 2025)
-- [ ] Expo project initialized
-- [ ] Firebase SDK integrated
-- [ ] Phone authentication flow working
-- [ ] Navigation set up
-- [ ] Offline persistence configured
+### Milestone 2: Mobile App Shell ✅ **COMPLETE!**
+**Completed**: Oct 9, 2025
+- [x] Expo project initialized with TypeScript
+- [x] Firebase SDK integrated (@react-native-firebase/*)
+- [x] Phone authentication flow working
+- [x] Navigation set up (Stack navigation)
+- [x] Offline persistence configured
 
-### Milestone 3: Core Features 🔜
+### Milestone 3: Core Features (Updated Scope) 🟡 **66% COMPLETE**
 **Target**: End of Week 6 (Nov 15, 2025)
-- [ ] Attendance module complete
-- [ ] Leads module complete
-- [ ] Visits module complete
-- [ ] DSR module complete
+- [x] Attendance module complete (Oct 9)
+- [x] Visits module complete (Oct 9-10, updated with photo verification)
+- [x] Accounts module complete (Oct 9, added architect type Oct 10)
+- [ ] **Sheets Sales Tracking** (In Progress - Priority 2)
+- [ ] **Expense Reporting** (In Progress - Priority 2)
+- [ ] DSR module (pending)
+- [ ] Leads module (deferred - lower priority)
 
 ### Milestone 4: Manager Dashboard 🔜
 **Target**: End of Week 7 (Nov 22, 2025)
@@ -473,8 +568,114 @@ ArtisSales/
 
 ---
 
-**Last Updated**: October 10, 2025, 11:30 AM IST
-**Next Review**: October 10, 2025 PM (Build & Test Visit Photo Feature)
+### October 10, 2025 - Afternoon Session (EXPENSE REPORTING MODULE COMPLETE! 💰)
+
+**Expense Reporting Module - Full-Stack Implementation with Multiple Items Support**
+
+**Key Feature:** Sales reps can now submit daily expense reports with MULTIPLE expense items in one submission (e.g., ₹100 travel + ₹500 hotel + ₹300 internet in one report)
+
+1. **Backend Implementation (✅ DEPLOYED)**
+   - ✅ Created Cloud Function [expenses.ts](functions/src/api/expenses.ts) - Multi-item expense API
+     - **Multiple items per report:** Array of `ExpenseItem[]` with individual validation
+     - Each item: amount, category, description, optional categoryOther
+     - **Custom "Other" category:** When category="other", `categoryOther` field required (e.g., "Internet", "Office supplies")
+     - Auto-calculates `totalAmount` from all items
+     - Validates each item with helpful error messages (e.g., "Item 2: Amount must be positive")
+     - Multiple receipt photos support (array of URLs)
+     - Status defaults to "pending" for manager approval
+   - ✅ Updated TypeScript types in [types/index.ts](functions/src/types/index.ts):
+     - New `ExpenseItem` interface with `categoryOther` field
+     - Changed `Expense` from single item to `items: ExpenseItem[]`
+     - Added `totalAmount` (auto-calculated), `receiptPhotos: string[]`
+   - ✅ Exported function in [index.ts](functions/src/index.ts)
+   - ✅ Updated Firestore security rules - Expense collection access control
+   - ✅ Added Firestore composite indexes (3 indexes)
+   - ✅ **DEPLOYED to production:** `https://us-central1-artis-sales-dev.cloudfunctions.net/submitExpense`
+
+2. **Mobile App Implementation (✅ TESTED & WORKING)**
+   - ✅ Updated types in [mobile/src/types/index.ts](mobile/src/types/index.ts)
+     - New `ExpenseItem` interface matching backend
+     - Updated `SubmitExpenseRequest` with `items: ExpenseItem[]`
+   - ✅ Updated [api.ts](mobile/src/services/api.ts) - submitExpense method
+   - ✅ Created [ExpenseEntryScreen.tsx](mobile/src/screens/expenses/ExpenseEntryScreen.tsx) - Advanced multi-item form
+     - **Add multiple items workflow:**
+       1. Select category (Travel/Food/Accommodation/Other)
+       2. If "Other" → text field appears for custom category name (required)
+       3. Enter amount & description
+       4. Click "+ Add This Item" → item added to list
+       5. Repeat for more items
+       6. Submit all items together
+     - **Added items display:**
+       - Beautiful item cards showing category emoji, amount (₹), description
+       - Remove button (✕) on each item
+       - **Total amount** displayed prominently in blue highlight
+     - **UI Features:**
+       - Dashed border "Add New Item" section
+       - Category picker with 4 emoji buttons
+       - Dynamic "Other" category name input
+       - Multiple receipt photos support (thumbnails grid)
+       - Submit button shows count: "Submit Report (3 items)"
+       - Cannot submit without at least one item
+       - Form validation before adding each item
+   - ✅ Updated [RootNavigator.tsx](mobile/src/navigation/RootNavigator.tsx) - Added route
+   - ✅ Updated [HomeScreen.tsx](mobile/src/screens/HomeScreen.tsx) - Added "Report Expense 💰" button
+
+**Files Created/Modified:**
+- Backend:
+  - MODIFIED: `functions/src/api/expenses.ts` (262 lines - complete rewrite for multi-item support)
+  - MODIFIED: `functions/src/types/index.ts` (added ExpenseItem, updated Expense interface)
+  - MODIFIED: `functions/src/index.ts` (exported submitExpense)
+  - MODIFIED: `firestore.rules` (expenses collection rules)
+  - MODIFIED: `firestore.indexes.json` (3 expense indexes)
+- Mobile:
+  - MODIFIED: `mobile/src/screens/expenses/ExpenseEntryScreen.tsx` (580 lines - complete rewrite for multi-item UI)
+  - MODIFIED: `mobile/src/types/index.ts` (added ExpenseItem interface)
+  - MODIFIED: `mobile/src/services/api.ts` (submitExpense method)
+  - MODIFIED: `mobile/src/navigation/RootNavigator.tsx` (ExpenseEntry route)
+  - MODIFIED: `mobile/src/screens/HomeScreen.tsx` ("Report Expense" button)
+
+**Example Usage (Tested & Working):**
+```
+Daily Expense Report - Oct 10, 2025
+├─ Item 1: 🚗 Travel - ₹100 - "Auto fare to client office"
+├─ Item 2: 🍽️ Food - ₹500 - "Team lunch with distributor"
+├─ Item 3: 📝 Other (Internet) - ₹300 - "Mobile data recharge"
+└─ Total: ₹900
+Receipt photos: 2 attached
+Status: Pending manager approval
+```
+
+**Technical Implementation Details:**
+- **Data Model:** `Expense { items: ExpenseItem[], totalAmount: number, receiptPhotos: string[] }`
+- **Validation:** Each item validated individually before adding to list
+- **Storage:** Receipt photos uploaded to Firebase Storage `expenses/` folder
+- **Backend Response:** Returns `{ expenseId, totalAmount, itemCount, status }`
+- **Offline Support:** Full Firestore offline persistence enabled
+
+**Testing Status:**
+- ✅ **Tested by user on Android** - Working perfectly!
+- ✅ Multi-item submission successful
+- ✅ Custom "Other" category validation working
+- ✅ Receipt photo upload working
+- ✅ Total amount calculation accurate
+- ✅ Data saved to Firestore correctly
+
+**Phase 3 Progress Update:**
+- Expense Reporting Module: **100% COMPLETE** ✅
+- Sheets Sales Tracking Module: **100% COMPLETE** ✅
+- Phase 3 Overall: **75%** complete (4 core modules done: Attendance, Visits, Sheets Sales, Expenses)
+
+**Next Priority:** DSR (Daily Sales Report) Module - Auto-compilation & manager review
+
+---
+
+**Last Updated**: October 10, 2025, 3:45 PM IST
+**Next Priority**: DSR (Daily Sales Report) Module
+**Current Phase**: Phase 3 - Core Features (75% complete)
+
+**Recent Milestones:**
+- ✅ Sheets Sales Tracking Module (Multi-catalog support) - Complete!
+- ✅ Expense Reporting Module (Multi-item support) - Tested & Working!
 
 ---
 

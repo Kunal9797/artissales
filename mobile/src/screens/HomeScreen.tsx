@@ -66,6 +66,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           <Text style={styles.menuButtonArrow}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => navigation.navigate('ExpenseEntry')}
+        >
+          <Text style={styles.menuButtonText}>💰 Report Expense</Text>
+          <Text style={styles.menuButtonArrow}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => navigation.navigate('SheetsEntry')}
+        >
+          <Text style={styles.menuButtonText}>📊 Log Sheet Sales</Text>
+          <Text style={styles.menuButtonArrow}>›</Text>
+        </TouchableOpacity>
+
         <Text style={styles.note}>
           Coming soon:{'\n'}
           • Leads management{'\n'}

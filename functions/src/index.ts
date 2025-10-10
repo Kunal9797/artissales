@@ -15,6 +15,8 @@ admin.initializeApp();
 // API Endpoints
 export {logVisit} from "./api/visits";
 export {checkIn, checkOut} from "./api/attendance";
+export {logSheetsSale} from "./api/sheetsSales";
+export {submitExpense} from "./api/expenses";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";
@@ -30,4 +32,4 @@ export {onLeadSLABreach} from "./triggers/onLeadSLAExpired";
 export {onVisitCreated} from "./triggers/onVisitEnded";
 
 // Utilities (one-time use)
-export {seedAccounts} from "./utils/seed-data";
+export {seedAccounts, deleteAllAccounts} from "./utils/seed-data";

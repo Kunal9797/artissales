@@ -14,23 +14,36 @@ interface SelectAccountScreenProps {
   navigation: any;
 }
 
+type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect';
+
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
   const { accounts, loading, error } = useAccounts();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<AccountTypeFilter>('all');
 
-  // Filter accounts based on search query
+  // Filter accounts based on search query and type
   const filteredAccounts = useMemo(() => {
-    if (!searchQuery.trim()) return accounts;
+    let filtered = accounts;
 
-    const query = searchQuery.toLowerCase();
-    return accounts.filter(
-      (account) =>
-        account.name.toLowerCase().includes(query) ||
-        account.city.toLowerCase().includes(query) ||
-        account.contactPerson?.toLowerCase().includes(query) ||
-        account.type.toLowerCase().includes(query)
-    );
-  }, [accounts, searchQuery]);
+    // Filter by type first
+    if (selectedType !== 'all') {
+      filtered = filtered.filter((account) => account.type === selectedType);
+    }
+
+    // Then filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (account) =>
+          account.name.toLowerCase().includes(query) ||
+          account.city.toLowerCase().includes(query) ||
+          account.contactPerson?.toLowerCase().includes(query) ||
+          account.type.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [accounts, searchQuery, selectedType]);
 
   const handleSelectAccount = (account: Account) => {
     navigation.navigate('LogVisit', { account });
@@ -43,7 +56,16 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     >
       <View style={styles.accountHeader}>
         <Text style={styles.accountName}>{item.name}</Text>
-        <View style={[styles.badge, item.type === 'distributor' ? styles.distributorBadge : styles.dealerBadge]}>
+        <View
+          style={[
+            styles.badge,
+            item.type === 'distributor'
+              ? styles.distributorBadge
+              : item.type === 'architect'
+              ? styles.architectBadge
+              : styles.dealerBadge,
+          ]}
+        >
           <Text style={styles.badgeText}>{item.type.toUpperCase()}</Text>
         </View>
       </View>
@@ -102,6 +124,45 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             <Text style={styles.clearButton}>✕</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Filter Bubbles */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[styles.filterBubble, selectedType === 'all' && styles.filterBubbleActive]}
+          onPress={() => setSelectedType('all')}
+        >
+          <Text style={[styles.filterText, selectedType === 'all' && styles.filterTextActive]}>
+            All
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterBubble, selectedType === 'distributor' && styles.filterBubbleActive]}
+          onPress={() => setSelectedType('distributor')}
+        >
+          <Text style={[styles.filterText, selectedType === 'distributor' && styles.filterTextActive]}>
+            🏭 Distributors
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterBubble, selectedType === 'dealer' && styles.filterBubbleActive]}
+          onPress={() => setSelectedType('dealer')}
+        >
+          <Text style={[styles.filterText, selectedType === 'dealer' && styles.filterTextActive]}>
+            🏪 Dealers
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.filterBubble, selectedType === 'architect' && styles.filterBubbleActive]}
+          onPress={() => setSelectedType('architect')}
+        >
+          <Text style={[styles.filterText, selectedType === 'architect' && styles.filterTextActive]}>
+            📐 Architects
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {filteredAccounts.length === 0 ? (
@@ -180,6 +241,33 @@ const styles = StyleSheet.create({
     color: '#999',
     paddingHorizontal: 8,
   },
+  filterContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  filterBubbleActive: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#4CAF50',
+  },
+  filterText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  filterTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   resultsCount: {
     fontSize: 14,
     color: '#666',
@@ -221,6 +309,9 @@ const styles = StyleSheet.create({
   },
   dealerBadge: {
     backgroundColor: '#fff3e0',
+  },
+  architectBadge: {
+    backgroundColor: '#f3e5f5',
   },
   badgeText: {
     fontSize: 10,

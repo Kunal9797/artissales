@@ -1,5 +1,5 @@
 import { getAuthToken } from './firebase';
-import { CheckInRequest, CheckOutRequest, LogVisitRequest } from '../types';
+import { CheckInRequest, CheckOutRequest, LogVisitRequest, SubmitExpenseRequest, LogSheetsSaleRequest } from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
 
@@ -57,5 +57,13 @@ export const api = {
 
   logVisit: async (data: LogVisitRequest) => {
     return callFunction('logVisit', data);
+  },
+
+  submitExpense: async (data: SubmitExpenseRequest) => {
+    return callFunction('submitExpense', data);
+  },
+
+  logSheetsSale: async (data: LogSheetsSaleRequest) => {
+    return callFunction('logSheetsSale', data);
   },
 };
