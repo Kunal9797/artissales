@@ -473,8 +473,104 @@ ArtisSales/
 
 ---
 
-**Last Updated**: October 9, 2025, 9:30 PM IST
-**Next Review**: October 10, 2025 (Continue Phase 3: Leads Module & DSR Module)
+**Last Updated**: October 10, 2025, 11:30 AM IST
+**Next Review**: October 10, 2025 PM (Build & Test Visit Photo Feature)
+
+---
+
+## 🔄 Oct 10, 2025 - Sales Head Feedback & V1 Scope Update
+
+### New Requirements from Sales Head Meeting
+After discussion with sales head, **V1 scope has been expanded** with critical features:
+
+1. **✅ Visit Account Types** - Add "Architects" to distributor/dealer
+2. **🔄 Visit Verification Method** - Replace GPS with **mandatory counter photo** (simpler, battery-friendly)
+3. **🆕 Daily Sheets Sales Tracking** - Track sheets sold per catalog (Fine Decor, Artvio, Woodrica, Artis)
+4. **🆕 Expense Reporting** - Sales reps log daily expenses (travel/food) with receipts
+5. **🆕 Monthly Reports** - Managers view monthly stats: visits by type, sheets sold (requires dashboard work)
+6. **🔮 Post-V1**: Sales incentive calculation (after verification workflow)
+
+### Updated V1 Roadmap
+**Priority 1 - Quick Wins (Today)** ✅ COMPLETE!
+- [x] Add "architect" to AccountType
+- [x] Update Visit model: Remove GPS, make photos required (min 1)
+- [x] Implement camera capture in LogVisitScreen
+- [x] Update Cloud Function validation
+- [x] Deploy updated Cloud Function
+
+**Priority 2 - New Features (This Week)**
+- [ ] Create SheetsSales data model + collection
+- [ ] Create Sheets Sales entry screen (catalog selector + count)
+- [ ] Create Expense data model + collection
+- [ ] Create Expense entry screen
+
+**Priority 3 - Manager Tools (Week 7)**
+- [ ] Monthly reports aggregation (Cloud Function)
+- [ ] Manager dashboard screens
+
+**Deferred to Post-V1**
+- Leads Module (SLA routing still needed, but lower priority than sales tracking)
+- Sales incentive calculation
+
+---
+
+### October 10, 2025 - Morning Session (VISIT PHOTO FEATURE COMPLETE! 📸)
+
+**Major Changes Implemented:**
+
+1. **Backend Updates (All Deployed ✅)**
+   - Added "architect" to AccountType enum ([functions/src/types/index.ts](functions/src/types/index.ts:38))
+   - Updated Visit interface - removed `geo` & `accuracyM`, made `photos` required array
+   - Added new types: `SheetsSale`, `Expense`, `CatalogType`, `ExpenseCategory`, `ExpenseStatus`
+   - Updated Cloud Function [visits.ts](functions/src/api/visits.ts) - replaced GPS validation with photo validation
+   - Requires minimum 1 photo URL, validates non-empty strings
+   - **Deployed to production** - Live at us-central1-artis-sales-dev.cloudfunctions.net/logVisit
+
+2. **Mobile App - Photo Capture System**
+   - ✅ Created [storage.ts](mobile/src/services/storage.ts) - Firebase Storage upload service
+     - Compresses images to 1024px width, 80% JPEG quality
+     - Uploads to `visits/{userId}/{timestamp}.jpg`
+     - Returns download URLs
+   - ✅ Created [CameraCapture.tsx](mobile/src/components/CameraCapture.tsx) - Full-screen camera component
+     - Requests camera permissions
+     - Live photo capture (not from gallery)
+     - Preview with Retake/Use Photo options
+     - Clean, professional UI
+   - ✅ Updated [LogVisitScreen.tsx](mobile/src/screens/visits/LogVisitScreen.tsx) - Complete rewrite
+     - **Removed GPS tracking** (useLocation hook removed)
+     - Added camera integration via modal
+     - Photo preview before submission
+     - Upload progress indicator
+     - Shows "Architect" icon for architect accounts
+     - Validates photo required before submit
+
+3. **Documentation Updates**
+   - [CLAUDE.md](CLAUDE.md) - Updated V1 scope with new features
+   - Added data models for `visits` (updated), `sheetsSales`, `expenses`
+   - [PROGRESS.md](PROGRESS.md) - This update
+
+**Files Changed:**
+- Backend: `functions/src/types/index.ts`, `functions/src/api/visits.ts`
+- Mobile: `mobile/src/types/index.ts`, `mobile/src/services/storage.ts`, `mobile/src/components/CameraCapture.tsx`, `mobile/src/screens/visits/LogVisitScreen.tsx`
+
+**⚠️ IMPORTANT - Testing Notes:**
+- **Camera testing pending** - Requires real Android device (no device available currently)
+- Camera functionality untested on emulator (emulator cameras unreliable)
+- All other features (UI flow, validation, storage upload logic) implemented and ready
+- **Next session**: Build APK and test on real device when available
+
+**What Works (Should Work):**
+- ✅ Photo capture UI and flow
+- ✅ Photo compression before upload
+- ✅ Firebase Storage upload
+- ✅ Backend photo validation
+- ✅ Visit submission with photo URL
+
+**What Needs Real Device Testing:**
+- ⚠️ expo-camera actual photo capture
+- ⚠️ Photo quality on real camera
+- ⚠️ Storage upload from device
+- ⚠️ End-to-end visit logging with photo
 
 ## 🐛 Known Issues
 

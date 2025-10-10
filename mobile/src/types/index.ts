@@ -23,18 +23,9 @@ export interface CheckOutRequest {
 
 export interface LogVisitRequest {
   accountId: string;
-  accountName: string;
   purpose: 'sample_delivery' | 'follow_up' | 'complaint' | 'new_lead' | 'payment_collection' | 'other';
   notes?: string;
-  photos?: string[]; // Storage URLs
-  lat: number;
-  lon: number;
-  accuracyM: number;
-  nextAction?: {
-    type: string;
-    dueDate: string; // ISO date string
-    description: string;
-  };
+  photos: string[]; // REQUIRED - Storage URLs (min 1)
 }
 
 // API Response Types

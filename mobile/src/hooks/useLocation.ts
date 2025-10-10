@@ -10,7 +10,7 @@ export interface LocationData {
 export const useLocation = () => {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const requestPermission = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -52,6 +52,11 @@ export const useLocation = () => {
       return null;
     }
   };
+
+  // Auto-fetch location on mount
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
 
   return {
     location,

@@ -2,6 +2,7 @@
  * Visit Logging API
  *
  * Simple endpoint for reps to log visits after meetings
+ * Uses photo verification instead of GPS
  */
 
 import {onRequest} from "firebase-functions/v2/https";
@@ -13,11 +14,7 @@ import {
   ApiError,
   Visit,
 } from "../types";
-import {
-  validateRequiredFields,
-  isAcceptableGPSAccuracy,
-} from "../utils/validation";
-import {isValidCoordinates} from "../utils/geo";
+import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
 
 const db = firestore();
@@ -53,9 +50,7 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
     const validation = validateRequiredFields(body, [
       "accountId",
       "purpose",
-      "lat",
-      "lon",
-      "accuracyM",
+      "photos",
     ]);
 
     if (!validation.valid) {
@@ -69,24 +64,27 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
-    // Validate GPS coordinates
-    if (!isValidCoordinates(body.lat, body.lon)) {
+    // Validate photos array (must have at least 1 photo)
+    if (!Array.isArray(body.photos) || body.photos.length < 1) {
       const error: ApiError = {
         ok: false,
-        error: "Invalid GPS coordinates",
-        code: "INVALID_COORDINATES",
+        error: "At least one photo is required",
+        code: "MISSING_PHOTO",
+        details: {photos: body.photos?.length || 0, required: "≥1"},
       };
       response.status(400).json(error);
       return;
     }
 
-    // Validate GPS accuracy
-    if (!isAcceptableGPSAccuracy(body.accuracyM, 100)) {
+    // Validate photo URLs (basic check)
+    const invalidPhotos = body.photos.filter(
+      (url) => !url || typeof url !== "string" || url.trim().length === 0
+    );
+    if (invalidPhotos.length > 0) {
       const error: ApiError = {
         ok: false,
-        error: "GPS accuracy too low. Please try again.",
-        code: "POOR_GPS_ACCURACY",
-        details: {accuracyM: body.accuracyM, required: "≤100m"},
+        error: "Invalid photo URLs",
+        code: "INVALID_PHOTO_URL",
       };
       response.status(400).json(error);
       return;
@@ -117,11 +115,9 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       accountName: accountData?.name || "Unknown",
       accountType: accountData?.type || "dealer",
       timestamp: firestore.Timestamp.now(),
-      geo: new firestore.GeoPoint(body.lat, body.lon),
-      accuracyM: body.accuracyM,
       purpose: body.purpose,
       notes: body.notes,
-      photos: body.photos || [],
+      photos: body.photos,
       createdAt: firestore.Timestamp.now(),
     };
 

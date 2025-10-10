@@ -32,10 +32,10 @@ export interface User {
 }
 
 // ============================================================================
-// ACCOUNTS TYPES (Distributors & Dealers)
+// ACCOUNTS TYPES (Distributors, Dealers & Architects)
 // ============================================================================
 
-export type AccountType = "distributor" | "dealer";
+export type AccountType = "distributor" | "dealer" | "architect";
 export type AccountStatus = "active" | "inactive";
 
 export interface Account {
@@ -158,17 +158,15 @@ export interface Visit {
   // Account info (denormalized for easy reading)
   accountId: string; // Link to accounts collection
   accountName: string; // "ABC Laminates"
-  accountType: AccountType; // "distributor" | "dealer"
+  accountType: AccountType; // "distributor" | "dealer" | "architect"
 
-  // When & Where (single timestamp - when visit was logged)
+  // When (single timestamp - when visit was logged)
   timestamp: Timestamp; // When visit logged
-  geo: GeoPoint; // Where rep was when logging
-  accuracyM: number;
 
   // Visit details
   purpose: VisitPurpose;
   notes?: string; // Optional notes (voice-to-text or typed)
-  photos?: string[]; // Optional photo URLs from Storage
+  photos: string[]; // REQUIRED - Counter photo URLs from Storage (min 1)
 
   // Metadata
   createdAt: Timestamp;
@@ -197,6 +195,63 @@ export interface Attendance {
   geo: GeoPoint;
   accuracyM: number;
   deviceInfo?: AttendanceDeviceInfo;
+}
+
+// ============================================================================
+// SHEETS SALES TYPES (Daily Sales Tracking)
+// ============================================================================
+
+export type CatalogType = "Fine Decor" | "Artvio" | "Woodrica" | "Artis";
+
+export interface SheetsSale {
+  id: string;
+  userId: string; // Rep who logged the sale
+  date: string; // YYYY-MM-DD
+
+  // Catalog selection
+  catalog: CatalogType;
+  sheetsCount: number; // Number of sheets sold
+
+  // Optional details
+  notes?: string;
+  distributorId?: string; // Optional link to account (for verification later)
+  distributorName?: string;
+
+  // Verification (for future incentive calculation)
+  verified: boolean; // Default: false
+  verifiedBy?: string; // Manager userId
+  verifiedAt?: Timestamp;
+
+  // Metadata
+  createdAt: Timestamp;
+}
+
+// ============================================================================
+// EXPENSE TYPES (Daily Expense Reporting)
+// ============================================================================
+
+export type ExpenseCategory = "travel" | "food" | "accommodation" | "other";
+export type ExpenseStatus = "pending" | "approved" | "rejected";
+
+export interface Expense {
+  id: string;
+  userId: string; // Rep who incurred expense
+  date: string; // YYYY-MM-DD
+
+  // Expense details
+  amount: number; // In INR
+  category: ExpenseCategory;
+  description: string; // Brief description
+  receiptPhoto?: string; // Optional receipt photo URL
+
+  // Approval workflow
+  status: ExpenseStatus;
+  reviewedBy?: string; // Manager userId
+  reviewedAt?: Timestamp;
+  managerComments?: string;
+
+  // Metadata
+  createdAt: Timestamp;
 }
 
 // ============================================================================
@@ -291,15 +346,12 @@ export interface AttendanceResponse {
   timestamp: string; // ISO 8601
 }
 
-// Visit Log (Simplified - single action)
+// Visit Log (Photo-based verification)
 export interface VisitLogRequest {
   accountId: string;
   purpose: VisitPurpose;
-  lat: number;
-  lon: number;
-  accuracyM: number;
   notes?: string;
-  photos?: string[]; // Storage URLs
+  photos: string[]; // REQUIRED - Storage URLs (min 1)
   requestId?: string; // For idempotency
 }
 
