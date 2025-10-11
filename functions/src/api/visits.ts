@@ -12,7 +12,6 @@ import {
   VisitLogRequest,
   VisitLogResponse,
   ApiError,
-  Visit,
 } from "../types";
 import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
@@ -112,21 +111,29 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
 
     const accountData = accountDoc.data();
 
-    // Create visit document
-    const visitData: Partial<Visit> = {
+    // Create visit reference first to get ID
+    const visitRef = db.collection("visits").doc();
+
+    // Create visit document (Firestore doesn't accept undefined values)
+    const visitData: any = {
+      id: visitRef.id,
       userId: auth.uid,
       accountId: body.accountId,
       accountName: accountData?.name || "Unknown",
       accountType: accountData?.type || "dealer",
       timestamp: firestore.Timestamp.now(),
       purpose: body.purpose,
-      notes: body.notes,
       photos: body.photos || [], // Default to empty array if no photos
       createdAt: firestore.Timestamp.now(),
     };
 
+    // Only add notes if it's provided (Firestore rejects undefined)
+    if (body.notes) {
+      visitData.notes = body.notes;
+    }
+
     // Add visit to Firestore
-    const visitRef = await db.collection("visits").add(visitData);
+    await visitRef.set(visitData);
 
     // Update account's lastVisitAt
     await db.collection("accounts").doc(body.accountId).update({
@@ -146,13 +153,13 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
     };
 
     response.status(200).json(result);
-  } catch (error) {
-    logger.error("Error logging visit", {error});
+  } catch (error: any) {
+    logger.error("Error logging visit", {error: error.message});
     const apiError: ApiError = {
       ok: false,
       error: "Internal server error",
       code: "INTERNAL_ERROR",
-      details: error,
+      details: error.message || "Unknown error",
     };
     response.status(500).json(apiError);
   }

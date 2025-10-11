@@ -195,3 +195,320 @@ export const createUserByManager = onRequest(async (request, response) => {
     response.status(500).json(apiError);
   }
 });
+
+/**
+ * Get Users List
+ * Returns list of all users with optional filters
+ *
+ * POST /getUsersList
+ * Body: {
+ *   role?: UserRole,      // Filter by role
+ *   territory?: string,   // Filter by territory
+ *   searchTerm?: string   // Search by name/phone
+ * }
+ */
+export const getUsersList = onRequest(async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const managerId = auth.uid;
+
+    // Get manager's role
+    const managerDoc = await db.collection("users").doc(managerId).get();
+    if (!managerDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found in system",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const managerRole = managerDoc.data()?.role;
+    if (managerRole !== "national_head" && managerRole !== "admin") {
+      const error: ApiError = {
+        ok: false,
+        error: "Only National Head or Admin can view users list",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 2. Parse filters
+    const {role, territory, searchTerm} = request.body;
+
+    // Build query
+    let query = db.collection("users").where("isActive", "==", true);
+
+    if (role) {
+      query = query.where("role", "==", role);
+    }
+
+    if (territory) {
+      query = query.where("territory", "==", territory);
+    }
+
+    const usersSnapshot = await query.get();
+
+    // Get all users and filter by search term if provided
+    let users = usersSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || "",
+        phone: data.phone || "",
+        email: data.email || "",
+        role: data.role || "rep",
+        territory: data.territory || "",
+        isActive: data.isActive !== false,
+        createdAt: data.createdAt?.toDate().toISOString() || "",
+      };
+    });
+
+    // Client-side search filter (since Firestore doesn't support full-text search)
+    if (searchTerm && searchTerm.trim().length > 0) {
+      const term = searchTerm.toLowerCase().trim();
+      users = users.filter((user) =>
+        user.name.toLowerCase().includes(term) ||
+        user.phone.includes(term)
+      );
+    }
+
+    // Sort by name
+    users.sort((a, b) => a.name.localeCompare(b.name));
+
+    logger.info(`[getUsersList] Returning ${users.length} users`);
+
+    response.status(200).json({
+      ok: true,
+      users,
+      count: users.length,
+    });
+  } catch (error: any) {
+    logger.error("[getUsersList] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
+ * Get User Stats
+ * Returns detailed stats for a specific user
+ *
+ * POST /getUserStats
+ * Body: {
+ *   userId: string,
+ *   startDate: string,  // YYYY-MM-DD
+ *   endDate: string     // YYYY-MM-DD
+ * }
+ */
+export const getUserStats = onRequest(async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const managerId = auth.uid;
+
+    // Get manager's role
+    const managerDoc = await db.collection("users").doc(managerId).get();
+    if (!managerDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found in system",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const managerRole = managerDoc.data()?.role;
+    if (managerRole !== "national_head" && managerRole !== "admin") {
+      const error: ApiError = {
+        ok: false,
+        error: "Only National Head or Admin can view user stats",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 2. Parse parameters
+    const {userId, startDate, endDate} = request.body;
+
+    if (!userId) {
+      const error: ApiError = {
+        ok: false,
+        error: "User ID is required",
+        code: "USER_ID_REQUIRED",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Get user info
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    const userData = userDoc.data();
+
+    // Date range for queries
+    const start = new Date(startDate + "T00:00:00Z");
+    const end = new Date(endDate + "T23:59:59Z");
+
+    // 3. Get attendance records
+    const attendanceSnap = await db.collection("attendance")
+      .where("userId", "==", userId)
+      .where("timestamp", ">=", start)
+      .where("timestamp", "<=", end)
+      .orderBy("timestamp", "desc")
+      .get();
+
+    const attendance = attendanceSnap.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        type: data.type,
+        timestamp: data.timestamp?.toDate().toISOString(),
+        geo: data.geo ?
+          {lat: data.geo.latitude, lng: data.geo.longitude} : null,
+      };
+    });
+
+    // 4. Get visits
+    const visitsSnap = await db.collection("visits")
+      .where("userId", "==", userId)
+      .where("timestamp", ">=", start)
+      .where("timestamp", "<=", end)
+      .orderBy("timestamp", "desc")
+      .get();
+
+    const visits = visitsSnap.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        accountName: data.accountName,
+        accountType: data.accountType,
+        purpose: data.purpose,
+        timestamp: data.timestamp?.toDate().toISOString(),
+      };
+    });
+
+    // Count by type
+    const visitsByType = {
+      distributor: visits.filter((v) => v.accountType === "distributor").length,
+      dealer: visits.filter((v) => v.accountType === "dealer").length,
+      architect: visits.filter((v) => v.accountType === "architect").length,
+    };
+
+    // 5. Get sheets sales
+    const sheetsSnap = await db.collection("sheetsSales")
+      .where("userId", "==", userId)
+      .where("date", ">=", startDate)
+      .where("date", "<=", endDate)
+      .get();
+
+    let totalSheets = 0;
+    const sheetsByCatalog: Record<string, number> = {
+      "Fine Decor": 0,
+      "Artvio": 0,
+      "Woodrica": 0,
+      "Artis": 0,
+    };
+
+    sheetsSnap.docs.forEach((doc) => {
+      const data = doc.data();
+      totalSheets += data.sheetsCount || 0;
+      if (sheetsByCatalog[data.catalog] !== undefined) {
+        sheetsByCatalog[data.catalog] += data.sheetsCount || 0;
+      }
+    });
+
+    // 6. Get expenses
+    const expensesSnap = await db.collection("expenses")
+      .where("userId", "==", userId)
+      .where("date", ">=", startDate)
+      .where("date", "<=", endDate)
+      .get();
+
+    let totalExpenses = 0;
+    const expensesByStatus = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    };
+
+    expensesSnap.docs.forEach((doc) => {
+      const data = doc.data();
+      totalExpenses += data.amount || 0;
+      const status = data.status || "pending";
+      if (expensesByStatus[status as keyof typeof expensesByStatus] !==
+        undefined) {
+        expensesByStatus[status as keyof typeof expensesByStatus]++;
+      }
+    });
+
+    // 7. Return stats
+    response.status(200).json({
+      ok: true,
+      user: {
+        id: userId,
+        name: userData?.name,
+        role: userData?.role,
+        territory: userData?.territory,
+        phone: userData?.phone,
+      },
+      stats: {
+        attendance: {
+          total: attendance.length,
+          records: attendance,
+        },
+        visits: {
+          total: visits.length,
+          byType: visitsByType,
+          records: visits,
+        },
+        sheets: {
+          total: totalSheets,
+          byCatalog: sheetsByCatalog,
+        },
+        expenses: {
+          total: totalExpenses,
+          byStatus: expensesByStatus,
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error("[getUserStats] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});

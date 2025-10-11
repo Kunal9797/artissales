@@ -77,6 +77,90 @@ export interface ReviewDSRResponse {
   message: string;
 }
 
+// User List & Stats Types
+export interface GetUsersListRequest {
+  role?: 'rep' | 'area_manager' | 'zonal_head' | 'national_head' | 'admin';
+  territory?: string;
+  searchTerm?: string;
+}
+
+export interface UserListItem {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  role: string;
+  territory: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface GetUsersListResponse {
+  ok: true;
+  users: UserListItem[];
+  count: number;
+}
+
+export interface GetUserStatsRequest {
+  userId: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+}
+
+export interface GetUserStatsResponse {
+  ok: true;
+  user: {
+    id: string;
+    name: string;
+    role: string;
+    territory: string;
+    phone: string;
+  };
+  stats: {
+    attendance: {
+      total: number;
+      records: Array<{
+        id: string;
+        type: string;
+        timestamp: string;
+        geo: { lat: number; lng: number } | null;
+      }>;
+    };
+    visits: {
+      total: number;
+      byType: {
+        distributor: number;
+        dealer: number;
+        architect: number;
+      };
+      records: Array<{
+        id: string;
+        accountName: string;
+        accountType: string;
+        purpose: string;
+        timestamp: string;
+      }>;
+    };
+    sheets: {
+      total: number;
+      byCatalog: {
+        'Fine Decor': number;
+        Artvio: number;
+        Woodrica: number;
+        Artis: number;
+      };
+    };
+    expenses: {
+      total: number;
+      byStatus: {
+        pending: number;
+        approved: number;
+        rejected: number;
+      };
+    };
+  };
+}
+
 // API Response Types
 export interface ApiResponse {
   ok: boolean;

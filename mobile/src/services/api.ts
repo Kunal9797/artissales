@@ -15,6 +15,8 @@ import {
   LogSheetsSaleRequest,
   CreateUserByManagerRequest,
   ReviewDSRRequest,
+  GetUsersListRequest,
+  GetUserStatsRequest,
 } from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
@@ -92,7 +94,23 @@ export const api = {
     return callFunction('createUserByManager', data);
   },
 
+  getTeamStats: async (data: { date?: string }) => {
+    return callFunction('getTeamStats', data);
+  },
+
   reviewDSR: async (data: ReviewDSRRequest) => {
     return callFunction('reviewDSR', data);
+  },
+
+  getPendingDSRs: async (data: { date?: string }) => {
+    return callFunction('getPendingDSRs', data);
+  },
+
+  getUsersList: async (data: GetUsersListRequest) => {
+    return callFunction('getUsersList', data);
+  },
+
+  getUserStats: async (data: GetUserStatsRequest) => {
+    return callFunction('getUserStats', data);
   },
 };

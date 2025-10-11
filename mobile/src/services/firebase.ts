@@ -1,37 +1,50 @@
-import auth, { getAuth } from '@react-native-firebase/auth';
-import firestore, { getFirestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from '@react-native-firebase/firestore';
-import storage, { getStorage } from '@react-native-firebase/storage';
+/**
+ * Firebase Service - Modular API (v22+)
+ *
+ * This file provides Firebase initialization and helper functions
+ * using the new modular API to avoid deprecation warnings.
+ */
 
-// Initialize Firestore with settings
-initializeFirestore(getFirestore().app, {
-  cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
+import { getFirestore, initializeFirestore } from '@react-native-firebase/firestore';
+import { getStorage } from '@react-native-firebase/storage';
+import { getApp } from '@react-native-firebase/app';
+
+// Initialize Firestore with offline persistence settings
+const app = getApp();
+initializeFirestore(app, {
+  cacheSizeBytes: -1, // -1 means unlimited cache (same as CACHE_SIZE_UNLIMITED)
 });
 
-// Export singleton instances
-export { auth, firestore, storage };
-
-// Helper to get Firestore instance
+/**
+ * Get Firestore instance
+ */
 export const getFirestoreInstance = () => getFirestore();
 
-// Helper to get Auth instance
+/**
+ * Get Auth instance
+ */
 export const getAuthInstance = () => getAuth();
 
-// Helper to get Storage instance
+/**
+ * Get Storage instance
+ */
 export const getStorageInstance = () => getStorage();
 
-// Helper to get current user ID
+/**
+ * Get current user ID (convenience helper)
+ */
 export const getCurrentUserId = (): string | null => {
   const authInstance = getAuth();
   return authInstance.currentUser?.uid || null;
 };
 
-// Helper to get auth token for API calls
+/**
+ * Get auth token for API calls
+ */
 export const getAuthToken = async (): Promise<string | null> => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
   if (!user) return null;
-
-  // Import getIdToken dynamically to use modular API
-  const { getIdToken } = await import('@react-native-firebase/auth');
   return await getIdToken(user);
 };

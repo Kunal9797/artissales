@@ -20,6 +20,7 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
 - **Small, focused changes** - Max 200 lines per change unless explicitly needed
 - **Schema safety** - All database changes documented with migration notes
 - **Security checklist** - Input validation, auth checks, Firestore rules, PII handling reviewed before merging
+- **Firebase Modular API** - Always use modular Firebase API (v9+) instead of deprecated namespaced API (see Firebase guidelines below)
 
 ---
 
@@ -562,6 +563,72 @@ service cloud.firestore {
 - L No client-side secrets (use Cloud Functions)
 - L Don't store raw phone numbers (normalize to E.164)
 - L No synchronous HTTP calls in Firestore triggers (use events)
+- L **Never use deprecated Firebase namespaced API** (see Firebase API guidelines below)
+
+---
+
+## Firebase API Guidelines (Critical)
+
+### ALWAYS Use Modular API (v9+ Style)
+
+React Native Firebase is migrating to match the modular Firebase Web SDK. **Always use the modular API pattern:**
+
+#### ✅ CORRECT - Modular API (Use This)
+```typescript
+import firestore, { doc, getDoc, setDoc, collection, query, where, getDocs } from '@react-native-firebase/firestore';
+
+// Initialize firestore instance
+const db = firestore();
+
+// Read a document
+const userDocRef = doc(db, 'users', userId);
+const userDoc = await getDoc(userDocRef);
+if (userDoc.exists()) {
+  const data = userDoc.data();
+}
+
+// Write a document
+const newDocRef = doc(db, 'visits', visitId);
+await setDoc(newDocRef, { ...visitData });
+
+// Query collection
+const q = query(
+  collection(db, 'attendance'),
+  where('userId', '==', userId)
+);
+const snapshot = await getDocs(q);
+snapshot.forEach((doc) => {
+  console.log(doc.id, doc.data());
+});
+```
+
+#### ❌ WRONG - Deprecated Namespaced API (Never Use)
+```typescript
+// DO NOT USE - This is deprecated!
+const userDoc = await firestore().collection('users').doc(userId).get();
+if (userDoc.exists) {  // Note: exists is a property, not a method
+  const data = userDoc.data();
+}
+```
+
+### Key Differences
+1. **`exists`**: Old API uses `exists` (property), new API uses `exists()` (method)
+2. **Imports**: Import specific functions (`doc`, `getDoc`, etc.) from the package
+3. **Pattern**: Get firestore instance first (`const db = firestore()`), then use modular functions
+
+### Migration Checklist
+- [ ] Import modular functions: `doc`, `getDoc`, `setDoc`, `collection`, `query`, `where`, `getDocs`
+- [ ] Get firestore instance: `const db = firestore()`
+- [ ] Use `doc(db, collectionName, docId)` instead of `firestore().collection().doc()`
+- [ ] Use `getDoc(docRef)` instead of `docRef.get()`
+- [ ] Use `exists()` method instead of `exists` property
+- [ ] Use `getDocs(query)` for collection queries
+
+### Why This Matters
+- The old namespaced API will be **removed in the next major version**
+- Reduces bundle size with tree-shaking
+- Matches Firebase Web SDK patterns (better documentation)
+- Prevents deprecation warnings
 
 ---
 

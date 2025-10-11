@@ -15,12 +15,23 @@ import { SheetsEntryScreen } from '../screens/sheets/SheetsEntryScreen';
 import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
+import { AddUserScreen } from '../screens/manager/AddUserScreen';
+import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
+import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
+import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const [confirmation, setConfirmation] = useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
+
+  // Reset confirmation when user logs out
+  React.useEffect(() => {
+    if (!user && confirmation) {
+      setConfirmation(null);
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -36,6 +47,7 @@ export const RootNavigator: React.FC = () => {
         // User is authenticated
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="ManagerHome" component={ManagerHomeScreen} />
           <Stack.Screen name="Attendance" component={AttendanceScreen} />
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
           <Stack.Screen name="LogVisit" component={LogVisitScreen} />
@@ -44,6 +56,9 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="DSR" component={DSRScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
+          <Stack.Screen name="AddUser" component={AddUserScreen} />
+          <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} />
+          <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

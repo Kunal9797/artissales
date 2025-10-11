@@ -7,7 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Logo } from '../components/ui';
 import { colors, spacing, typography, shadows } from '../theme';
 import {
@@ -31,27 +31,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
-    const loadUserName = async () => {
+    const loadUserData = async () => {
       if (user?.uid) {
         try {
-          const userDoc = await firestore()
-            .collection('users')
-            .doc(user.uid)
-            .get();
+          const firestore = getFirestore();
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
 
-          if (userDoc.exists) {
+          if (userDoc.exists()) {
             const userData = userDoc.data();
+            const role = userData?.role || 'rep';
             setUserName(userData?.name || 'User');
+
+            // Redirect managers to ManagerHomeScreen
+            if (role === 'national_head' || role === 'admin') {
+              navigation.replace('ManagerHome');
+            }
           }
         } catch (error) {
-          console.error('Error loading user name:', error);
+          console.error('Error loading user data:', error);
           setUserName('User');
         }
       }
     };
 
-    loadUserName();
-  }, [user?.uid]);
+    loadUserData();
+  }, [user?.uid, navigation]);
 
   return (
     <View style={styles.container}>
