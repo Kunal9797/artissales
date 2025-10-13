@@ -113,4 +113,27 @@ export const api = {
   getUserStats: async (data: GetUserStatsRequest) => {
     return callFunction('getUserStats', data);
   },
+
+  updateUser: async (data: { userId: string; phone?: string; territory?: string }) => {
+    return callFunction('updateUser', data);
+  },
+
+  // Helper: Get user by ID (from Firestore directly, not an API endpoint)
+  getUser: async (userId: string) => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new ApiError('Not authenticated', 401);
+    }
+
+    // For now, we'll fetch user data from getUserStats API
+    // since it returns user info along with stats
+    const today = new Date().toISOString().split('T')[0];
+    const response = await callFunction('getUserStats', {
+      userId,
+      startDate: today,
+      endDate: today,
+    });
+
+    return { user: response.user };
+  },
 };

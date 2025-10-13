@@ -19,8 +19,30 @@ import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
 import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
 import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
+import { UserListScreen } from '../screens/manager/UserListScreen';
+import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
 
-const Stack = createNativeStackNavigator();
+export type RootStackParamList = {
+  Home: undefined;
+  ManagerHome: undefined;
+  Attendance: undefined;
+  SelectAccount: undefined;
+  LogVisit: { accountId: string; accountName: string; accountType: string };
+  ExpenseEntry: undefined;
+  SheetsEntry: undefined;
+  DSR: undefined;
+  Profile: undefined;
+  KitchenSink: undefined;
+  AddUser: undefined;
+  DSRApprovalList: undefined;
+  DSRApprovalDetail: { reportId: string };
+  UserList: undefined;
+  UserDetail: { userId: string };
+  Login: undefined;
+  OTP: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export const RootNavigator: React.FC = () => {
   const { user, loading } = useAuth();
@@ -59,6 +81,8 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="AddUser" component={AddUserScreen} />
           <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} />
           <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
+          <Stack.Screen name="UserList" component={UserListScreen} />
+          <Stack.Screen name="UserDetail" component={UserDetailScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

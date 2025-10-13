@@ -18,7 +18,7 @@ export {checkIn, checkOut} from "./api/attendance";
 export {logSheetsSale} from "./api/sheetsSales";
 export {submitExpense} from "./api/expenses";
 export {updateProfile} from "./api/profile";
-export {createUserByManager, getUsersList, getUserStats} from "./api/users";
+export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
 export {reviewDSR, getPendingDSRs} from "./api/dsrReview";
 

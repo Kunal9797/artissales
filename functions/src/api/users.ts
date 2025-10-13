@@ -460,14 +460,30 @@ export const getUserStats = onRequest(async (request, response) => {
       approved: 0,
       rejected: 0,
     };
+    const expensesByCategory = {
+      travel: 0,
+      food: 0,
+      accommodation: 0,
+      other: 0,
+    };
 
     expensesSnap.docs.forEach((doc) => {
       const data = doc.data();
-      totalExpenses += data.amount || 0;
+      const amount = data.amount || 0;
+      totalExpenses += amount;
+
+      // Count by status
       const status = data.status || "pending";
       if (expensesByStatus[status as keyof typeof expensesByStatus] !==
         undefined) {
         expensesByStatus[status as keyof typeof expensesByStatus]++;
+      }
+
+      // Sum by category
+      const category = data.category || "other";
+      if (expensesByCategory[category as keyof typeof expensesByCategory] !==
+        undefined) {
+        expensesByCategory[category as keyof typeof expensesByCategory] += amount;
       }
     });
 
@@ -498,11 +514,141 @@ export const getUserStats = onRequest(async (request, response) => {
         expenses: {
           total: totalExpenses,
           byStatus: expensesByStatus,
+          byCategory: expensesByCategory,
         },
       },
     });
   } catch (error: any) {
     logger.error("[getUserStats] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+
+/**
+ * POST /updateUser
+ * Update user details (phone, territory)
+ * Only accessible by National Head or Admin
+ */
+export const updateUser = onRequest(async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const managerId = auth.uid;
+
+    // Get manager's role
+    const managerDoc = await db.collection("users").doc(managerId).get();
+    if (!managerDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found in system",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const managerRole = managerDoc.data()?.role;
+    if (managerRole !== "national_head" && managerRole !== "admin") {
+      const error: ApiError = {
+        ok: false,
+        error: "Only National Head or Admin can update user details",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 2. Parse parameters
+    const {userId, phone, territory} = request.body;
+
+    if (!userId) {
+      const error: ApiError = {
+        ok: false,
+        error: "User ID is required",
+        code: "USER_ID_REQUIRED",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Get user document
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // 3. Build update object
+    const updates: any = {
+      updatedAt: Timestamp.now(),
+    };
+
+    if (phone !== undefined) {
+      // Normalize phone number
+      const normalizedPhone = phone.replace(/\D/g, "");
+      if (normalizedPhone.length < 10) {
+        const error: ApiError = {
+          ok: false,
+          error: "Invalid phone number (minimum 10 digits)",
+          code: "INVALID_PHONE",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      // Check for duplicate phone (excluding current user)
+      const existingUsers = await db.collection("users")
+        .where("phone", "==", "+91" + normalizedPhone)
+        .limit(1)
+        .get();
+
+      if (!existingUsers.empty && existingUsers.docs[0].id !== userId) {
+        const error: ApiError = {
+          ok: false,
+          error: "A user with this phone number already exists",
+          code: "DUPLICATE_PHONE",
+        };
+        response.status(409).json(error);
+        return;
+      }
+
+      updates.phone = "+91" + normalizedPhone;
+    }
+
+    if (territory !== undefined && territory.trim()) {
+      updates.territory = territory.trim();
+    }
+
+    // 4. Update user
+    await userRef.update(updates);
+
+    logger.info("[updateUser] ✅ User updated successfully:", userId);
+
+    response.status(200).json({
+      ok: true,
+      message: "User updated successfully",
+    });
+  } catch (error: any) {
+    logger.error("[updateUser] ❌ Error:", error);
     const apiError: ApiError = {
       ok: false,
       error: "Internal server error",

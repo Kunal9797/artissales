@@ -11,17 +11,17 @@ import {
 import { colors, spacing, typography } from '../../theme';
 import {
   Users,
-  Clock,
   Building2,
   FileBarChart,
   AlertCircle,
   UserPlus,
-  ClipboardList,
   ChevronRight,
   User,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { Logo } from '../../components/ui';
+import type { DateRangeOption } from '../../components/DateRangeModal';
 import { api } from '../../services/api';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
@@ -58,16 +58,16 @@ interface TeamStats {
   };
 }
 
-type DateRange = 'today' | 'week' | 'month';
-
 export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
   const [userName, setUserName] = useState<string>('');
   const [stats, setStats] = useState<TeamStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange>('today');
+  const [dateRange, setDateRange] = useState<DateRangeOption>('today');
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dateModalVisible, setDateModalVisible] = useState(false);
+  const [expandedStat, setExpandedStat] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserName();
@@ -95,8 +95,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     setLoading(true);
     try {
       const response = await api.getTeamStats({
-        date: currentDate,
-        range: dateRange
+        date: currentDate
       });
       console.log('[ManagerHome] Stats loaded:', response);
       if (response.ok && response.stats) {
@@ -114,13 +113,8 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     loadStats();
   };
 
-  const toggleDateRange = () => {
-    const nextRange: Record<DateRange, DateRange> = {
-      today: 'week',
-      week: 'month',
-      month: 'today',
-    };
-    setDateRange(nextRange[dateRange]);
+  const handleDateRangeChange = (range: DateRangeOption) => {
+    setDateRange(range);
   };
 
   const getDateRangeLabel = (): string => {
@@ -128,24 +122,25 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     switch (dateRange) {
       case 'today':
         return today.toLocaleDateString('en-US', {
-          weekday: 'long',
+          weekday: 'short',
           year: 'numeric',
-          month: 'long',
+          month: 'short',
           day: 'numeric',
         });
       case 'week':
         return 'This Week';
       case 'month':
         return today.toLocaleDateString('en-US', {
-          month: 'long',
+          month: 'short',
           year: 'numeric',
         });
     }
   };
 
+
   return (
     <View style={styles.container}>
-      {/* Header */}
+      {/* Header matching sales rep style */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.headerLeft}>
@@ -159,7 +154,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
             style={styles.profileButton}
             onPress={() => navigation.navigate('Profile')}
           >
-            <User size={22} color="#fff" />
+            <User size={24} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
@@ -171,134 +166,209 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
           <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.accent]} />
         }
       >
-        {/* Date Range Selector */}
-        <TouchableOpacity style={styles.dateCard} onPress={toggleDateRange}>
-          <Clock size={18} color={colors.accent} />
-          <Text style={styles.dateText}>{getDateRangeLabel()}</Text>
-          <ChevronDown size={18} color={colors.text.tertiary} />
-        </TouchableOpacity>
+        {/* Action Buttons Row */}
+        <View style={styles.actionButtonsRow}>
+          {/* View Team Button - Primary (70%) */}
+          <TouchableOpacity
+            style={styles.viewTeamButton}
+            onPress={() => navigation.navigate('UserList')}
+          >
+            <Users size={24} color="#fff" />
+            <Text style={styles.viewTeamButtonText}>View Team</Text>
+            <ChevronRight size={22} color="#fff" />
+          </TouchableOpacity>
 
-        {/* Add User Card */}
-        <TouchableOpacity
-          style={styles.actionCard}
-          onPress={() => navigation.navigate('AddUser')}
-        >
-          <View style={styles.actionCardLeft}>
-            <View style={styles.actionIconContainer}>
-              <UserPlus size={22} color={colors.accent} />
+          {/* Add User Button - Secondary (30%) */}
+          <TouchableOpacity
+            style={styles.addUserButton}
+            onPress={() => navigation.navigate('AddUser')}
+          >
+            <UserPlus size={28} color={colors.info} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Team Stats Section Header with Date */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionHeaderText}>TEAM STATS</Text>
+          <TouchableOpacity onPress={() => setDateModalVisible(true)} style={styles.dateButton}>
+            <View style={styles.dateTextContainer}>
+              <Text style={styles.dateText}>{getDateRangeLabel()}</Text>
             </View>
-            <View>
-              <Text style={styles.actionCardTitle}>Add New User</Text>
-              <Text style={styles.actionCardSubtitle}>Create account for sales rep or manager</Text>
+            <ChevronDown size={16} color="#9E9E9E" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Simple Date Range Dropdown */}
+        {dateModalVisible && (
+          <>
+            <TouchableOpacity
+              style={styles.dropdownBackdrop}
+              activeOpacity={1}
+              onPress={() => setDateModalVisible(false)}
+            />
+            <View style={styles.dropdown}>
+              <TouchableOpacity
+                style={[styles.dropdownItem, dateRange === 'today' && styles.dropdownItemActive]}
+                onPress={() => {
+                  handleDateRangeChange('today');
+                  setDateModalVisible(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, dateRange === 'today' && styles.dropdownItemTextActive]}>
+                  Today
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.dropdownDivider} />
+              <TouchableOpacity
+                style={[styles.dropdownItem, dateRange === 'week' && styles.dropdownItemActive]}
+                onPress={() => {
+                  handleDateRangeChange('week');
+                  setDateModalVisible(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, dateRange === 'week' && styles.dropdownItemTextActive]}>
+                  This Week
+                </Text>
+              </TouchableOpacity>
+              <View style={styles.dropdownDivider} />
+              <TouchableOpacity
+                style={[styles.dropdownItem, dateRange === 'month' && styles.dropdownItemActive]}
+                onPress={() => {
+                  handleDateRangeChange('month');
+                  setDateModalVisible(false);
+                }}
+              >
+                <Text style={[styles.dropdownItemText, dateRange === 'month' && styles.dropdownItemTextActive]}>
+                  This Month
+                </Text>
+              </TouchableOpacity>
             </View>
-          </View>
-          <ChevronRight size={20} color={colors.text.tertiary} />
-        </TouchableOpacity>
+          </>
+        )}
 
         {stats && (
           <>
-            {/* Team Attendance Card */}
-            <View style={styles.statCard}>
-              <View style={styles.statCardHeader}>
-                <Users size={24} color={colors.accent} />
-                <Text style={styles.statCardTitle}>Team Attendance</Text>
+            {/* Attendance Stat Bar */}
+            <TouchableOpacity
+              style={styles.thinStatBar}
+              onPress={() => setExpandedStat(expandedStat === 'attendance' ? null : 'attendance')}
+            >
+              <View style={styles.thinStatBarHeader}>
+                <Users size={28} color={colors.accent} />
+                <Text style={styles.thinStatBarTitle}>Attendance:</Text>
+                <Text style={styles.thinStatBarValue}>{stats.team.presentPercentage}%</Text>
+                {expandedStat === 'attendance' ? (
+                  <ChevronUp size={22} color={colors.text.tertiary} />
+                ) : (
+                  <ChevronDown size={22} color={colors.text.tertiary} />
+                )}
               </View>
-              <View style={styles.statRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{stats.team.present}</Text>
-                  <Text style={styles.statLabel}>Present</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: colors.error }]}>
-                    {stats.team.absent}
-                  </Text>
-                  <Text style={styles.statLabel}>Absent</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: colors.success }]}>
-                    {stats.team.presentPercentage}%
-                  </Text>
-                  <Text style={styles.statLabel}>Attendance</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Visits Card */}
-            <View style={styles.statCard}>
-              <View style={styles.statCardHeader}>
-                <Building2 size={24} color="#2196F3" />
-                <Text style={styles.statCardTitle}>
-                  Visits {dateRange === 'today' ? 'Today' : dateRange === 'week' ? 'This Week' : 'This Month'}
-                </Text>
-              </View>
-              <View style={styles.statRow}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: '#2196F3' }]}>
-                    {stats.visits.total}
-                  </Text>
-                  <Text style={styles.statLabel}>Total</Text>
-                </View>
-                <View style={styles.statItemSmall}>
-                  <Text style={styles.statValueSmall}>{stats.visits.distributor}</Text>
-                  <Text style={styles.statLabelSmall}>Distributors</Text>
-                </View>
-                <View style={styles.statItemSmall}>
-                  <Text style={styles.statValueSmall}>{stats.visits.dealer}</Text>
-                  <Text style={styles.statLabelSmall}>Dealers</Text>
-                </View>
-                <View style={styles.statItemSmall}>
-                  <Text style={styles.statValueSmall}>{stats.visits.architect}</Text>
-                  <Text style={styles.statLabelSmall}>Architects</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Sheets Sales Card */}
-            <View style={styles.statCard}>
-              <View style={styles.statCardHeader}>
-                <FileBarChart size={24} color="#4CAF50" />
-                <Text style={styles.statCardTitle}>
-                  Sheets Sold {dateRange === 'today' ? 'Today' : dateRange === 'week' ? 'This Week' : 'This Month'}
-                </Text>
-              </View>
-              <View style={styles.statRow}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statValue, { color: '#4CAF50' }]}>
-                    {stats.sheets.total}
-                  </Text>
-                  <Text style={styles.statLabel}>Total</Text>
-                </View>
-              </View>
-              <View style={styles.catalogGrid}>
-                {Object.entries(stats.sheets.byCatalog).map(([catalog, count]) => (
-                  <View key={catalog} style={styles.catalogItem}>
-                    <Text style={styles.catalogValue}>{count}</Text>
-                    <Text style={styles.catalogLabel}>{catalog}</Text>
+              {expandedStat === 'attendance' && (
+                <View style={styles.thinStatBarExpanded}>
+                  <View style={styles.progressBarContainer}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${stats.team.presentPercentage}%`, backgroundColor: colors.accent }
+                      ]}
+                    />
                   </View>
-                ))}
-              </View>
-            </View>
+                  <View style={styles.expandedStatsRow}>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={styles.expandedStatValue}>{stats.team.present}</Text>
+                      <Text style={styles.expandedStatLabel}>Present</Text>
+                    </View>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={[styles.expandedStatValue, { color: colors.error }]}>{stats.team.absent}</Text>
+                      <Text style={styles.expandedStatLabel}>Absent</Text>
+                    </View>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={styles.expandedStatValue}>{stats.team.total}</Text>
+                      <Text style={styles.expandedStatLabel}>Total</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
 
-            {/* Pending Approvals Card */}
-            <View style={styles.statCard}>
-              <View style={styles.statCardHeader}>
-                <AlertCircle size={24} color="#FF9800" />
-                <Text style={styles.statCardTitle}>Pending Approvals</Text>
+            {/* Visits Stat Bar */}
+            <TouchableOpacity
+              style={styles.thinStatBar}
+              onPress={() => setExpandedStat(expandedStat === 'visits' ? null : 'visits')}
+            >
+              <View style={styles.thinStatBarHeader}>
+                <Building2 size={28} color={colors.info} />
+                <Text style={styles.thinStatBarTitle}>Total Visits:</Text>
+                <Text style={styles.thinStatBarValue}>{stats.visits.total}</Text>
+                {expandedStat === 'visits' ? (
+                  <ChevronUp size={22} color={colors.text.tertiary} />
+                ) : (
+                  <ChevronDown size={22} color={colors.text.tertiary} />
+                )}
               </View>
-              <TouchableOpacity
-                style={styles.pendingItem}
-                onPress={() => navigation.navigate('DSRApprovalList')}
-              >
-                <View style={styles.pendingItemLeft}>
-                  <ClipboardList size={20} color={colors.accent} />
-                  <Text style={styles.pendingItemText}>DSR Reports</Text>
+              {expandedStat === 'visits' && (
+                <View style={styles.thinStatBarExpanded}>
+                  <View style={styles.expandedStatsRow}>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={styles.expandedStatValue}>{stats.visits.distributor}</Text>
+                      <Text style={styles.expandedStatLabel}>Distributors</Text>
+                    </View>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={styles.expandedStatValue}>{stats.visits.dealer}</Text>
+                      <Text style={styles.expandedStatLabel}>Dealers</Text>
+                    </View>
+                    <View style={styles.expandedStatItem}>
+                      <Text style={styles.expandedStatValue}>{stats.visits.architect}</Text>
+                      <Text style={styles.expandedStatLabel}>Architects</Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.pendingItemRight}>
-                  <Text style={styles.pendingBadge}>{stats.pending.dsrs}</Text>
-                  <ChevronRight size={20} color={colors.text.tertiary} />
+              )}
+            </TouchableOpacity>
+
+            {/* Sheets Sold Stat Bar */}
+            <TouchableOpacity
+              style={styles.thinStatBar}
+              onPress={() => setExpandedStat(expandedStat === 'sheets' ? null : 'sheets')}
+            >
+              <View style={styles.thinStatBarHeader}>
+                <FileBarChart size={28} color={colors.success} />
+                <Text style={styles.thinStatBarTitle}>Total Sheets Sold:</Text>
+                <Text style={styles.thinStatBarValue}>{stats.sheets.total}</Text>
+                {expandedStat === 'sheets' ? (
+                  <ChevronUp size={22} color={colors.text.tertiary} />
+                ) : (
+                  <ChevronDown size={22} color={colors.text.tertiary} />
+                )}
+              </View>
+              {expandedStat === 'sheets' && (
+                <View style={styles.thinStatBarExpanded}>
+                  <View style={styles.catalogGrid}>
+                    {Object.entries(stats.sheets.byCatalog).map(([catalog, count]) => (
+                      <View key={catalog} style={styles.catalogItem}>
+                        <Text style={styles.catalogValue}>{count}</Text>
+                        <Text style={styles.catalogLabel}>{catalog}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              </TouchableOpacity>
-            </View>
+              )}
+            </TouchableOpacity>
+
+            {/* DSR Approvals - Always Visible */}
+            <TouchableOpacity
+              style={[styles.thinStatBar, stats.pending.dsrs > 0 && styles.alertBar]}
+              onPress={() => navigation.navigate('DSRApprovalList')}
+            >
+              <View style={styles.thinStatBarHeader}>
+                <AlertCircle size={28} color={stats.pending.dsrs > 0 ? colors.warning : colors.text.secondary} />
+                <Text style={styles.thinStatBarTitle}>DSR Reports:</Text>
+                <Text style={[styles.thinStatBarValue, stats.pending.dsrs > 0 && { color: colors.warning }]}>
+                  {stats.pending.dsrs} pending
+                </Text>
+                <ChevronRight size={22} color={colors.text.tertiary} />
+              </View>
+            </TouchableOpacity>
           </>
         )}
 
@@ -322,8 +392,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
-    paddingTop: 60,
-    paddingBottom: spacing.xl,
+    paddingTop: 50,
+    paddingBottom: spacing.lg,
   },
   headerTop: {
     flexDirection: 'row',
@@ -339,23 +409,23 @@ const styles = StyleSheet.create({
   logo: {},
   headerText: {
     flex: 1,
-    justifyContent: 'center',
   },
   title: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: '#fff',
-    marginBottom: spacing.xs / 4,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text.inverse,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: typography.fontSize.sm,
-    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    color: colors.text.inverse,
+    opacity: 0.9,
   },
   profileButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -365,35 +435,19 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.screenPadding,
   },
-  dateCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  dateText: {
-    flex: 1,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.text.primary,
-    marginLeft: spacing.sm,
-  },
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#fff',
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: spacing.borderRadius.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   actionCardLeft: {
     flexDirection: 'row',
@@ -402,41 +456,74 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionIconContainer: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: spacing.borderRadius.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   actionCardTitle: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
-    marginBottom: spacing.xs / 4,
   },
   actionCardSubtitle: {
     fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginTop: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  sectionHeaderText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
     color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  dateTextContainer: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accent,
+    borderStyle: 'dotted',
+    paddingBottom: 2,
+  },
+  dateText: {
+    fontSize: typography.fontSize.lg,
+    color: '#9E9E9E',
+    fontWeight: typography.fontWeight.bold,
   },
   statCard: {
     backgroundColor: '#fff',
-    padding: spacing.lg,
+    padding: spacing.md,
     borderRadius: spacing.borderRadius.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
+    marginBottom: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   statCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   statCardTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
   },
   statRow: {
     flexDirection: 'row',
@@ -542,5 +629,236 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: typography.fontSize.base,
     color: colors.text.tertiary,
+  },
+  attendanceContent: {
+    gap: spacing.sm,
+  },
+  attendanceStats: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.sm,
+  },
+  attendanceMainValue: {
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  attendanceMainLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: colors.accent + '20',
+    borderRadius: spacing.borderRadius.full,
+    overflow: 'hidden',
+    marginTop: spacing.xs,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: spacing.borderRadius.full,
+  },
+  progressLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
+  },
+  compactStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compactStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  compactStatValue: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  compactStatLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  compactStatDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: colors.border.default,
+  },
+  alertCard: {
+    backgroundColor: colors.warning + '08',
+    borderColor: colors.warning + '30',
+    borderWidth: 1,
+  },
+  alertCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  alertIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.borderRadius.md,
+    backgroundColor: colors.warning + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertCardContent: {
+    flex: 1,
+  },
+  alertCardTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  alertCardSubtitle: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+  },
+  // Action Buttons Row
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  viewTeamButton: {
+    flex: 7,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  viewTeamButtonText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
+  },
+  addUserButton: {
+    flex: 3,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  // Stat Bars
+  thinStatBar: {
+    backgroundColor: '#fff',
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.xs,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  thinStatBarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+  },
+  thinStatBarTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    marginRight: 'auto',
+  },
+  thinStatBarValue: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    marginRight: spacing.sm,
+  },
+  thinStatBarExpanded: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+  },
+  expandedStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: spacing.sm,
+  },
+  expandedStatItem: {
+    alignItems: 'center',
+  },
+  expandedStatValue: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  expandedStatLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+  },
+  alertBar: {
+    backgroundColor: colors.warning + '08',
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+  },
+  // Dropdown styles
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 180,
+    right: spacing.screenPadding,
+    backgroundColor: '#fff',
+    borderRadius: spacing.borderRadius.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
+    minWidth: 140,
+  },
+  dropdownItem: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  dropdownItemActive: {
+    backgroundColor: colors.accent + '15',
+  },
+  dropdownItemText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  dropdownItemTextActive: {
+    color: colors.accent,
+    fontWeight: typography.fontWeight.bold,
+  },
+  dropdownDivider: {
+    height: 1,
+    backgroundColor: colors.border.default,
   },
 });

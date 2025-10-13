@@ -90,7 +90,7 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
   const renderUserCard = ({ item }: { item: UserListItem }) => (
     <TouchableOpacity
       style={styles.userCard}
-      onPress={() => navigation.navigate('UserDetail', { userId: item.id, userName: item.name })}
+      onPress={() => navigation.navigate('UserDetail', { userId: item.id })}
     >
       <View style={styles.userCardLeft}>
         <View style={[styles.userIcon, { backgroundColor: `${getRoleColor(item.role)}20` }]}>
