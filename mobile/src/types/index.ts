@@ -23,7 +23,7 @@ export interface CheckOutRequest {
 
 export interface LogVisitRequest {
   accountId: string;
-  purpose: 'sample_delivery' | 'follow_up' | 'complaint' | 'new_lead' | 'payment_collection' | 'other';
+  purpose: 'sample_delivery' | 'follow_up' | 'complaint' | 'new_lead' | 'payment_collection' | 'site_visit' | 'other';
   notes?: string;
   photos: string[]; // REQUIRED - Storage URLs (min 1)
 }
@@ -58,11 +58,82 @@ export interface CreateUserByManagerRequest {
   name: string;
   role: 'rep' | 'area_manager' | 'zonal_head' | 'national_head' | 'admin';
   territory: string;
+  primaryDistributorId?: string; // Optional distributor assignment
 }
 
 export interface CreateUserByManagerResponse {
   ok: true;
   userId: string;
+  message: string;
+}
+
+// Account Management Types
+export type AccountType = 'distributor' | 'dealer' | 'architect' | 'contractor';
+
+export interface CreateAccountRequest {
+  name: string;
+  type: AccountType;
+  contactPerson?: string;
+  phone: string; // 10 digits
+  email?: string;
+  birthdate?: string; // YYYY-MM-DD (for dealers and architects)
+  address?: string;
+  city: string;
+  state: string;
+  pincode: string; // 6 digits
+  parentDistributorId?: string;
+}
+
+export interface CreateAccountResponse {
+  ok: true;
+  accountId: string;
+  message: string;
+}
+
+export interface GetAccountsListRequest {
+  type?: AccountType;
+}
+
+export interface AccountListItem {
+  id: string;
+  name: string;
+  type: AccountType;
+  contactPerson?: string;
+  phone: string;
+  email?: string;
+  birthdate?: string; // YYYY-MM-DD
+  address?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  territory: string;
+  assignedRepUserId: string;
+  parentDistributorId?: string;
+  createdByUserId: string;
+  lastVisitAt?: string;
+}
+
+export interface GetAccountsListResponse {
+  ok: true;
+  accounts: AccountListItem[];
+}
+
+export interface UpdateAccountRequest {
+  accountId: string;
+  name?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  birthdate?: string; // YYYY-MM-DD
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  parentDistributorId?: string;
+}
+
+export interface UpdateAccountResponse {
+  ok: true;
   message: string;
 }
 
@@ -132,6 +203,7 @@ export interface GetUserStatsResponse {
         distributor: number;
         dealer: number;
         architect: number;
+        contractor: number;
       };
       records: Array<{
         id: string;

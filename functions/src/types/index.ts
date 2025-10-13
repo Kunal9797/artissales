@@ -27,15 +27,16 @@ export interface User {
   isActive: boolean;
   reportsToUserId?: string; // Manager hierarchy
   territory?: string; // Area/zone assignment
+  primaryDistributorId?: string; // For reps assigned to distributors
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
 // ============================================================================
-// ACCOUNTS TYPES (Distributors, Dealers & Architects)
+// ACCOUNTS TYPES (Distributors, Dealers, Architects & Contractors)
 // ============================================================================
 
-export type AccountType = "distributor" | "dealer" | "architect";
+export type AccountType = "distributor" | "dealer" | "architect" | "contractor";
 export type AccountStatus = "active" | "inactive";
 
 export interface Account {
@@ -47,10 +48,14 @@ export interface Account {
   territory: string; // "Delhi NCR"
   assignedRepUserId: string; // Rep responsible for this account
 
+  // Hierarchy
+  parentDistributorId?: string; // For dealers/architects under a distributor
+
   // Contact
   contactPerson?: string; // "Mr. Sharma"
   phone: string; // Normalized: +91XXXXXXXXXX
   email?: string;
+  birthdate?: string; // YYYY-MM-DD (for dealers and architects)
 
   // Location
   address?: string; // "123 Main Street, Delhi"
@@ -64,6 +69,7 @@ export interface Account {
   lastVisitAt?: Timestamp; // Auto-updated from visits
 
   // Metadata
+  createdByUserId: string; // Who added this account
   createdAt: Timestamp;
   updatedAt: Timestamp;
 
@@ -149,6 +155,7 @@ export type VisitPurpose =
   | "follow_up"
   | "complaint"
   | "new_lead"
+  | "site_visit"
   | "other";
 
 export interface Visit {
@@ -158,7 +165,7 @@ export interface Visit {
   // Account info (denormalized for easy reading)
   accountId: string; // Link to accounts collection
   accountName: string; // "ABC Laminates"
-  accountType: AccountType; // "distributor" | "dealer" | "architect"
+  accountType: AccountType; // "distributor" | "dealer" | "architect" | "contractor"
 
   // When (single timestamp - when visit was logged)
   timestamp: Timestamp; // When visit logged
@@ -409,6 +416,7 @@ export interface CreateUserByManagerRequest {
   name: string; // User's full name
   role: UserRole;
   territory: string; // City name
+  primaryDistributorId?: string; // Optional distributor assignment
 }
 
 export interface CreateUserByManagerResponse {
@@ -471,6 +479,78 @@ export interface GetRepReportResponse {
       byCategory: Record<string, number>;
     };
   };
+}
+
+// Get Users List
+export interface GetUsersListRequest {
+  role?: UserRole; // Optional filter by role
+}
+
+export interface GetUsersListResponse {
+  ok: true;
+  users: Array<{
+    id: string;
+    name: string;
+    phone: string;
+    role: UserRole;
+    territory: string;
+    primaryDistributorId?: string;
+  }>;
+}
+
+// Get User Stats
+export interface GetUserStatsRequest {
+  userId: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+}
+
+// Create Account
+export interface CreateAccountRequest {
+  name: string;
+  type: AccountType;
+  contactPerson?: string;
+  phone: string; // 10 digits
+  email?: string;
+  birthdate?: string; // YYYY-MM-DD (for dealers and architects)
+  address?: string;
+  city: string;
+  state: string;
+  pincode: string; // 6 digits
+  parentDistributorId?: string; // For dealers/architects
+}
+
+export interface CreateAccountResponse {
+  ok: true;
+  accountId: string;
+  message: string;
+}
+
+// Get Accounts List
+export interface GetAccountsListRequest {
+  type?: AccountType; // Optional filter by type
+}
+
+export interface GetAccountsListResponse {
+  ok: true;
+  accounts: Array<{
+    id: string;
+    name: string;
+    type: AccountType;
+    contactPerson?: string;
+    phone: string;
+    email?: string;
+    birthdate?: string; // YYYY-MM-DD
+    address?: string;
+    city: string;
+    state: string;
+    pincode: string;
+    territory: string;
+    assignedRepUserId: string;
+    parentDistributorId?: string;
+    createdByUserId: string;
+    lastVisitAt?: string; // ISO 8601
+  }>;
 }
 
 // ============================================================================

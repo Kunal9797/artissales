@@ -17,6 +17,9 @@ import {
   ReviewDSRRequest,
   GetUsersListRequest,
   GetUserStatsRequest,
+  CreateAccountRequest,
+  GetAccountsListRequest,
+  UpdateAccountRequest,
 } from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
@@ -116,6 +119,19 @@ export const api = {
 
   updateUser: async (data: { userId: string; phone?: string; territory?: string }) => {
     return callFunction('updateUser', data);
+  },
+
+  // Account Management APIs
+  createAccount: async (data: CreateAccountRequest) => {
+    return callFunction('createAccount', data);
+  },
+
+  getAccountsList: async (data: GetAccountsListRequest) => {
+    return callFunction('getAccountsList', data);
+  },
+
+  updateAccount: async (data: UpdateAccountRequest) => {
+    return callFunction('updateAccount', data);
   },
 
   // Helper: Get user by ID (from Firestore directly, not an API endpoint)

@@ -21,6 +21,7 @@ export {updateProfile} from "./api/profile";
 export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
 export {reviewDSR, getPendingDSRs} from "./api/dsrReview";
+export {createAccount, getAccountsList, updateAccount} from "./api/accounts";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";

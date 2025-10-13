@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
-import { User, Phone, MapPin, Shield } from 'lucide-react-native';
+import { User, Phone, MapPin, Shield, Building2, X, Plus } from 'lucide-react-native';
 import { api } from '../../services/api';
+import { AccountListItem } from '../../types';
 
 interface AddUserScreenProps {
   navigation: any;
@@ -34,10 +37,35 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
   const [territory, setTerritory] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Distributor picker states
+  const [selectedDistributor, setSelectedDistributor] = useState<AccountListItem | null>(null);
+  const [showDistributorModal, setShowDistributorModal] = useState(false);
+  const [distributors, setDistributors] = useState<AccountListItem[]>([]);
+  const [loadingDistributors, setLoadingDistributors] = useState(false);
+
   // Validation states
   const [phoneError, setPhoneError] = useState('');
   const [nameError, setNameError] = useState('');
   const [territoryError, setTerritoryError] = useState('');
+
+  useEffect(() => {
+    // Load distributors for picker
+    loadDistributors();
+  }, []);
+
+  const loadDistributors = async () => {
+    try {
+      setLoadingDistributors(true);
+      const response = await api.getAccountsList({ type: 'distributor' });
+      if (response.ok) {
+        setDistributors(response.accounts);
+      }
+    } catch (error) {
+      console.error('Error loading distributors:', error);
+    } finally {
+      setLoadingDistributors(false);
+    }
+  };
 
   const validatePhone = (value: string): boolean => {
     const digits = value.replace(/\D/g, '');
@@ -148,6 +176,7 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         name: name.trim(),
         role: selectedRole,
         territory: territory.trim(),
+        primaryDistributorId: selectedDistributor?.id,
       });
 
       console.log('[AddUserScreen] User created:', response);
@@ -272,6 +301,31 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
           {territoryError ? <Text style={styles.errorText}>{territoryError}</Text> : null}
         </View>
 
+        {/* Primary Distributor (only for rep role) */}
+        {selectedRole === 'rep' && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Primary Distributor (Optional)</Text>
+            <TouchableOpacity
+              style={styles.dropdownButton}
+              onPress={() => setShowDistributorModal(true)}
+              disabled={loading}
+            >
+              <Building2 size={20} color={colors.text.tertiary} />
+              <Text style={selectedDistributor ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {selectedDistributor?.name || 'Select distributor...'}
+              </Text>
+            </TouchableOpacity>
+            {selectedDistributor && (
+              <TouchableOpacity
+                onPress={() => setSelectedDistributor(null)}
+                style={styles.clearButton}
+              >
+                <Text style={styles.clearButtonText}>Clear selection</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[
@@ -290,6 +344,78 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>
+
+      {/* Distributor Selection Modal */}
+      {showDistributorModal && (
+        <Modal visible={showDistributorModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Distributor</Text>
+                <TouchableOpacity onPress={() => setShowDistributorModal(false)}>
+                  <X size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {loadingDistributors ? (
+                <View style={styles.modalLoading}>
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text style={styles.modalLoadingText}>Loading distributors...</Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.addDistributorButton}
+                    onPress={() => {
+                      setShowDistributorModal(false);
+                      navigation.navigate('AddAccount', {
+                        preSelectedType: 'distributor',
+                        onAccountCreated: (accountId: string) => {
+                          // Reload distributors and navigate back
+                          loadDistributors();
+                        },
+                      });
+                    }}
+                  >
+                    <Plus size={20} color={colors.accent} />
+                    <Text style={styles.addDistributorText}>Add New Distributor</Text>
+                  </TouchableOpacity>
+
+                  <FlatList
+                    data={distributors}
+                    keyExtractor={(item) => item.id}
+                    style={styles.modalList}
+                    renderItem={({ item }) => (
+                      <TouchableOpacity
+                        style={styles.modalItem}
+                        onPress={() => {
+                          setSelectedDistributor(item);
+                          setShowDistributorModal(false);
+                        }}
+                      >
+                        <View style={styles.modalItemMain}>
+                          <Text style={styles.modalItemName}>{item.name}</Text>
+                          <Text style={styles.modalItemMeta}>
+                            {item.city}, {item.state}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    ListEmptyComponent={
+                      <View style={styles.modalEmpty}>
+                        <Text style={styles.modalEmptyText}>No distributors found</Text>
+                        <Text style={styles.modalEmptySubtext}>
+                          Add a distributor first to assign reps
+                        </Text>
+                      </View>
+                    }
+                  />
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -410,5 +536,119 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md + 4,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  dropdownPlaceholder: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.tertiary,
+  },
+  clearButton: {
+    marginTop: spacing.xs,
+  },
+  clearButtonText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.accent,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: spacing.borderRadius.lg,
+    width: '85%',
+    maxHeight: '70%',
+    padding: spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  modalLoading: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  modalLoadingText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  addDistributorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.accent + '15',
+    paddingVertical: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    borderWidth: 2,
+    borderColor: colors.accent,
+    marginBottom: spacing.md,
+  },
+  addDistributorText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.accent,
+  },
+  modalList: {
+    maxHeight: 300,
+  },
+  modalItem: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+  },
+  modalItemMain: {
+    gap: spacing.xs / 2,
+  },
+  modalItemName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+  },
+  modalItemMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  modalEmpty: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  modalEmptyText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  modalEmptySubtext: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 });

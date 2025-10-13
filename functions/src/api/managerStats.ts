@@ -121,7 +121,8 @@ export const getTeamStats = onRequest(async (request, response) => {
 
     logger.info(
       `[getTeamStats] Fetching stats for range: ${range || "today"}` +
-      ` (${startDate.toISOString()} to ${endDate.toISOString()})`
+      ` (${startDateStr} to ${endDateStr})` +
+      ` | Timestamps: ${startDate.toISOString()} to ${endDate.toISOString()}`
     );
 
     // 3. Get all users (for national head, get ALL users)
@@ -146,6 +147,8 @@ export const getTeamStats = onRequest(async (request, response) => {
       .where("timestamp", ">=", startDate)
       .where("timestamp", "<=", endDate)
       .get();
+
+    logger.info(`[getTeamStats] Found ${attendanceSnapshot.size} attendance records`);
 
     // Group attendance by userId
     const attendanceByUser: Record<string, any[]> = {};
@@ -172,17 +175,20 @@ export const getTeamStats = onRequest(async (request, response) => {
       .get();
 
     const totalVisits = visitsSnapshot.size;
+    logger.info(`[getTeamStats] Found ${totalVisits} visits`);
 
     // Count by type
     let distributorVisits = 0;
     let dealerVisits = 0;
     let architectVisits = 0;
+    let contractorVisits = 0;
 
     visitsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data.accountType === "distributor") distributorVisits++;
       else if (data.accountType === "dealer") dealerVisits++;
       else if (data.accountType === "architect") architectVisits++;
+      else if (data.accountType === "contractor") contractorVisits++;
     });
 
     // 6. Get sheets sales stats for the date range
@@ -248,6 +254,7 @@ export const getTeamStats = onRequest(async (request, response) => {
     }
 
     const pendingExpenses = expensesSnapshot.size;
+    logger.info(`[getTeamStats] Found ${pendingExpenses} pending expenses`);
 
     // 9. Return aggregated stats
     response.status(200).json({
@@ -266,6 +273,7 @@ export const getTeamStats = onRequest(async (request, response) => {
           distributor: distributorVisits,
           dealer: dealerVisits,
           architect: architectVisits,
+          contractor: contractorVisits,
         },
         sheets: {
           total: totalSheets,

@@ -2060,6 +2060,19 @@ Next up: Phase 4 - Manager Dashboard or Additional V1 Features
 - Push notifications for pending approvals
 - Advanced filters (by territory, by date range)
 
+**Future Ideas to Implement:**
+- **Check-Out Day Summary**: When sales rep checks out, show a summary of their day including:
+  - Hours worked
+  - Number of visits completed
+  - Total expenses logged
+  - Total sheets sold
+  - Quick stats for the day
+- **Manager Calendar View**: In manager dashboard attendance details, add calendar view showing:
+  - Monthly calendar format
+  - Green icons for days with check-in/check-out
+  - Red icons for missed days
+  - Click on day to see detailed attendance info
+
 ---
 
 **Last Updated**: October 11, 2025, 3:15 AM IST
@@ -2589,3 +2602,267 @@ export interface GetUserStatsResponse {
 
 ---
 
+## Session 4: Account & User Management (Oct 13, 2025)
+
+### Work Completed
+
+#### 1. Edit Account Feature ✅
+**Problem**: Managers needed ability to edit existing accounts with role-based permissions.
+
+**Backend Implementation:**
+- Added `updateAccount` Cloud Function in `functions/src/api/accounts.ts`
+- Implemented permission logic:
+  - Admin/National Head: Can edit any account
+  - Sales Reps: Can only edit dealers/architects they created (not distributors)
+- Added phone validation and normalization
+- Handles optional fields (contactPerson, email, address)
+- Added `{invoker: "public"}` for Cloud Functions v2 authentication
+
+**Frontend Implementation:**
+- Created `EditAccountScreen.tsx` (651 lines) - pre-fills existing data
+- Added edit buttons to `AccountsListScreen.tsx` and `SelectAccountScreen.tsx`
+- Implemented `canEditAccount()` permission checks
+- Fixed `useAuth` hook to fetch and attach user role from Firestore
+- Updated `Account` interface to include `contactPerson`, `email`, `address`, `pincode`
+
+**Bug Fixes:**
+1. **Missing createdByUserId**: Added to `Account` interface in `useAccounts.ts`
+2. **user.uid undefined**: Fixed by using `getAuth().currentUser?.uid` instead of `user.uid`
+3. **Missing user role**: Modified `useAuth` to fetch role from Firestore and create `UserWithRole` interface
+4. **401 Unauthorized**: Added `{invoker: "public"}` to Cloud Functions v2 exports
+5. **Missing fields in API response**: Updated `getAccountsList` to return `contactPerson`, `email`, `address`, `pincode`
+
+#### 2. Edit User Feature ✅
+**Problem**: Managers needed ability to update user phone numbers and territories.
+
+**Implementation:**
+- `updateUser` function already existed in backend (`functions/src/api/users.ts`)
+- Added `{invoker: "public"}` to fix authentication
+- Edit modal already existed in `UserDetailScreen.tsx` (lines 262-292)
+- Successfully deployed and tested
+
+#### 3. Team Stats Date Range Fix ✅
+**Problem**: Manager dashboard showed zero stats for week/month ranges despite having data.
+
+**Root Cause**: Mobile app wasn't passing `range` parameter to `getTeamStats` API.
+
+**Fix:**
+- Updated `ManagerHomeScreen.tsx` to pass `range: dateRange` parameter
+- Added debug logging to backend to track date ranges and query results
+- Verified month/week calculations work correctly
+
+### Files Modified
+
+**Backend:**
+1. `functions/src/api/accounts.ts` - Added `updateAccount` function, updated `getAccountsList` response
+2. `functions/src/api/users.ts` - Added `{invoker: "public"}` to `updateUser`
+3. `functions/src/api/managerStats.ts` - Added debug logging for date ranges
+4. `functions/src/types/index.ts` - Updated `GetAccountsListResponse` interface
+5. `functions/src/index.ts` - Exported account functions with public invoker
+
+**Mobile:**
+1. `mobile/src/screens/EditAccountScreen.tsx` - NEW (651 lines)
+2. `mobile/src/screens/manager/AccountsListScreen.tsx` - Added edit button
+3. `mobile/src/screens/visits/SelectAccountScreen.tsx` - Added edit button with permissions
+4. `mobile/src/screens/manager/ManagerHomeScreen.tsx` - Fixed date range parameter
+5. `mobile/src/hooks/useAccounts.ts` - Added missing fields to Account interface
+6. `mobile/src/hooks/useAuth.ts` - Fetch and attach user role from Firestore
+7. `mobile/src/navigation/RootNavigator.tsx` - Added EditAccount route
+8. `mobile/src/services/api.ts` - Added `updateAccount` method
+9. `mobile/src/types/index.ts` - Updated `AccountListItem` interface
+
+### Testing Results
+
+**Verified Working:**
+- ✅ Edit Account: Name changes persist correctly
+- ✅ Edit Account: Contact person changes persist correctly
+- ✅ Edit Account: Permission checks work (reps can't edit distributors)
+- ✅ Edit Account: Permission checks work (reps can only edit their own dealers/architects)
+- ✅ Edit Account: Managers can edit any account
+- ✅ Edit User: Phone and territory updates work
+- ✅ Team Stats: Month range now shows correct data
+- ✅ Team Stats: Week range shows correct data
+- ✅ All fields (contactPerson, email, address, pincode) properly fetched and displayed
+
+### Key Technical Issues Resolved
+
+1. **Cloud Functions v2 Authentication**
+   - Problem: Functions returned 401 Unauthorized
+   - Solution: Add `{invoker: "public"}` to `onRequest()` calls
+   - Affects: All HTTP-triggered Cloud Functions
+
+2. **Firebase Auth User Object**
+   - Problem: `user.uid` was undefined in permission checks
+   - Solution: Use `getAuth().currentUser?.uid` to get actual UID
+   - Affects: Any code using Firebase Auth user object directly
+
+3. **User Role Access**
+   - Problem: Firebase Auth user doesn't have role field
+   - Solution: Fetch user document from Firestore and attach role
+   - Affects: All permission checks requiring user role
+
+4. **API Response Completeness**
+   - Problem: Fields saved to Firestore but not returned by API
+   - Solution: Update API response mapping to include all fields
+   - Affects: Any endpoint that returns partial data
+
+### Next Steps
+
+**Remaining V1 Features:**
+1. Lead management (webhook, routing, SLA tracking)
+2. DSR compilation and approval workflow
+3. Manager approval workflows for DSRs and expenses
+4. CSV/PDF export for manager reports
+
+**Current Status:**
+- ✅ Backend: 100% (all APIs implemented)
+- ✅ Mobile Core Features: 100% (attendance, visits, sheets, expenses)
+- ✅ Mobile Account Management: 100% (create, edit, permissions)
+- ✅ Mobile User Management: 100% (create, list, edit, stats)
+- ✅ Manager Dashboard: 90% (stats working, needs approval workflows)
+
+---
+
+
+## October 13, 2025 - Added Contractor Account Type & Birthdate Field
+
+### Features Added
+
+#### 1. Contractor Account Type ✅
+**Purpose**: Track contractors (site workers/project leads) that sales reps visit to pitch laminate products.
+
+**Implementation:**
+- Added `'contractor'` to `AccountType` enum (distributor | dealer | architect | contractor)
+- Contractors have same structure as dealers/architects:
+  - Optional parent distributor relationship
+  - Optional birthdate field
+  - Standard contact fields (name, contact person, phone, email)
+  - Location fields for site/office address
+- Sales reps can create and edit contractors (same permissions as dealers/architects)
+- Appears as separate category in manager reports and dashboards
+
+#### 2. Birthdate Field for Individuals ✅
+**Purpose**: Track birthdates for dealers, architects, and contractors (individual contacts).
+
+**Implementation:**
+- Added optional `birthdate?: string` field (YYYY-MM-DD format)
+- Only shown for dealer, architect, and contractor account types
+- Not shown for distributor (which are companies, not individuals)
+- Includes format validation and help text
+- Available in both Add Account and Edit Account screens
+
+#### 3. Site Visit Purpose ✅
+**Purpose**: New visit purpose type specifically for contractor site visits.
+
+**Implementation:**
+- Added `'site_visit'` to `VisitPurpose` enum
+- Available when logging visits to any account type
+- Helps differentiate construction site visits from office meetings
+
+### Files Modified
+
+**Backend:**
+1. `functions/src/types/index.ts`:
+   - Updated `AccountType` to include `'contractor'`
+   - Updated `VisitPurpose` to include `'site_visit'`
+   - Added `birthdate?: string` to `Account` interface
+   - Added `birthdate` to `CreateAccountRequest` and `UpdateAccountRequest`
+
+2. `functions/src/api/accounts.ts`:
+   - Updated `canCreateAccount()` to allow reps to create contractors
+   - Updated validation to accept 'contractor' as valid account type
+   - Updated error messages to mention contractors
+   - Updated `updateAccount` permissions to allow rep edits on contractors
+   - Added birthdate handling in create/update/list operations
+
+3. `functions/src/api/managerStats.ts`:
+   - Added `contractorVisits` counter
+   - Updated visit type aggregation to count contractor visits
+   - Updated API response to include contractor count
+
+4. `firestore.rules`:
+   - Updated create/update/delete rules to include contractors
+   - Reps can now create/edit/delete dealers, architects, and contractors
+   - Only National Head/Admin can manage distributors
+
+**Mobile:**
+1. `mobile/src/types/index.ts`:
+   - Updated `AccountType` to include `'contractor'`
+   - Added `birthdate` to `CreateAccountRequest`, `UpdateAccountRequest`, `AccountListItem`
+   - Updated `LogVisitRequest` to include `'site_visit'` purpose
+
+2. `mobile/src/screens/AddAccountScreen.tsx`:
+   - Added Contractor button in account type selector (4th option)
+   - Added birthdate input field (shown for dealer/architect/contractor)
+   - Added validation for YYYY-MM-DD format
+   - Included help text for date format
+   - Updated parent distributor section to include contractors
+
+3. `mobile/src/screens/EditAccountScreen.tsx`:
+   - Added birthdate field (shown for dealer/architect/contractor)
+   - Pre-fills existing birthdate when editing
+   - Same validation and help text as Add screen
+
+4. `mobile/src/screens/visits/SelectAccountScreen.tsx`:
+   - Added `'contractor'` to `AccountTypeFilter` type
+   - Updated permission checks to allow rep edits on contractors
+   - Added Contractors filter button with HardHat icon
+   - Updated comments to mention contractors
+
+### Technical Details
+
+**Account Type Hierarchy:**
+- **Distributors** (Company): Main stock-keeping source, many dealers under them
+  - Can only be created by National Head/Admin
+  - No birthdate field
+  
+- **Dealers** (Individual/Company): Sales rep's primary contacts
+  - Can be created/edited by reps (only their own)
+  - Optional birthdate field
+  - Optional parent distributor link
+
+- **Architects** (Individual): Design professionals who specify laminates
+  - Can be created/edited by reps (only their own)
+  - Optional birthdate field
+  - Optional parent distributor link
+
+- **Contractors** (Individual/Company): Site workers/project leads
+  - Can be created/edited by reps (only their own)
+  - Optional birthdate field
+  - Optional parent distributor link
+  - NEW in this update
+
+**Visit Purpose Types:**
+- meeting, order, payment, sample_delivery, follow_up, complaint, new_lead, **site_visit** (NEW), other
+
+**Manager Dashboard Stats:**
+Visits now broken down by 4 categories:
+- Distributor visits
+- Dealer visits
+- Architect visits
+- **Contractor visits** (NEW)
+
+### Testing Checklist
+
+- [ ] Reps can create contractor accounts
+- [ ] Reps can edit contractors they created
+- [ ] Reps cannot edit contractors created by others
+- [ ] National Head/Admin can edit all contractors
+- [ ] Birthdate field appears for dealers, architects, contractors
+- [ ] Birthdate field does NOT appear for distributors
+- [ ] Birthdate validation works (YYYY-MM-DD format)
+- [ ] Contractor filter works in Select Account screen
+- [ ] Contractor icon (HardHat) displays correctly
+- [ ] Site visit purpose appears in visit logging
+- [ ] Manager dashboard shows contractor visit count
+- [ ] Parent distributor can be linked to contractors
+
+### Next Steps
+
+1. Deploy updated Firestore rules
+2. Test contractor creation and editing
+3. Verify manager dashboard contractor stats
+4. Verify visit logging with site_visit purpose
+5. Update any documentation or training materials
+
+---

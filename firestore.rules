@@ -56,18 +56,50 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Check if user is national head or admin
+    function isNationalHeadOrAdmin() {
+      return isAuthenticated() && getUserRole() in ['national_head', 'admin'];
+    }
+
     // ========================================================================
-    // ACCOUNTS COLLECTION (Distributors & Dealers)
+    // ACCOUNTS COLLECTION (Distributors, Dealers, Architects & Contractors)
     // ========================================================================
     match /accounts/{accountId} {
-      // Reps can read accounts assigned to them
-      // Managers can read all accounts
-      allow read: if isAuthenticated() && (
-        resource.data.assignedRepUserId == request.auth.uid || isManager()
+      // Anyone authenticated can read accounts
+      allow read: if isAuthenticated();
+
+      // Create rules by account type:
+      // - Admin can create anything
+      // - National Head can create anything
+      // - Reps can only create dealers/architects/contractors (not distributors)
+      allow create: if isAuthenticated() && (
+        isAdmin() ||
+        isNationalHeadOrAdmin() ||
+        (request.resource.data.type in ['dealer', 'architect', 'contractor'] &&
+         request.resource.data.createdByUserId == request.auth.uid)
       );
 
-      // Only managers and admins can create/update/delete accounts
-      allow create, update, delete: if isManager();
+      // Update rules:
+      // - Admin can edit any account
+      // - National Head can edit any account
+      // - Reps can only edit dealers/architects/contractors they created
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        isNationalHeadOrAdmin() ||
+        (resource.data.type in ['dealer', 'architect', 'contractor'] &&
+         resource.data.createdByUserId == request.auth.uid)
+      );
+
+      // Delete rules:
+      // - Admin can delete any account
+      // - National Head can delete any account
+      // - Reps can only delete dealers/architects/contractors they created
+      allow delete: if isAuthenticated() && (
+        isAdmin() ||
+        isNationalHeadOrAdmin() ||
+        (resource.data.type in ['dealer', 'architect', 'contractor'] &&
+         resource.data.createdByUserId == request.auth.uid)
+      );
     }
 
     // ========================================================================

@@ -21,6 +21,9 @@ import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen'
 import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
 import { UserListScreen } from '../screens/manager/UserListScreen';
 import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
+import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
+import { AddAccountScreen } from '../screens/AddAccountScreen';
+import { EditAccountScreen } from '../screens/EditAccountScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -38,6 +41,9 @@ export type RootStackParamList = {
   DSRApprovalDetail: { reportId: string };
   UserList: undefined;
   UserDetail: { userId: string };
+  AccountsList: undefined;
+  AddAccount: { preSelectedType?: string; onAccountCreated?: (accountId: string) => void };
+  EditAccount: { account: any; onAccountUpdated?: () => void };
   Login: undefined;
   OTP: undefined;
 };
@@ -83,6 +89,9 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
           <Stack.Screen name="UserList" component={UserListScreen} />
           <Stack.Screen name="UserDetail" component={UserDetailScreen} />
+          <Stack.Screen name="AccountsList" component={AccountsListScreen} />
+          <Stack.Screen name="AddAccount" component={AddAccountScreen} />
+          <Stack.Screen name="EditAccount" component={EditAccountScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

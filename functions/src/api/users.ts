@@ -64,7 +64,7 @@ export const createUserByManager = onRequest(async (request, response) => {
     }
 
     // 2. Validate request body
-    const {phone, name, role, territory} = request.body;
+    const {phone, name, role, territory, primaryDistributorId} = request.body;
 
     // Validate phone
     if (!phone || typeof phone !== "string") {
@@ -141,7 +141,25 @@ export const createUserByManager = onRequest(async (request, response) => {
       return;
     }
 
-    // 3. Check for duplicate phone number
+    // 3. Validate distributor if provided
+    if (primaryDistributorId) {
+      const distributorDoc = await db.collection("accounts")
+        .doc(primaryDistributorId)
+        .get();
+
+      if (!distributorDoc.exists ||
+          distributorDoc.data()?.type !== "distributor") {
+        const error: ApiError = {
+          ok: false,
+          error: "Invalid distributor ID",
+          code: "INVALID_DISTRIBUTOR",
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
+    // 4. Check for duplicate phone number
     const existingUsers = await db.collection("users")
       .where("phone", "==", normalizedPhone)
       .limit(1)
@@ -157,7 +175,7 @@ export const createUserByManager = onRequest(async (request, response) => {
       return;
     }
 
-    // 4. Create user document
+    // 5. Create user document
     const newUserRef = db.collection("users").doc();
     const userId = newUserRef.id;
 
@@ -169,6 +187,7 @@ export const createUserByManager = onRequest(async (request, response) => {
       role: role,
       isActive: true,
       territory: territory.trim(),
+      primaryDistributorId: primaryDistributorId || undefined,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
@@ -176,9 +195,9 @@ export const createUserByManager = onRequest(async (request, response) => {
     await newUserRef.set(newUser);
 
     logger.info("[createUserByManager] ✅ User created successfully:",
-      userId, normalizedPhone, role);
+      userId, normalizedPhone, role, primaryDistributorId);
 
-    // 5. Return success
+    // 6. Return success
     response.status(200).json({
       ok: true,
       userId: userId,
@@ -536,7 +555,7 @@ export const getUserStats = onRequest(async (request, response) => {
  * Update user details (phone, territory)
  * Only accessible by National Head or Admin
  */
-export const updateUser = onRequest(async (request, response) => {
+export const updateUser = onRequest({invoker: "public"}, async (request, response) => {
   try {
     // 1. Verify authentication
     const auth = await requireAuth(request);

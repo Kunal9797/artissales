@@ -5,15 +5,18 @@ import { getFirestore, collection, query, where, orderBy, onSnapshot } from '@re
 export interface Account {
   id: string;
   name: string;
-  type: 'distributor' | 'dealer';
+  type: 'distributor' | 'dealer' | 'architect';
   contactPerson?: string;
-  phone: string;
+  phone?: string;
+  email?: string;
   address?: string;
   city: string;
   state: string;
   pincode: string;
   territory: string;
   assignedRepUserId: string;
+  parentDistributorId?: string;
+  createdByUserId: string;
   status: 'active' | 'inactive';
   lastVisitAt?: Date;
   createdAt: Date;
@@ -24,6 +27,11 @@ export const useAccounts = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refreshAccounts = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     const authInstance = getAuth();
@@ -58,12 +66,15 @@ export const useAccounts = () => {
             type: data.type,
             contactPerson: data.contactPerson,
             phone: data.phone,
+            email: data.email,
             address: data.address,
             city: data.city,
             state: data.state,
             pincode: data.pincode,
             territory: data.territory,
             assignedRepUserId: data.assignedRepUserId,
+            parentDistributorId: data.parentDistributorId,
+            createdByUserId: data.createdByUserId,
             status: data.status,
             lastVisitAt: data.lastVisitAt?.toDate(),
             createdAt: data.createdAt?.toDate(),
@@ -83,7 +94,7 @@ export const useAccounts = () => {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [refreshTrigger]);
 
-  return { accounts, loading, error };
+  return { accounts, loading, error, refreshAccounts };
 };

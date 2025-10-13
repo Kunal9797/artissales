@@ -95,7 +95,8 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     setLoading(true);
     try {
       const response = await api.getTeamStats({
-        date: currentDate
+        date: currentDate,
+        range: dateRange === 'today' ? undefined : dateRange
       });
       console.log('[ManagerHome] Stats loaded:', response);
       if (response.ok && response.stats) {
@@ -186,6 +187,16 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
             <UserPlus size={28} color={colors.info} />
           </TouchableOpacity>
         </View>
+
+        {/* Manage Accounts Button */}
+        <TouchableOpacity
+          style={styles.manageAccountsButton}
+          onPress={() => navigation.navigate('AccountsList')}
+        >
+          <Building2 size={24} color={colors.accent} />
+          <Text style={styles.manageAccountsButtonText}>Manage Accounts</Text>
+          <ChevronRight size={22} color={colors.text.tertiary} />
+        </TouchableOpacity>
 
         {/* Team Stats Section Header with Date */}
         <View style={styles.sectionHeader}>
@@ -860,5 +871,28 @@ const styles = StyleSheet.create({
   dropdownDivider: {
     height: 1,
     backgroundColor: colors.border.default,
+  },
+  // Manage Accounts Button
+  manageAccountsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  manageAccountsButtonText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+    marginLeft: spacing.md,
   },
 });
