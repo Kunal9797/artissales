@@ -233,6 +233,90 @@ export interface GetUserStatsResponse {
   };
 }
 
+// Target Types
+export interface TargetsByCatalog {
+  'Fine Decor'?: number;
+  'Artvio'?: number;
+  'Woodrica'?: number;
+  'Artis'?: number;
+}
+
+export interface Target {
+  id: string;
+  userId: string;
+  month: string; // YYYY-MM
+  targetsByCatalog: TargetsByCatalog;
+  autoRenew: boolean;
+  sourceTargetId?: string;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TargetProgress {
+  catalog: string;
+  target: number;
+  achieved: number;
+  percentage: number;
+}
+
+// Target API Types
+export interface SetTargetRequest {
+  userId: string;
+  month: string;
+  targetsByCatalog: TargetsByCatalog;
+  autoRenew: boolean;
+  updateFutureMonths?: boolean;
+}
+
+export interface SetTargetResponse {
+  ok: true;
+  targetId: string;
+  message: string;
+}
+
+export interface GetTargetRequest {
+  userId: string;
+  month: string;
+}
+
+export interface GetTargetResponse {
+  ok: true;
+  target: Target | null;
+  progress?: TargetProgress[];
+}
+
+export interface GetUserTargetsRequest {
+  month: string;
+}
+
+export interface UserTargetSummary {
+  userId: string;
+  userName: string;
+  territory: string;
+  target: Target | null;
+  progress: TargetProgress[];
+  totalAchieved: number;
+  totalTarget: number;
+  overallPercentage: number;
+}
+
+export interface GetUserTargetsResponse {
+  ok: true;
+  targets: UserTargetSummary[];
+}
+
+export interface StopAutoRenewRequest {
+  userId: string;
+  month: string;
+}
+
+export interface StopAutoRenewResponse {
+  ok: true;
+  message: string;
+}
+
 // API Response Types
 export interface ApiResponse {
   ok: boolean;

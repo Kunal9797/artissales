@@ -252,6 +252,23 @@ service cloud.firestore {
     }
 
     // ========================================================================
+    // TARGETS COLLECTION (Monthly Sales Targets)
+    // ========================================================================
+    match /targets/{targetId} {
+      // Reps can read their own targets (check userId in target document)
+      // Managers can read all targets
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Only managers can create/update targets
+      allow create, update: if isManager();
+
+      // Only admins can delete targets
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================================
     // EVENTS COLLECTION (Outbox Pattern)
     // ========================================================================
     match /events/{eventId} {

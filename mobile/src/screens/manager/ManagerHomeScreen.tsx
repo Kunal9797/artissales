@@ -19,6 +19,7 @@ import {
   User,
   ChevronDown,
   ChevronUp,
+  Target,
 } from 'lucide-react-native';
 import { Logo } from '../../components/ui';
 import type { DateRangeOption } from '../../components/DateRangeModal';
@@ -195,6 +196,16 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         >
           <Building2 size={24} color={colors.accent} />
           <Text style={styles.manageAccountsButtonText}>Manage Accounts</Text>
+          <ChevronRight size={22} color={colors.text.tertiary} />
+        </TouchableOpacity>
+
+        {/* Team Targets Button */}
+        <TouchableOpacity
+          style={styles.teamTargetsButton}
+          onPress={() => navigation.navigate('TeamTargets')}
+        >
+          <Target size={24} color={colors.success} />
+          <Text style={styles.teamTargetsButtonText}>Team Targets</Text>
           <ChevronRight size={22} color={colors.text.tertiary} />
         </TouchableOpacity>
 
@@ -889,6 +900,29 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   manageAccountsButtonText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+    marginLeft: spacing.md,
+  },
+  // Team Targets Button
+  teamTargetsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  teamTargetsButtonText: {
     flex: 1,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,

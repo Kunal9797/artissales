@@ -22,6 +22,7 @@ export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api
 export {getTeamStats} from "./api/managerStats";
 export {reviewDSR, getPendingDSRs} from "./api/dsrReview";
 export {createAccount, getAccountsList, updateAccount} from "./api/accounts";
+export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";
@@ -30,6 +31,7 @@ export {leadWebhook} from "./webhooks/lead";
 export {checkSLAViolations} from "./scheduled/slaEscalator";
 export {compileDSRReports} from "./scheduled/dsrCompiler";
 export {processOutboxEvents} from "./scheduled/outboxProcessor";
+export {targetAutoRenewScheduled} from "./scheduled/targetAutoRenew";
 
 // Firestore Triggers
 export {onLeadCreated} from "./triggers/onLeadCreated";

@@ -26,6 +26,7 @@ import {
   Users,
   Edit,
   X,
+  Target as TargetIcon,
 } from 'lucide-react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { colors, spacing, typography } from '../../theme';
@@ -347,12 +348,27 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           >
             <ArrowLeft size={24} color={colors.text.inverse} />
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={handleEditPress}
-          >
-            <Edit size={20} color={colors.text.inverse} />
-          </TouchableOpacity>
+          <View style={styles.headerRightButtons}>
+            <TouchableOpacity
+              style={styles.targetButton}
+              onPress={() => {
+                const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+                navigation.navigate('SetTarget', {
+                  userId: userId,
+                  userName: userData?.name,
+                  currentMonth,
+                });
+              }}
+            >
+              <TargetIcon size={20} color={colors.text.inverse} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={handleEditPress}
+            >
+              <Edit size={20} color={colors.text.inverse} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.headerMain}>
@@ -874,6 +890,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   backButton: {
+    padding: spacing.xs,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  targetButton: {
     padding: spacing.xs,
   },
   editButton: {

@@ -554,6 +554,109 @@ export interface GetAccountsListResponse {
 }
 
 // ============================================================================
+// TARGET TYPES (Monthly Sales Targets)
+// ============================================================================
+
+export interface TargetsByCatalog {
+  "Fine Decor"?: number;
+  "Artvio"?: number;
+  "Woodrica"?: number;
+  "Artis"?: number;
+}
+
+export interface Target {
+  id: string; // Format: {userId}_{YYYY-MM}
+  userId: string; // Rep assigned this target
+  month: string; // YYYY-MM (e.g., "2025-10")
+
+  // Target by catalog (undefined = no target set for that catalog)
+  targetsByCatalog: TargetsByCatalog;
+
+  // Auto-renew settings
+  autoRenew: boolean; // If true, copy to next month automatically
+  sourceTargetId?: string; // Reference to original target (if auto-copied)
+
+  // Who set this target
+  createdBy: string; // Manager userId
+  createdByName: string; // Manager name (denormalized)
+
+  // Metadata
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Target progress (calculated from sheetsSales)
+export interface TargetProgress {
+  catalog: CatalogType;
+  target: number;
+  achieved: number;
+  percentage: number; // 0-100
+}
+
+// ============================================================================
+// TARGET API TYPES
+// ============================================================================
+
+// Set Target
+export interface SetTargetRequest {
+  userId: string;
+  month: string; // YYYY-MM
+  targetsByCatalog: TargetsByCatalog;
+  autoRenew: boolean;
+  updateFutureMonths?: boolean; // For editing existing auto-renewed targets
+}
+
+export interface SetTargetResponse {
+  ok: true;
+  targetId: string;
+  message: string;
+}
+
+// Get Target
+export interface GetTargetRequest {
+  userId: string;
+  month: string; // YYYY-MM
+}
+
+export interface GetTargetResponse {
+  ok: true;
+  target: Target | null;
+  progress?: TargetProgress[]; // Only if target exists
+}
+
+// Get User Targets (for manager to see all team targets)
+export interface GetUserTargetsRequest {
+  month: string; // YYYY-MM
+}
+
+export interface UserTargetSummary {
+  userId: string;
+  userName: string;
+  territory: string;
+  target: Target | null;
+  progress: TargetProgress[];
+  totalAchieved: number;
+  totalTarget: number;
+  overallPercentage: number;
+}
+
+export interface GetUserTargetsResponse {
+  ok: true;
+  targets: UserTargetSummary[];
+}
+
+// Stop Auto Renew
+export interface StopAutoRenewRequest {
+  userId: string;
+  month: string; // YYYY-MM - stop from this month onwards
+}
+
+export interface StopAutoRenewResponse {
+  ok: true;
+  message: string;
+}
+
+// ============================================================================
 // UTILITY TYPES
 // ============================================================================
 

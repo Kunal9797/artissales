@@ -20,6 +20,10 @@ import {
   CreateAccountRequest,
   GetAccountsListRequest,
   UpdateAccountRequest,
+  SetTargetRequest,
+  GetTargetRequest,
+  GetUserTargetsRequest,
+  StopAutoRenewRequest,
 } from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
@@ -41,30 +45,42 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
     throw new ApiError('Not authenticated', 401);
   }
 
-  console.log(`[API] Calling ${endpoint} with data:`, JSON.stringify(data));
+  const url = `${API_BASE_URL}/${endpoint}`;
+  console.log(`[API] Calling ${endpoint}`);
+  console.log(`[API] URL: ${url}`);
+  console.log(`[API] Data:`, JSON.stringify(data, null, 2));
 
-  const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
 
-  const responseData = await response.json();
-  console.log(`[API] ${endpoint} response (${response.status}):`, JSON.stringify(responseData));
+    console.log(`[API] ${endpoint} response status: ${response.status}`);
 
-  if (!response.ok) {
-    console.error(`[API] ${endpoint} error:`, JSON.stringify(responseData));
-    throw new ApiError(
-      responseData.error || 'API request failed',
-      response.status,
-      responseData
-    );
+    const responseData = await response.json();
+    console.log(`[API] ${endpoint} response data:`, JSON.stringify(responseData, null, 2));
+
+    if (!response.ok) {
+      console.error(`[API] ${endpoint} error:`, JSON.stringify(responseData));
+      throw new ApiError(
+        responseData.error || 'API request failed',
+        response.status,
+        responseData
+      );
+    }
+
+    return responseData;
+  } catch (error: any) {
+    console.error(`[API] ${endpoint} fetch error:`, error);
+    console.error(`[API] Error name: ${error.name}`);
+    console.error(`[API] Error message: ${error.message}`);
+    throw error;
   }
-
-  return responseData;
 }
 
 export const api = {
@@ -151,5 +167,22 @@ export const api = {
     });
 
     return { user: response.user };
+  },
+
+  // Target Management APIs
+  setTarget: async (data: SetTargetRequest) => {
+    return callFunction('setTarget', data);
+  },
+
+  getTarget: async (data: GetTargetRequest) => {
+    return callFunction('getTarget', data);
+  },
+
+  getUserTargets: async (data: GetUserTargetsRequest) => {
+    return callFunction('getUserTargets', data);
+  },
+
+  stopAutoRenew: async (data: StopAutoRenewRequest) => {
+    return callFunction('stopAutoRenew', data);
   },
 };

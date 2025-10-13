@@ -9,6 +9,7 @@ import {
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Logo } from '../components/ui';
+import { TargetProgressCard } from '../components/TargetProgressCard';
 import { colors, spacing, typography, shadows } from '../theme';
 import {
   MapPin,
@@ -81,6 +82,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
 
+        {/* Target Progress Card with Log Button */}
+        {user?.uid && (
+          <TargetProgressCard
+            userId={user.uid}
+            month={new Date().toISOString().substring(0, 7)}
+            onLogPress={() => navigation.navigate('SheetsEntry')}
+            style={{ marginBottom: spacing.md }}
+          />
+        )}
+
         {/* Feature Cards with Lucide Icons */}
         <Card elevation="md" onPress={() => navigation.navigate('Attendance')} style={styles.menuCard}>
           <View style={styles.menuCardContent}>
@@ -108,16 +119,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <IndianRupee size={24} color={colors.accent} />
             </View>
             <Text style={styles.menuCardText}>Report Expense</Text>
-          </View>
-          <ChevronRight size={24} color={colors.text.tertiary} />
-        </Card>
-
-        <Card elevation="md" onPress={() => navigation.navigate('SheetsEntry')} style={styles.menuCard}>
-          <View style={styles.menuCardContent}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
-              <FileBarChart size={24} color={colors.accent} />
-            </View>
-            <Text style={styles.menuCardText}>Log Sheet Sales</Text>
           </View>
           <ChevronRight size={24} color={colors.text.tertiary} />
         </Card>

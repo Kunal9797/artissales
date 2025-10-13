@@ -2866,3 +2866,79 @@ Visits now broken down by 4 categories:
 5. Update any documentation or training materials
 
 ---
+
+## Performance Optimization - Target Progress (Future)
+
+**Date:** Oct 13, 2025
+
+### Current Implementation
+
+The `getTarget` Cloud Function currently:
+1. Reads the `targets` document (1 read)
+2. Queries `sheetsSales` collection for the entire month (N reads where N = # of sales entries)
+3. Aggregates progress on-demand every time the API is called
+
+**Performance Issues:**
+- Emulator shows visible delay (~1-2s)
+- Every API call re-calculates progress from scratch
+- Query scans all sales documents for user/month
+- Not offline-friendly (requires cloud function call)
+
+### Quick Fixes Applied ✅
+
+1. **Loading Skeleton** - Added visual placeholder while loading (better UX)
+2. **Firestore Index** - Composite index already exists for `userId + date` query
+
+### Recommended Optimization (TODO)
+
+**Cache Progress in Target Document** - Store pre-computed monthly totals
+
+**Approach:**
+1. Add `progress` field to `targets` collection document
+2. When a sheet sale is logged, trigger Cloud Function to update the cached progress
+3. `getTarget` just reads the document (no query needed)
+
+**Benefits:**
+- ⚡ Instant loading (1 document read vs N+1 operations)
+- 📴 Offline-friendly (can cache document locally)
+- 💰 Cheaper (fewer Firestore reads)
+- 🎯 Real-time updates via trigger
+
+**Implementation:**
+```typescript
+// targets/{userId}_{month} document structure
+{
+  userId: string;
+  month: string;
+  targetsByCatalog: {...};
+  progress: [  // CACHED - updated by trigger
+    {
+      catalog: 'Fine Decor',
+      target: 1000,
+      achieved: 450,  // Updated by onSheetsSaleCreated trigger
+      percentage: 45
+    }
+  ],
+  lastUpdated: Timestamp
+}
+```
+
+**Trigger Function:**
+```typescript
+// triggers/onSheetsSaleCreated.ts
+export const onSheetsSaleCreated = onDocumentCreated('sheetsSales/{saleId}', async (event) => {
+  const sale = event.data.data();
+  const month = sale.date.substring(0, 7); // YYYY-MM
+  const targetId = `${sale.userId}_${month}`;
+
+  // Update cached progress in target document
+  await admin.firestore().collection('targets').doc(targetId).update({
+    [`progress.${sale.catalog}.achieved`]: FieldValue.increment(sale.sheetsCount),
+    lastUpdated: FieldValue.serverTimestamp()
+  });
+});
+```
+
+**Priority:** Medium (apply after V1 launch, part of broader offline optimization)
+
+---

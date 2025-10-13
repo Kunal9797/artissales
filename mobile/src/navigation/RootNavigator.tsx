@@ -11,7 +11,7 @@ import { AttendanceScreen } from '../screens/attendance/AttendanceScreen';
 import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
 import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
 import { ExpenseEntryScreen } from '../screens/expenses/ExpenseEntryScreen';
-import { SheetsEntryScreen } from '../screens/sheets/SheetsEntryScreen';
+import { CompactSheetsEntryScreen } from '../screens/sheets/CompactSheetsEntryScreen';
 import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
@@ -24,6 +24,8 @@ import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
 import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
 import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { EditAccountScreen } from '../screens/EditAccountScreen';
+import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
+import { TeamTargetsScreen } from '../screens/manager/TeamTargetsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -44,6 +46,8 @@ export type RootStackParamList = {
   AccountsList: undefined;
   AddAccount: { preSelectedType?: string; onAccountCreated?: (accountId: string) => void };
   EditAccount: { account: any; onAccountUpdated?: () => void };
+  SetTarget: { userId: string; userName: string; currentMonth: string };
+  TeamTargets: undefined;
   Login: undefined;
   OTP: undefined;
 };
@@ -80,7 +84,7 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
           <Stack.Screen name="LogVisit" component={LogVisitScreen} />
           <Stack.Screen name="ExpenseEntry" component={ExpenseEntryScreen} />
-          <Stack.Screen name="SheetsEntry" component={SheetsEntryScreen} />
+          <Stack.Screen name="SheetsEntry" component={CompactSheetsEntryScreen} />
           <Stack.Screen name="DSR" component={DSRScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
@@ -92,6 +96,8 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="AccountsList" component={AccountsListScreen} />
           <Stack.Screen name="AddAccount" component={AddAccountScreen} />
           <Stack.Screen name="EditAccount" component={EditAccountScreen} />
+          <Stack.Screen name="SetTarget" component={SetTargetScreen} />
+          <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

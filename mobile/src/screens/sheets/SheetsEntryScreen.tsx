@@ -9,8 +9,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { getAuth } from '@react-native-firebase/auth';
 import { api } from '../../services/api';
 import { useAccounts } from '../../hooks/useAccounts';
+import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows } from '../../theme';
 
 interface SheetsEntryScreenProps {
@@ -35,6 +37,8 @@ const CATALOGS: { value: CatalogType; label: string; color: string }[] = [
 export const SheetsEntryScreen: React.FC<SheetsEntryScreenProps> = ({ navigation }) => {
   const { accounts } = useAccounts();
   const distributors = accounts.filter(acc => acc.type === 'distributor');
+  const authInstance = getAuth();
+  const user = authInstance.currentUser;
 
   // Multiple catalog entries
   const [entries, setEntries] = useState<CatalogEntry[]>([]);
@@ -150,6 +154,16 @@ export const SheetsEntryScreen: React.FC<SheetsEntryScreenProps> = ({ navigation
         <Text style={styles.title}>Log Sheet Sales</Text>
         <Text style={styles.subtitle}>Today: {new Date().toLocaleDateString()}</Text>
       </View>
+
+      {/* Detailed Target Progress Section */}
+      {user?.uid && (
+        <View style={{ marginHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.md }}>
+          <DetailedTargetProgressCard
+            userId={user.uid}
+            month={new Date().toISOString().substring(0, 7)}
+          />
+        </View>
+      )}
 
       {/* Added Entries List */}
       {entries.length > 0 && (
