@@ -195,7 +195,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
           <TargetProgressCard
             userId={user.uid}
             month={new Date().toISOString().substring(0, 7)}
-            onLogPress={() => navigation.navigate('SheetsEntry')}
             style={{ marginBottom: spacing.md }}
           />
         )}
@@ -205,7 +204,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
           <VisitProgressCard
             userId={user.uid}
             month={new Date().toISOString().substring(0, 7)}
-            onLogPress={() => navigation.navigate('SelectAccount')}
             style={{ marginBottom: spacing.md }}
           />
         )}

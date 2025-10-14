@@ -63,30 +63,32 @@ export function KpiCard({ title, value, delta, icon }: KpiCardProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
+    padding: spacing.sm,
     borderRadius: spacing.borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border.default,
-    minWidth: 150,
+    minWidth: 100,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
   title: {
-    ...typography.styles.labelSmall,
+    fontSize: 10,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     textTransform: 'uppercase',
   },
   iconContainer: {
-    marginLeft: spacing.xs,
+    marginLeft: spacing.xs / 2,
   },
   value: {
-    ...typography.styles.h3,
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
   },
   deltaContainer: {
     flexDirection: 'row',
@@ -94,7 +96,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   deltaText: {
-    ...typography.styles.labelSmall,
+    fontSize: 10,
     fontWeight: typography.fontWeight.semiBold,
   },
 });

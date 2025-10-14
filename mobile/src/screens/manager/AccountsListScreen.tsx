@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-native';
@@ -173,12 +174,16 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
 
       {/* KPI Cards */}
       {!loading && !error && accounts.length > 0 && (
-        <View style={styles.kpiRow}>
-          <KpiCard title="Total" value={totalAccounts} icon={<Building2 size={20} color={colors.primary} />} />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.kpiRow}
+        >
+          <KpiCard title="Total" value={totalAccounts} icon={<Building2 size={16} color={colors.primary} />} />
           <KpiCard title="Distributors" value={distributorCount} />
           <KpiCard title="Dealers" value={dealerCount} />
           <KpiCard title="Architects" value={architectCount} />
-        </View>
+        </ScrollView>
       )}
 
       {/* Search Bar */}
@@ -279,11 +284,10 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
   },
   kpiRow: {
-    flexDirection: 'row',
     paddingHorizontal: spacing.screenPadding,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.sm,
-    overflow: 'scroll',
+    flexDirection: 'row',
   },
   searchContainer: {
     flexDirection: 'row',
