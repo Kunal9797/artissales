@@ -10,6 +10,7 @@ import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Logo } from '../components/ui';
 import { TargetProgressCard } from '../components/TargetProgressCard';
+import { VisitProgressCard } from '../components/VisitProgressCard';
 import { colors, spacing, typography, shadows } from '../theme';
 import {
   MapPin,
@@ -92,6 +93,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           />
         )}
 
+        {/* Visit Progress Card with Log Button */}
+        {user?.uid && (
+          <VisitProgressCard
+            userId={user.uid}
+            month={new Date().toISOString().substring(0, 7)}
+            onLogPress={() => navigation.navigate('SelectAccount')}
+            style={{ marginBottom: spacing.md }}
+          />
+        )}
+
         {/* Feature Cards with Lucide Icons */}
         <Card elevation="md" onPress={() => navigation.navigate('Attendance')} style={styles.menuCard}>
           <View style={styles.menuCardContent}>
@@ -99,16 +110,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <MapPin size={24} color={colors.accent} />
             </View>
             <Text style={styles.menuCardText}>Attendance</Text>
-          </View>
-          <ChevronRight size={24} color={colors.text.tertiary} />
-        </Card>
-
-        <Card elevation="md" onPress={() => navigation.navigate('SelectAccount')} style={styles.menuCard}>
-          <View style={styles.menuCardContent}>
-            <View style={[styles.iconContainer, { backgroundColor: colors.accent + '20' }]}>
-              <Building2 size={24} color={colors.accent} />
-            </View>
-            <Text style={styles.menuCardText}>Log Visit</Text>
           </View>
           <ChevronRight size={24} color={colors.text.tertiary} />
         </Card>

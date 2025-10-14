@@ -68,6 +68,7 @@ export const targetAutoRenewScheduled = onSchedule({
         userId: oldTarget.userId,
         month: currentMonth,
         targetsByCatalog: oldTarget.targetsByCatalog,
+        targetsByAccountType: oldTarget.targetsByAccountType, // Copy visit targets
         autoRenew: oldTarget.autoRenew,
         sourceTargetId: oldTarget.id,
         createdBy: oldTarget.createdBy,

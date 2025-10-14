@@ -241,11 +241,18 @@ export interface TargetsByCatalog {
   'Artis'?: number;
 }
 
+export interface TargetsByAccountType {
+  dealer?: number;
+  architect?: number;
+  contractor?: number;
+}
+
 export interface Target {
   id: string;
   userId: string;
   month: string; // YYYY-MM
   targetsByCatalog: TargetsByCatalog;
+  targetsByAccountType?: TargetsByAccountType;
   autoRenew: boolean;
   sourceTargetId?: string;
   createdBy: string;
@@ -261,11 +268,19 @@ export interface TargetProgress {
   percentage: number;
 }
 
+export interface VisitProgress {
+  accountType: 'dealer' | 'architect' | 'contractor';
+  target: number;
+  achieved: number;
+  percentage: number;
+}
+
 // Target API Types
 export interface SetTargetRequest {
   userId: string;
   month: string;
   targetsByCatalog: TargetsByCatalog;
+  targetsByAccountType?: TargetsByAccountType;
   autoRenew: boolean;
   updateFutureMonths?: boolean;
 }
@@ -285,6 +300,7 @@ export interface GetTargetResponse {
   ok: true;
   target: Target | null;
   progress?: TargetProgress[];
+  visitProgress?: VisitProgress[];
 }
 
 export interface GetUserTargetsRequest {

@@ -22,6 +22,7 @@ import {
   StopAutoRenewResponse,
   Target,
   TargetProgress,
+  VisitProgress,
   UserTargetSummary,
   CatalogType,
   ApiError,
@@ -93,6 +94,62 @@ async function calculateProgress(
   return progress;
 }
 
+// Calculate visit progress
+async function calculateVisitProgress(
+  userId: string,
+  month: string,
+  targetsByAccountType: {[key: string]: number | undefined}
+): Promise<VisitProgress[]> {
+  const progress: VisitProgress[] = [];
+
+  // Get start and end dates for the month
+  const [year, monthNum] = month.split("-");
+  const startOfMonth = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+  const endOfMonth = new Date(parseInt(year), parseInt(monthNum), 0, 23, 59, 59, 999);
+
+  // Query visits for this user in this month
+  const visitsSnapshot = await db
+    .collection("visits")
+    .where("userId", "==", userId)
+    .where("timestamp", ">=", Timestamp.fromDate(startOfMonth))
+    .where("timestamp", "<=", Timestamp.fromDate(endOfMonth))
+    .get();
+
+  // Count visits by account type (count ALL purposes)
+  const achievedByType: Record<string, number> = {
+    "dealer": 0,
+    "architect": 0,
+    "contractor": 0,
+  };
+
+  visitsSnapshot.forEach((doc) => {
+    const visit = doc.data();
+    const accountType = visit.accountType;
+    if (achievedByType[accountType] !== undefined) {
+      achievedByType[accountType]++;
+    }
+  });
+
+  // Build progress array for account types that have targets
+  const accountTypes: Array<"dealer" | "architect" | "contractor"> = ["dealer", "architect", "contractor"];
+  accountTypes.forEach((type) => {
+    if (targetsByAccountType[type] !== undefined && targetsByAccountType[type]! > 0) {
+      const target = targetsByAccountType[type]!;
+      const achieved = achievedByType[type] || 0;
+      const percentage = target > 0 ? Math.round((achieved / target) * 100) : 0;
+
+      progress.push({
+        accountType: type,
+        target,
+        achieved,
+        percentage,
+      });
+    }
+  });
+
+  return progress;
+}
+
 // ============================================================================
 // SET TARGET
 // ============================================================================
@@ -135,7 +192,7 @@ export const setTarget = onRequest(async (request, response) => {
     }
 
     // 3. Validate request
-    const {userId, month, targetsByCatalog, autoRenew, updateFutureMonths} = request.body as SetTargetRequest;
+    const {userId, month, targetsByCatalog, targetsByAccountType, autoRenew, updateFutureMonths} = request.body as SetTargetRequest;
 
     if (!userId || !month || !targetsByCatalog) {
       const error: ApiError = {
@@ -169,7 +226,7 @@ export const setTarget = onRequest(async (request, response) => {
       return;
     }
 
-    // Validate target values (must be > 0)
+    // Validate sheet sales target values (must be > 0)
     const catalogKeys = Object.keys(targetsByCatalog) as CatalogType[];
     for (const catalog of catalogKeys) {
       const value = targetsByCatalog[catalog];
@@ -182,6 +239,37 @@ export const setTarget = onRequest(async (request, response) => {
         response.status(400).json(error);
         return;
       }
+    }
+
+    // Validate visit target values (must be > 0)
+    if (targetsByAccountType) {
+      const accountTypes = Object.keys(targetsByAccountType) as Array<keyof typeof targetsByAccountType>;
+      for (const type of accountTypes) {
+        const value = targetsByAccountType[type];
+        if (value !== undefined && (value <= 0 || !Number.isFinite(value))) {
+          const error: ApiError = {
+            ok: false,
+            error: `Invalid target value for ${type}. Must be > 0`,
+            code: "INVALID_TARGET_VALUE",
+          };
+          response.status(400).json(error);
+          return;
+        }
+      }
+    }
+
+    // Validate: at least ONE target (sheets OR visits) must be set
+    const hasSheetTarget = catalogKeys.some(k => targetsByCatalog[k] !== undefined && targetsByCatalog[k]! > 0);
+    const hasVisitTarget = targetsByAccountType && Object.values(targetsByAccountType).some(v => v !== undefined && v > 0);
+
+    if (!hasSheetTarget && !hasVisitTarget) {
+      const error: ApiError = {
+        ok: false,
+        error: "At least one target (sheets or visits) must be set",
+        code: "NO_TARGETS_SET",
+      };
+      response.status(400).json(error);
+      return;
     }
 
     // 4. Create or update target
@@ -199,6 +287,11 @@ export const setTarget = onRequest(async (request, response) => {
       createdByName: caller?.name || "Manager",
       updatedAt: FieldValue.serverTimestamp() as Timestamp,
     };
+
+    // Only include targetsByAccountType if it has values
+    if (targetsByAccountType && Object.keys(targetsByAccountType).length > 0) {
+      targetData.targetsByAccountType = targetsByAccountType;
+    }
 
     if (existingTarget.exists) {
       // Update existing target
@@ -339,14 +432,36 @@ export const getTarget = onRequest(async (request, response) => {
 
     const target = targetDoc.data() as Target;
 
-    // 5. Calculate progress
+    logger.info("[getTarget] Target found:", {
+      id: target.id,
+      userId: target.userId,
+      month: target.month,
+      hasCatalogTargets: !!target.targetsByCatalog,
+      hasVisitTargets: !!target.targetsByAccountType,
+      targetsByAccountType: target.targetsByAccountType,
+    });
+
+    // 5. Calculate progress for sheet sales
     const progress = await calculateProgress(userId, month, target.targetsByCatalog as {[key: string]: number | undefined});
+
+    // 6. Calculate visit progress (if visit targets exist)
+    let visitProgress: VisitProgress[] | undefined;
+    if (target.targetsByAccountType) {
+      logger.info("[getTarget] Calculating visit progress for:", target.targetsByAccountType);
+      visitProgress = await calculateVisitProgress(userId, month, target.targetsByAccountType as {[key: string]: number | undefined});
+      logger.info("[getTarget] Visit progress calculated:", visitProgress);
+    } else {
+      logger.info("[getTarget] No targetsByAccountType found, skipping visit progress");
+    }
 
     const successResponse: GetTargetResponse = {
       ok: true,
       target,
       progress,
+      visitProgress,
     };
+
+    logger.info("[getTarget] Sending response with visitProgress:", !!visitProgress);
     response.status(200).json(successResponse);
   } catch (error: any) {
     logger.error("[getTarget] Error:", error);

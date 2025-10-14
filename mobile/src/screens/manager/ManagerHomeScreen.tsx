@@ -26,6 +26,8 @@ import type { DateRangeOption } from '../../components/DateRangeModal';
 import { api } from '../../services/api';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
+import { TargetProgressCard } from '../../components/TargetProgressCard';
+import { VisitProgressCard } from '../../components/VisitProgressCard';
 
 interface ManagerHomeScreenProps {
   navigation: any;
@@ -188,6 +190,26 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
             <UserPlus size={28} color={colors.info} />
           </TouchableOpacity>
         </View>
+
+        {/* Target Progress Card */}
+        {user?.uid && (
+          <TargetProgressCard
+            userId={user.uid}
+            month={new Date().toISOString().substring(0, 7)}
+            onLogPress={() => navigation.navigate('SheetsEntry')}
+            style={{ marginBottom: spacing.md }}
+          />
+        )}
+
+        {/* Visit Progress Card */}
+        {user?.uid && (
+          <VisitProgressCard
+            userId={user.uid}
+            month={new Date().toISOString().substring(0, 7)}
+            onLogPress={() => navigation.navigate('SelectAccount')}
+            style={{ marginBottom: spacing.md }}
+          />
+        )}
 
         {/* Manage Accounts Button */}
         <TouchableOpacity

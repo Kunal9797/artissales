@@ -3,8 +3,9 @@
  */
 
 import {Request} from "firebase-functions/v2/https";
-import {auth} from "firebase-admin";
+import {auth, firestore} from "firebase-admin";
 import {ApiError} from "../types";
+import * as logger from "firebase-functions/logger";
 
 /**
  * Extract and verify Firebase Auth token from request
@@ -56,13 +57,72 @@ export async function requireAuth(
 
 /**
  * Check if user has required role
- * (This will require fetching user document from Firestore)
+ * Fetches user document from Firestore and verifies role
+ *
+ * @param uid - User ID to check
+ * @param allowedRoles - Array of allowed roles (e.g., ['area_manager', 'admin'])
+ * @returns true if user has one of the allowed roles, false otherwise
  */
 export async function hasRole(
   uid: string,
   allowedRoles: string[]
 ): Promise<boolean> {
-  // TODO: Implement role checking by fetching user document
-  // For now, return true (implement after Firestore setup)
-  return true;
+  try {
+    // Fetch user document from Firestore
+    const userDoc = await firestore().collection("users").doc(uid).get();
+
+    // Return false if user doesn't exist
+    if (!userDoc.exists) {
+      logger.warn("User not found in hasRole check", {uid});
+      return false;
+    }
+
+    // Get user data and check role
+    const userData = userDoc.data();
+    const userRole = userData?.role;
+
+    if (!userRole) {
+      logger.warn("User has no role defined", {uid});
+      return false;
+    }
+
+    // Check if user's role is in allowed roles
+    const hasPermission = allowedRoles.includes(userRole);
+
+    if (!hasPermission) {
+      logger.info("User role not permitted", {
+        uid,
+        userRole,
+        allowedRoles,
+      });
+    }
+
+    return hasPermission;
+  } catch (error) {
+    logger.error("Error checking user role", {uid, error});
+    // Return false on error (fail-safe)
+    return false;
+  }
+}
+
+/**
+ * Check if user is a manager (any level)
+ * Convenience function for common role check
+ */
+export async function isManager(uid: string): Promise<boolean> {
+  return hasRole(uid, ["area_manager", "zonal_head", "national_head", "admin"]);
+}
+
+/**
+ * Check if user is admin
+ */
+export async function isAdmin(uid: string): Promise<boolean> {
+  return hasRole(uid, ["admin"]);
+}
+
+/**
+ * Check if user is national head or admin
+ */
+export async function isNationalHeadOrAdmin(uid: string): Promise<boolean> {
+  return hasRole(uid, ["national_head", "admin"]);
 }

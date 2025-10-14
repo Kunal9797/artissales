@@ -64,9 +64,20 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
     return null; // Don't show error, fail silently
   }
 
+  // No targets - show "Log Sheet Sales" prompt
   if (!progress || progress.length === 0) {
-    console.log('[TargetProgressCard] No progress data, not rendering');
-    return null; // Don't show if no target
+    console.log('[TargetProgressCard] No progress data, showing empty state');
+    return (
+      <TouchableOpacity
+        style={[styles.emptyCard, style]}
+        onPress={onLogPress}
+        activeOpacity={onLogPress ? 0.7 : 1}
+        disabled={!onLogPress}
+      >
+        <Target size={24} color={colors.accent} strokeWidth={2.5} />
+        <Text style={styles.emptyText}>Log Sheet Sales</Text>
+      </TouchableOpacity>
+    );
   }
 
   console.log('[TargetProgressCard] Rendering progress data');
@@ -92,7 +103,7 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Target size={20} color={colors.accent} />
-          <Text style={styles.headerText}>Monthly Target</Text>
+          <Text style={styles.headerText}>Sales Target</Text>
         </View>
         {onLogPress && (
           <View style={styles.logButton}>
@@ -135,6 +146,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border.default,
+  },
+  // Empty state (no targets)
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  emptyText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
   },
   header: {
     flexDirection: 'row',

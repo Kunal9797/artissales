@@ -74,15 +74,11 @@ export const TeamTargetsScreen: React.FC<TeamTargetsScreenProps> = ({ navigation
       <TouchableOpacity
         style={styles.card}
         onPress={() => {
-          if (hasTarget) {
-            navigation.navigate('UserDetail', { userId: item.userId });
-          } else {
-            navigation.navigate('SetTarget', {
-              userId: item.userId,
-              userName: item.userName,
-              currentMonth: month,
-            });
-          }
+          navigation.navigate('SetTarget', {
+            userId: item.userId,
+            userName: item.userName,
+            currentMonth: month,
+          });
         }}
       >
         <View style={styles.cardHeader}>

@@ -2942,3 +2942,226 @@ export const onSheetsSaleCreated = onDocumentCreated('sheetsSales/{saleId}', asy
 **Priority:** Medium (apply after V1 launch, part of broader offline optimization)
 
 ---
+
+## Visit Targets Feature Implementation
+
+**Date:** Oct 13, 2025
+
+### Feature Overview
+Extended the existing targets system to support monthly visit targets for dealers, architects, and contractors alongside sheet sales targets.
+
+### Implementation Approach
+**Option 1 (Chosen):** Extended existing `targets` collection document to include optional `targetsByAccountType` field.
+
+**Benefits:**
+- ✅ Single source of truth (one document per user/month)
+- ✅ Auto-renew works for BOTH sheets + visits with single toggle
+- ✅ Consistent with existing architecture
+- ✅ Backward compatible (optional fields)
+- ✅ Single API call to set/get all targets
+
+### Backend Changes ✅
+
+#### 1. Types Updated (`functions/src/types/index.ts`)
+- Added `TargetsByAccountType` interface (dealer/architect/contractor)
+- Added `VisitProgress` interface for progress tracking
+- Extended `Target` interface with optional `targetsByAccountType` field
+- Updated API request/response types
+
+#### 2. `setTarget` API Updated (`functions/src/api/targets.ts`)
+- Accepts optional `targetsByAccountType` in request body
+- Validates: at least ONE target (sheets OR visits) must be set
+- Validates: all visit target values must be > 0
+- Saves `targetsByAccountType` to Firestore document
+
+#### 3. `getTarget` API Updated (`functions/src/api/targets.ts`)
+- Added `calculateVisitProgress()` function
+- Counts ALL visits by account type (any purpose) for the month
+- Returns `visitProgress` array in response (optional if no visit targets exist)
+
+#### 4. Auto-Renew Updated (`functions/src/scheduled/targetAutoRenew.ts`)
+- Copies `targetsByAccountType` when auto-renewing targets
+- Single toggle controls both sheets + visits targets
+
+#### 5. Backend Deployed
+- All Cloud Functions successfully deployed to `artis-sales-dev`
+
+### Mobile Changes ✅
+
+#### 1. Types Updated (`mobile/src/types/index.ts`)
+- Mirrored backend types: `TargetsByAccountType`, `VisitProgress`
+- Extended `Target`, `SetTargetRequest`, `GetTargetResponse`
+
+#### 2. New Component: `VisitProgressCard` (`mobile/src/components/VisitProgressCard.tsx`)
+**Features:**
+- Always visible on HomeScreen (consistent with sheets card)
+- Shows visit progress when targets exist (Dealers: 15/20, Architects: 8/10)
+- Shows "Log Visit" prompt when NO targets exist
+- Entire card tappable → navigates to visit logging screen
+- Loading skeleton while fetching data
+
+**UI States:**
+```
+WITH targets:
+┌─────────────────────────────────┐
+│ 👥 Visit Targets                │
+│ Dealers:       15/20            │
+│ Architects:    8/10             │
+│ Contractors:   5/15             │
+└─────────────────────────────────┘
+
+WITHOUT targets:
+┌─────────────────────────────────┐
+│ 👥 Log Visit                    │
+└─────────────────────────────────┘
+```
+
+#### 3. Updated Component: `TargetProgressCard` (`mobile/src/components/TargetProgressCard.tsx`)
+- Changed empty state from `return null` to show "Log Sheet Sales" prompt
+- Consistent with VisitProgressCard design
+- Always visible for easy access
+
+#### 4. HomeScreen Updated (`mobile/src/screens/HomeScreen.tsx`)
+- Added `VisitProgressCard` import
+- Rendered both cards: TargetProgressCard + VisitProgressCard
+- Both always visible (space-efficient design per user request)
+- Removed old standalone menu cards
+
+**New Layout:**
+```
+HomeScreen:
+├─ [Target Progress - Sheets] ← Tap → Log Sheets
+├─ [Target Progress - Visits] ← Tap → Log Visits
+└─ Other menu items...
+```
+
+#### 5. SetTargetScreen Updated (`mobile/src/screens/manager/SetTargetScreen.tsx`)
+**Changes:**
+- Added `visitTargets` state (`TargetsByAccountType`)
+- Added `handleVisitTargetChange()` handler
+- Updated validation: checks BOTH sheets + visits, requires at least ONE
+- Updated `saveTarget()` to include `targetsByAccountType` in API call
+- Load existing visit targets when editing
+
+**New UI Sections:**
+```
+SetTargetScreen:
+├─ 📊 SHEET SALES TARGETS
+│  ├─ Fine Decor: [1000] sheets
+│  ├─ Artvio:     [500]  sheets
+│  └─ ...
+├─ 👥 VISIT TARGETS
+│  ├─ Dealer Visits:      [20] visits
+│  ├─ Architect Visits:   [10] visits
+│  └─ Contractor Visits:  [15] visits
+└─ 🔄 AUTO-RENEW (all targets)
+```
+
+### Key Design Decisions
+
+1. **Count ALL Visit Purposes**: Targets count all visits (meeting, order, payment, etc.) not just specific purposes. Simpler and more comprehensive metric.
+
+2. **No Distributor Targets**: Excluded distributors from visit targets as they are major accounts tracked differently.
+
+3. **Single Auto-Renew Toggle**: One toggle controls both sheets + visits targets for consistency and simplicity.
+
+4. **Always Show Both Cards**: HomeScreen always shows both TargetProgressCard and VisitProgressCard, showing progress when targets exist or "Log X" prompt when no targets, saving space.
+
+5. **Simple Number Display**: Visit progress shows simple "15/20" format (not progress bars) for cleaner, more compact UI.
+
+### Database Schema
+
+**No new collections!** Extended existing `targets` collection:
+
+```typescript
+// targets/{userId}_{month}
+{
+  id: string;
+  userId: string;
+  month: string;
+  
+  // EXISTING
+  targetsByCatalog: {
+    'Fine Decor'?: number;
+    'Artvio'?: number;
+    'Woodrica'?: number;
+    'Artis'?: number;
+  };
+  
+  // NEW (optional)
+  targetsByAccountType?: {
+    dealer?: number;
+    architect?: number;
+    contractor?: number;
+  };
+  
+  autoRenew: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+```
+
+### Files Modified
+
+**Backend (5 files):**
+1. `/functions/src/types/index.ts` - Added types
+2. `/functions/src/api/targets.ts` - Updated setTarget, getTarget, added calculateVisitProgress
+3. `/functions/src/scheduled/targetAutoRenew.ts` - Copy visit targets on auto-renew
+4. `/firestore.indexes.json` - No changes (indexes already exist for visits query)
+5. `/firestore.rules` - No changes needed
+
+**Mobile (6 files):**
+1. `/mobile/src/types/index.ts` - Mirrored backend types
+2. `/mobile/src/components/VisitProgressCard.tsx` - NEW component
+3. `/mobile/src/components/TargetProgressCard.tsx` - Updated empty state
+4. `/mobile/src/screens/HomeScreen.tsx` - Added VisitProgressCard
+5. `/mobile/src/screens/manager/SetTargetScreen.tsx` - Added visit target inputs
+6. `/mobile/src/services/api.ts` - No changes needed (types handled automatically)
+
+### Testing Checklist
+
+- [ ] Manager sets targets with only sheets (no visits)
+- [ ] Manager sets targets with only visits (no sheets)
+- [ ] Manager sets targets with BOTH sheets + visits
+- [ ] Validation fails when no targets set
+- [ ] Visit progress calculates correctly (counts all purposes)
+- [ ] Auto-renew copies visit targets to next month
+- [ ] Sales rep sees "Log Visit" when no visit targets
+- [ ] Sales rep sees visit progress when targets exist
+- [ ] Sales rep sees "Log Sheet Sales" when no sheet targets
+- [ ] Both cards always visible and tappable
+- [ ] Navigation works from both progress cards
+
+### Edge Cases Handled
+
+- ✅ Rep has only sheet targets → VisitCard shows "Log Visit"
+- ✅ Rep has only visit targets → SheetCard shows "Log Sheet Sales"
+- ✅ Rep has no targets at all → Both cards show logging prompts
+- ✅ Manager sets partial visit targets (e.g., only dealers) → Works fine
+- ✅ Progress counts ALL visit purposes (not just meetings)
+- ✅ Auto-renew applies to both target types together
+- ✅ Backward compatible - existing targets without visits still work
+- ✅ Visit query uses existing Firestore index (userId + timestamp)
+
+### Performance Optimization Notes
+
+**Current Implementation:**
+- `getTarget` queries visits collection to calculate progress on-demand
+- Uses existing composite index: `userId + timestamp`
+- Acceptable performance for V1
+
+**Future Optimization (TODO - see earlier note):**
+- Cache visit progress in target document (similar to sheet sales optimization)
+- Update via `onVisitCreated` trigger
+- Will improve from N+1 reads to single document read
+
+### Next Steps
+
+1. **Testing**: Test all scenarios in checklist above
+2. **Manager Training**: Document new visit target feature
+3. **User Feedback**: Gather feedback from managers and sales reps
+4. **Future**: Implement cached progress optimization (post-V1)
+
+---

@@ -564,6 +564,13 @@ export interface TargetsByCatalog {
   "Artis"?: number;
 }
 
+// Visit targets by account type
+export interface TargetsByAccountType {
+  dealer?: number;
+  architect?: number;
+  contractor?: number;
+}
+
 export interface Target {
   id: string; // Format: {userId}_{YYYY-MM}
   userId: string; // Rep assigned this target
@@ -571,6 +578,9 @@ export interface Target {
 
   // Target by catalog (undefined = no target set for that catalog)
   targetsByCatalog: TargetsByCatalog;
+
+  // Visit targets by account type (optional)
+  targetsByAccountType?: TargetsByAccountType;
 
   // Auto-renew settings
   autoRenew: boolean; // If true, copy to next month automatically
@@ -593,6 +603,14 @@ export interface TargetProgress {
   percentage: number; // 0-100
 }
 
+// Visit progress (calculated from visits)
+export interface VisitProgress {
+  accountType: "dealer" | "architect" | "contractor";
+  target: number;
+  achieved: number;
+  percentage: number; // 0-100
+}
+
 // ============================================================================
 // TARGET API TYPES
 // ============================================================================
@@ -602,6 +620,7 @@ export interface SetTargetRequest {
   userId: string;
   month: string; // YYYY-MM
   targetsByCatalog: TargetsByCatalog;
+  targetsByAccountType?: TargetsByAccountType; // Optional visit targets
   autoRenew: boolean;
   updateFutureMonths?: boolean; // For editing existing auto-renewed targets
 }
@@ -621,7 +640,8 @@ export interface GetTargetRequest {
 export interface GetTargetResponse {
   ok: true;
   target: Target | null;
-  progress?: TargetProgress[]; // Only if target exists
+  progress?: TargetProgress[]; // Sheet sales progress
+  visitProgress?: VisitProgress[]; // Visit progress
 }
 
 // Get User Targets (for manager to see all team targets)

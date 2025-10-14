@@ -14,17 +14,19 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ArrowLeft, Save } from 'lucide-react-native';
 import { colors, spacing, typography } from '../../theme';
 import { api } from '../../services/api';
-import { TargetsByCatalog } from '../../types';
+import { TargetsByCatalog, TargetsByAccountType } from '../../types';
 
 type SetTargetScreenProps = NativeStackScreenProps<any, 'SetTarget'>;
 
 const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis'];
+const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'contractor'];
 
 export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, route }) => {
   const { userId, userName, currentMonth } = route.params;
 
   const [month, setMonth] = useState<string>(currentMonth || getCurrentMonth());
   const [targets, setTargets] = useState<TargetsByCatalog>({});
+  const [visitTargets, setVisitTargets] = useState<TargetsByAccountType>({});
   const [autoRenew, setAutoRenew] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,14 +45,22 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
     try {
       setLoading(true);
       const response = await api.getTarget({ userId, month });
+      console.log('[SetTarget] getTarget response:', JSON.stringify(response, null, 2));
 
       if (response.ok && response.target) {
+        console.log('[SetTarget] Loading existing target:', response.target.id);
+        console.log('[SetTarget] Sheet targets:', response.target.targetsByCatalog);
+        console.log('[SetTarget] Visit targets:', response.target.targetsByAccountType);
+
         setExistingTarget(response.target);
         setTargets(response.target.targetsByCatalog);
+        setVisitTargets(response.target.targetsByAccountType || {});
         setAutoRenew(response.target.autoRenew);
       } else {
         // No existing target
+        console.log('[SetTarget] No existing target found');
         setTargets({});
+        setVisitTargets({});
         setAutoRenew(false);
         setExistingTarget(null);
       }
@@ -70,18 +80,36 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
     }));
   };
 
-  const validateTargets = (): boolean => {
-    const hasAnyTarget = Object.values(targets).some(v => v !== undefined && v > 0);
+  const handleVisitTargetChange = (accountType: keyof TargetsByAccountType, value: string) => {
+    const numValue = value === '' ? undefined : parseInt(value, 10);
+    setVisitTargets(prev => ({
+      ...prev,
+      [accountType]: numValue,
+    }));
+  };
 
-    if (!hasAnyTarget) {
-      Alert.alert('Error', 'Please set at least one catalog target');
+  const validateTargets = (): boolean => {
+    const hasSheetTarget = Object.values(targets).some(v => v !== undefined && v > 0);
+    const hasVisitTarget = Object.values(visitTargets).some(v => v !== undefined && v > 0);
+
+    if (!hasSheetTarget && !hasVisitTarget) {
+      Alert.alert('Error', 'Please set at least one target (sheets or visits)');
       return false;
     }
 
-    // Check all defined targets are > 0
+    // Check all defined sheet targets are > 0
     for (const [catalog, value] of Object.entries(targets)) {
       if (value !== undefined && (value <= 0 || !Number.isFinite(value))) {
         Alert.alert('Error', `Invalid target value for ${catalog}. Must be > 0`);
+        return false;
+      }
+    }
+
+    // Check all defined visit targets are > 0
+    for (const [type, value] of Object.entries(visitTargets)) {
+      if (value !== undefined && (value <= 0 || !Number.isFinite(value))) {
+        const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+        Alert.alert('Error', `Invalid target value for ${capitalize(type)}. Must be > 0`);
         return false;
       }
     }
@@ -124,6 +152,7 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
         userId,
         month,
         targetsByCatalog: targets,
+        targetsByAccountType: visitTargets,
         autoRenew,
         updateFutureMonths,
       });
@@ -215,9 +244,9 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
             <Text style={styles.monthValue}>{formatMonth(month)}</Text>
           </View>
 
-          {/* Catalog Targets */}
+          {/* Sheet Sales Targets */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>CATALOG TARGETS</Text>
+            <Text style={styles.sectionTitle}>📊 SHEET SALES TARGETS</Text>
             <Text style={styles.sectionSubtitle}>Set monthly sheet targets for each catalog</Text>
 
             {CATALOGS.map((catalog) => (
@@ -238,13 +267,39 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
             ))}
           </View>
 
+          {/* Visit Targets */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👥 VISIT TARGETS</Text>
+            <Text style={styles.sectionSubtitle}>Set monthly visit targets by account type</Text>
+
+            {ACCOUNT_TYPES.map((type) => {
+              const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
+              return (
+                <View key={type} style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>{capitalize(type)} Visits</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.input}
+                      value={visitTargets[type]?.toString() || ''}
+                      onChangeText={(value) => handleVisitTargetChange(type, value)}
+                      placeholder="0"
+                      keyboardType="number-pad"
+                      editable={!saving}
+                    />
+                    <Text style={styles.inputUnit}>visits</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
           {/* Auto-Renew Toggle */}
           <View style={styles.section}>
             <View style={styles.autoRenewHeader}>
               <View style={styles.autoRenewLeft}>
                 <Text style={styles.sectionTitle}>AUTO-RENEW</Text>
                 <Text style={styles.autoRenewDescription}>
-                  Automatically copy this target to future months
+                  Automatically copy all targets (sheets + visits) to future months
                 </Text>
               </View>
               <Switch
