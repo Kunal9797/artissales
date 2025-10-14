@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, Timestamp } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 export interface UserWithRole extends FirebaseAuthTypes.User {
@@ -33,13 +33,12 @@ export const useAuth = () => {
           } else {
             console.log('[Auth] User document not found by UID, checking by phone...');
 
-            // Try to find user by phone number
+            // Try to find user by phone number (using modular API)
             const usersCollection = collection(db, 'users');
-            const usersSnapshot = await db.collection('users')
-              .where('phone', '==', authUser.phoneNumber || '')
-              .get();
+            const q = query(usersCollection, where('phone', '==', authUser.phoneNumber || ''));
+            const usersSnapshot = await getDocs(q);
 
-            if (!usersSnapshot.empty) {
+            if (usersSnapshot.size > 0) {
               // Found existing user by phone - update the document ID to match Auth UID
               const existingUserDoc = usersSnapshot.docs[0];
               const existingUserData = existingUserDoc.data();

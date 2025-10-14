@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -88,44 +88,51 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  const renderAccountCard = ({ item }: { item: AccountListItem }) => (
-    <View style={styles.accountCard}>
-      <View style={styles.accountCardContent}>
-        <View style={[styles.accountIcon, { backgroundColor: `${getAccountTypeColor(item.type)}20` }]}>
-          <Building2 size={24} color={getAccountTypeColor(item.type)} />
-        </View>
-        <View style={styles.accountInfo}>
-          <Text style={styles.accountName}>{item.name}</Text>
-          <View style={styles.accountMeta}>
-            <MapPin size={12} color={colors.text.tertiary} />
-            <Text style={styles.accountMetaText}>
-              {item.city}, {item.state}
+  // ✅ Performance: Memoized render function with useCallback
+  const renderAccountCard = useCallback(
+    ({ item }: { item: AccountListItem }) => (
+      <View style={styles.accountCard}>
+        <View style={styles.accountCardContent}>
+          <View style={[styles.accountIcon, { backgroundColor: `${getAccountTypeColor(item.type)}20` }]}>
+            <Building2 size={24} color={getAccountTypeColor(item.type)} />
+          </View>
+          <View style={styles.accountInfo}>
+            <Text style={styles.accountName}>{item.name}</Text>
+            <View style={styles.accountMeta}>
+              <MapPin size={12} color={colors.text.tertiary} />
+              <Text style={styles.accountMetaText}>
+                {item.city}, {item.state}
+              </Text>
+            </View>
+            <View style={styles.accountMeta}>
+              <Phone size={12} color={colors.text.tertiary} />
+              <Text style={styles.accountMetaText}>{item.phone || 'No phone'}</Text>
+            </View>
+          </View>
+          <View style={[styles.accountTypeBadge, { backgroundColor: getAccountTypeColor(item.type) }]}>
+            <Text style={styles.accountTypeBadgeText}>
+              {getAccountTypeLabel(item.type)}
             </Text>
           </View>
-          <View style={styles.accountMeta}>
-            <Phone size={12} color={colors.text.tertiary} />
-            <Text style={styles.accountMetaText}>{item.phone || 'No phone'}</Text>
-          </View>
         </View>
-        <View style={[styles.accountTypeBadge, { backgroundColor: getAccountTypeColor(item.type) }]}>
-          <Text style={styles.accountTypeBadgeText}>
-            {getAccountTypeLabel(item.type)}
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => {
+            navigation.navigate('EditAccount', {
+              account: item,
+              onAccountUpdated: () => loadAccounts(),
+            });
+          }}
+        >
+          <Edit2 size={18} color={colors.info} />
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => {
-          navigation.navigate('EditAccount', {
-            account: item,
-            onAccountUpdated: () => loadAccounts(),
-          });
-        }}
-      >
-        <Edit2 size={18} color={colors.info} />
-      </TouchableOpacity>
-    </View>
+    ),
+    [navigation]
   );
+
+  // ✅ Performance: Memoized key extractor
+  const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
 
   return (
     <View style={styles.container}>
@@ -221,11 +228,17 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         <FlatList
           data={filteredAccounts}
           renderItem={renderAccountCard}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
           }
+          // ✅ Performance: Optimizations for large lists
+          windowSize={8} // Reduced from default 21 (render 8 items ahead/behind)
+          removeClippedSubviews={true} // Remove offscreen items from native view hierarchy
+          maxToRenderPerBatch={10} // Render 10 items per batch
+          updateCellsBatchingPeriod={50} // Batch updates every 50ms
+          initialNumToRender={15} // Render 15 items initially
         />
       )}
     </View>

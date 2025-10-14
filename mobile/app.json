@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#007AFF"
+      "backgroundColor": "#393735"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -21,7 +21,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#007AFF"
+        "backgroundColor": "#393735"
       },
       "package": "com.artis.sales",
       "permissions": [
@@ -29,10 +29,7 @@
         "ACCESS_COARSE_LOCATION",
         "CAMERA"
       ],
-      "googleServicesFile": "./google-services.json",
-      "config": {
-        "ndkVersion": "29.0.14206865"
-      }
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "@react-native-firebase/app",

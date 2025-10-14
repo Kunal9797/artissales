@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -87,26 +87,33 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
     return colorMap[role] || '#757575';
   };
 
-  const renderUserCard = ({ item }: { item: UserListItem }) => (
-    <TouchableOpacity
-      style={styles.userCard}
-      onPress={() => navigation.navigate('UserDetail', { userId: item.id })}
-    >
-      <View style={styles.userCardLeft}>
-        <View style={[styles.userIcon, { backgroundColor: `${getRoleColor(item.role)}20` }]}>
-          <User size={24} color={getRoleColor(item.role)} />
-        </View>
-        <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.name}</Text>
-          <Text style={styles.userTerritory}>{item.territory}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: getRoleColor(item.role) }]}>
-            <Text style={styles.roleBadgeText}>{getRoleDisplay(item.role)}</Text>
+  // ✅ Performance: Memoized render function with useCallback
+  const renderUserCard = useCallback(
+    ({ item }: { item: UserListItem }) => (
+      <TouchableOpacity
+        style={styles.userCard}
+        onPress={() => navigation.navigate('UserDetail', { userId: item.id })}
+      >
+        <View style={styles.userCardLeft}>
+          <View style={[styles.userIcon, { backgroundColor: `${getRoleColor(item.role)}20` }]}>
+            <User size={24} color={getRoleColor(item.role)} />
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{item.name}</Text>
+            <Text style={styles.userTerritory}>{item.territory}</Text>
+            <View style={[styles.roleBadge, { backgroundColor: getRoleColor(item.role) }]}>
+              <Text style={styles.roleBadgeText}>{getRoleDisplay(item.role)}</Text>
+            </View>
           </View>
         </View>
-      </View>
-      <ChevronRight size={20} color={colors.text.tertiary} />
-    </TouchableOpacity>
+        <ChevronRight size={20} color={colors.text.tertiary} />
+      </TouchableOpacity>
+    ),
+    [navigation]
   );
+
+  // ✅ Performance: Memoized key extractor
+  const keyExtractor = useCallback((item: UserListItem) => item.id, []);
 
   return (
     <View style={styles.container}>
@@ -190,11 +197,17 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
         <FlatList
           data={filteredUsers}
           renderItem={renderUserCard}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={loadUsers} colors={[colors.accent]} />
           }
+          // ✅ Performance: Optimizations for large lists
+          windowSize={8} // Reduced from default 21 (render 8 items ahead/behind)
+          removeClippedSubviews={true} // Remove offscreen items from native view hierarchy
+          maxToRenderPerBatch={10} // Render 10 items per batch
+          updateCellsBatchingPeriod={50} // Batch updates every 50ms
+          initialNumToRender={15} // Render 15 items initially
         />
       )}
     </View>
