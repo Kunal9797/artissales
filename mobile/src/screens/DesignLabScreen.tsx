@@ -13,8 +13,8 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
-  Clipboard,
 } from 'react-native';
+import Clipboard from '@react-native-clipboard/clipboard';
 import { Header, Button, Card } from '../components/ui';
 import { colors, typography, spacing, shadows, states } from '../theme';
 import type { RoleKey } from '../theme';
