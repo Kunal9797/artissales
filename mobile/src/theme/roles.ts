@@ -15,10 +15,18 @@ export const roles = {
   },
 
   // Warning Role - alerts, pending states
+  warning: {
+    base: colors.warning,
+    bg: colors.warningLight,
+    text: colors.warningDark,
+    border: colors.warning,
+  },
+
+  // Alias for backward compatibility
   warn: {
     base: colors.warning,
     bg: colors.warningLight,
-    text: '#E65100', // Darker orange for better text contrast
+    text: colors.warningDark,
     border: colors.warning,
   },
 

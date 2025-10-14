@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
   },
   tabTextSelected: {
-    color: '#fff',
+    color: colors.text.inverse,
     fontWeight: typography.fontWeight.bold,
   },
 });

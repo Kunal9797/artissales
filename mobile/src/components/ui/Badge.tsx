@@ -44,14 +44,6 @@ export function Badge({
 }: BadgeProps) {
   // Get colors from role tokens
   const getRoleColors = () => {
-    if (variant === 'neutral') {
-      return {
-        bg: '#ECECEC',
-        text: '#666666',
-        border: '#CCCCCC',
-      };
-    }
-
     const role = roles[variant];
     return {
       bg: role.bg,

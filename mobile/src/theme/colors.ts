@@ -40,6 +40,7 @@ export const colors = {
 
   warning: '#FFA726',        // Warnings, pending states
   warningLight: '#FFF3E0',   // Warning backgrounds
+  warningDark: '#E65100',    // Darker orange for warning text (better contrast)
 
   error: '#EF5350',          // Errors, destructive actions
   errorLight: '#FFEBEE',     // Error backgrounds

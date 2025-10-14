@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   chipTextActive: {
-    color: '#fff',
+    color: colors.text.inverse,
     fontWeight: typography.fontWeight.bold,
   },
   moreButton: {
@@ -259,6 +259,6 @@ const styles = StyleSheet.create({
   },
   applyButtonText: {
     ...typography.styles.button,
-    color: '#fff',
+    color: colors.text.inverse,
   },
 });

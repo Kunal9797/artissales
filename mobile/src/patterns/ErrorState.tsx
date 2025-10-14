@@ -67,6 +67,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     ...typography.styles.button,
-    color: '#fff',
+    color: colors.text.inverse,
   },
 });

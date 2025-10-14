@@ -46,8 +46,7 @@ export function Toast({ kind, text, onDismiss }: ToastProps) {
   }, []);
 
   // Map kind to role
-  const roleKey = kind === 'warning' ? 'warn' : kind;
-  const role = roles[roleKey];
+  const role = roles[kind];
 
   // Get icon based on kind
   const renderIcon = () => {

@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   Target,
+  Palette,
 } from 'lucide-react-native';
 import { Logo } from '../../components/ui';
 import type { DateRangeOption } from '../../components/DateRangeModal';
@@ -208,6 +209,16 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         >
           <Target size={24} color={colors.success} />
           <Text style={styles.teamTargetsButtonText}>Team Targets</Text>
+          <ChevronRight size={22} color={colors.text.tertiary} />
+        </TouchableOpacity>
+
+        {/* Kitchen Sink Button (Dev/Testing) */}
+        <TouchableOpacity
+          style={styles.kitchenSinkButton}
+          onPress={() => navigation.navigate('KitchenSink')}
+        >
+          <Palette size={24} color={colors.accent} />
+          <Text style={styles.kitchenSinkButtonText}>Design System</Text>
           <ChevronRight size={22} color={colors.text.tertiary} />
         </TouchableOpacity>
 
@@ -925,6 +936,29 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   teamTargetsButtonText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+    marginLeft: spacing.md,
+  },
+  // Kitchen Sink Button
+  kitchenSinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  kitchenSinkButtonText: {
     flex: 1,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,

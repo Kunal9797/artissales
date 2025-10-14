@@ -62,7 +62,7 @@ export function Checkbox({
           },
         ]}
       >
-        {checked && <Check size={16} color="#fff" strokeWidth={3} />}
+        {checked && <Check size={16} color={colors.text.inverse} strokeWidth={3} />}
       </View>
       {label && (
         <Text

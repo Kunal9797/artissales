@@ -3,11 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   TextInput,
   ScrollView,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-native';
 import { api } from '../../services/api';
@@ -229,17 +229,14 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
           }}
         />
       ) : (
-        <FlatList
+        <FlashList
           data={filteredAccounts}
           renderItem={renderAccountCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
-          // ✅ Performance: Optimizations for large lists
-          windowSize={8}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={15}
+          // ✅ Performance: FlashList with estimated item size (PR5)
+          // Account card height ≈ 64px (48px icon + padding)
+          estimatedItemSize={64}
         />
       )}
     </View>
