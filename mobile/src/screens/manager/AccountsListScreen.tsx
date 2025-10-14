@@ -307,7 +307,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
   },
   statsScrollContent: {
-    paddingHorizontal: spacing.screenPadding,
+    paddingLeft: spacing.screenPadding,
+    paddingRight: spacing.screenPadding,
     paddingVertical: spacing.sm,
   },
   statsContainer: {
@@ -321,7 +322,8 @@ const styles = StyleSheet.create({
   },
   statItem: {
     alignItems: 'center',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minWidth: 80,
   },
   statValue: {
     fontSize: typography.fontSize['2xl'],

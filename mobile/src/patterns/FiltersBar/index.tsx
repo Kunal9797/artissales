@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.screenPadding,
     paddingVertical: spacing.md,
-    gap: spacing.sm,
   },
   chip: {
     paddingHorizontal: spacing.md,
