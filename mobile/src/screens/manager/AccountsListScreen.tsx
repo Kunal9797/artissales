@@ -13,8 +13,8 @@ import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-nati
 import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { AccountType, AccountListItem } from '../../types';
-import { FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard } from '../../patterns';
-import type { Chip } from '../../patterns';
+import { EmptyState, ErrorState, Skeleton } from '../../patterns';
+import { Tabs } from '../../components/ui';
 
 type AccountsListScreenProps = NativeStackScreenProps<any, 'AccountsList'>;
 
@@ -133,17 +133,13 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   // ✅ Performance: Memoized key extractor
   const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
 
-  // Prepare filter chips
-  const filterChips: Chip[] = [
-    { label: 'All', value: 'all', active: selectedType === 'all' },
-    { label: 'Distributors', value: 'distributor', active: selectedType === 'distributor' },
-    { label: 'Dealers', value: 'dealer', active: selectedType === 'dealer' },
-    { label: 'Architects', value: 'architect', active: selectedType === 'architect' },
+  // Prepare filter tabs
+  const filterTabs = [
+    { label: 'All', value: 'all' },
+    { label: 'Distributors', value: 'distributor' },
+    { label: 'Dealers', value: 'dealer' },
+    { label: 'Architects', value: 'architect' },
   ];
-
-  const handleChipToggle = (value: string) => {
-    setSelectedType(value as AccountType | 'all');
-  };
 
   // Calculate KPIs
   const totalAccounts = accounts.length;
@@ -172,18 +168,29 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </Text>
       </View>
 
-      {/* KPI Cards */}
+      {/* Stats Summary - Compact inline format */}
       {!loading && !error && accounts.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.kpiRow}
-        >
-          <KpiCard title="Total" value={totalAccounts} icon={<Building2 size={16} color={colors.primary} />} />
-          <KpiCard title="Distributors" value={distributorCount} />
-          <KpiCard title="Dealers" value={dealerCount} />
-          <KpiCard title="Architects" value={architectCount} />
-        </ScrollView>
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{totalAccounts}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{distributorCount}</Text>
+            <Text style={styles.statLabel}>Distributors</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{dealerCount}</Text>
+            <Text style={styles.statLabel}>Dealers</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{architectCount}</Text>
+            <Text style={styles.statLabel}>Architects</Text>
+          </View>
+        </View>
       )}
 
       {/* Search Bar */}
@@ -199,8 +206,14 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         />
       </View>
 
-      {/* FiltersBar */}
-      <FiltersBar chips={filterChips} onChipToggle={handleChipToggle} />
+      {/* Filter Tabs */}
+      <View style={styles.filtersContainer}>
+        <Tabs
+          items={filterTabs}
+          value={selectedType}
+          onChange={(value) => setSelectedType(value as AccountType | 'all')}
+        />
+      </View>
 
       {/* Content Area */}
       {loading ? (
@@ -283,11 +296,42 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
   },
-  kpiRow: {
+  statsContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.screenPadding,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs / 2,
+  },
+  statLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.secondary,
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: colors.border.light,
+  },
+  filtersContainer: {
     paddingHorizontal: spacing.screenPadding,
     paddingVertical: spacing.sm,
-    gap: spacing.sm,
-    flexDirection: 'row',
   },
   searchContainer: {
     flexDirection: 'row',
