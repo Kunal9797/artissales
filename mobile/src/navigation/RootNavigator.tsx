@@ -15,6 +15,7 @@ import { CompactSheetsEntryScreen } from '../screens/sheets/CompactSheetsEntrySc
 import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
+import { DesignLabScreen } from '../screens/DesignLabScreen';
 import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
 import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
@@ -38,6 +39,7 @@ export type RootStackParamList = {
   DSR: undefined;
   Profile: undefined;
   KitchenSink: undefined;
+  DesignLab: undefined;
   AddUser: undefined;
   DSRApprovalList: undefined;
   DSRApprovalDetail: { reportId: string };
@@ -88,6 +90,7 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="DSR" component={DSRScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
+          <Stack.Screen name="DesignLab" component={DesignLabScreen} />
           <Stack.Screen name="AddUser" component={AddUserScreen} />
           <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} />
           <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />

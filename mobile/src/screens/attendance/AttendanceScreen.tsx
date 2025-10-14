@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   completedText: {
     fontSize: typography.fontSize.base,
     color: colors.successDark,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   loadingContainer: {
     flex: 1,

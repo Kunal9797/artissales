@@ -1,0 +1,62 @@
+{
+  "tenantId": "dev",
+  "name": "Dev Tenant (Demo)",
+  "description": "Sample tenant configuration for testing white-label theming",
+  "overrides": {
+    "roles": {
+      "success": {
+        "base": "#2E7D32",
+        "bg": "#E8F5E9",
+        "text": "#1B5E20",
+        "border": "#4CAF50"
+      },
+      "warning": {
+        "base": "#F57C00",
+        "bg": "#FFF3E0",
+        "text": "#E65100",
+        "border": "#FF9800"
+      },
+      "error": {
+        "base": "#D32F2F",
+        "bg": "#FFEBEE",
+        "text": "#C62828",
+        "border": "#F44336"
+      },
+      "info": {
+        "base": "#1976D2",
+        "bg": "#E3F2FD",
+        "text": "#0D47A1",
+        "border": "#2196F3"
+      },
+      "primary": {
+        "base": "#1565C0",
+        "bg": "#1565C0",
+        "text": "#FFFFFF",
+        "border": "#1565C0"
+      },
+      "accent": {
+        "base": "#FFB300",
+        "bg": "#FFF8E1",
+        "text": "#F57F17",
+        "border": "#FFC107"
+      }
+    },
+    "spacingUnit": 8,
+    "radius": {
+      "sm": 4,
+      "md": 8,
+      "lg": 12,
+      "xl": 16,
+      "full": 9999
+    },
+    "typeScale": {
+      "xs": 12,
+      "sm": 14,
+      "base": 16,
+      "lg": 18,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 30
+    }
+  }
+}

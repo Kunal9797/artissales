@@ -185,23 +185,66 @@ No behavior change by default; dev flag to preview a sample tenant.
 
 ## 10) Rollout (small, safe PRs)
 
-**PR1:** `feat(theme): roles & states tokens + types`  
+**PR1:** `feat(theme): roles & states tokens + types` ✅ **COMPLETE** (Oct 14, 2025)
 Files: `theme/roles.ts`, `theme/states.ts`, `theme/tokens.d.ts`, `theme/index.ts`.
+Bonus: Added Design Lab (dev-only) for live token editing + Kitchen Sink demonstrations.
 
-**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar`  
-Wire `ToastProvider` at app root; add `components/StatusBar.tsx`.
+### Theme Source of Truth
+- **Design Lab**: Use to experiment with role colors, spacing, and typography in real-time (Kitchen Sink → Design Lab).
+- **Preset**: Apply chosen colors from Design Lab to `src/theme/colorThemes.ts` (preset name: `brandTheme`).
+- All components in PR2+ should reference `roles` tokens (bg/base/text/border) from the active preset.
 
-**PR3:** `feat(ui): Checkbox, Radio, Switch, Select, Tabs`  
-Docs: begin `COMPONENT_CATALOG.md`.
+**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `components/ui/Spinner.tsx`, `components/ui/Badge.tsx`, `components/ui/Toast.tsx`, `components/ui/ProgressBar.tsx`, `providers/ToastProvider.tsx`.
+Wired `ToastProvider` at app root. StatusBar already centralized as `AppStatusBar.tsx`.
+All components use role tokens (bg/base/text/border) from brandTheme preset.
+Kitchen Sink demos added for all components with interactive toast testing.
 
-**PR4:** `feat(patterns): FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard`  
-Convert one target screen to use 2–3 of these.
+**PR3:** `feat(ui): Checkbox, Radio, Switch, Select, Tabs` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `Checkbox.tsx`, `Radio.tsx`, `Switch.tsx`, `Select.tsx`, `Tabs.tsx`
+- All components use role tokens and state tokens (focus ring)
+- ≥48dp hit targets on all interactive elements
+- Proper `accessibilityRole` + `accessibilityLabel` support
+- Select uses modal with optional search (react-native-safe-area-context)
+- Tabs supports dense mode
+- Kitchen Sink demos added with interactive examples
+- Docs: `COMPONENT_CATALOG.md` created with full API reference
 
-**PR5 (optional):** `perf(list): FlashList on <HeaviestScreen>`  
-Comment with before/after timings.
+**PR4:** `feat(patterns): FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `FiltersBar/index.tsx`, `EmptyState.tsx`, `ErrorState.tsx`, `Skeleton.tsx`, `KpiCard.tsx`
+- FiltersBar: Quick chips + "More filters" modal with Select components
+- EmptyState: Flexible empty state with optional icon and primary action
+- ErrorState: Error display with retry button
+- Skeleton: Animated opacity loop (no shimmer lib), supports rows/avatar/card layouts
+- KpiCard: Auto-colored delta based on `positiveIsGood` flag
+- **Screen conversion:** AccountsListScreen.tsx converted to use all patterns
+  - FiltersBar for account type filtering
+  - KPI cards row showing total/distributors/dealers/architects
+  - Skeleton for loading state
+  - ErrorState for error handling
+  - EmptyState for no results
+- Kitchen Sink demos added for all patterns
+- `COMPONENT_CATALOG.md` updated with pattern documentation
 
-**PR6:** `feat(tenant): TenantThemeProvider (runtime only)`  
-Add sample `tenants/dev.json`; dev switch.
+**PR5:** `perf(list): FlashList on AccountsListScreen` ✅ **COMPLETE** (Oct 14, 2025)
+File: `AccountsListScreen.tsx`
+- Replaced FlatList with @shopify/flash-list FlashList
+- Set `estimatedItemSize=64` (account card height)
+- Removed redundant perf props (windowSize, maxToRenderPerBatch, etc.)
+- Kept all memoization (renderItem, keyExtractor)
+- No UX changes: FiltersBar, Empty/Error/Skeleton patterns intact
+- Added `docs/PR5_FLASHLIST_PERF.md` with before/after comparison, migration pattern, testing checklist, and rollback plan
+
+**PR6:** `feat(tenant): TenantThemeProvider (runtime only)` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `providers/TenantThemeProvider.tsx`, `tenants/dev.json`, `App.tsx`, `KitchenSinkScreen.tsx`
+- Added TenantThemeProvider with `useTenantTheme()` hook
+- Supports runtime overrides: roles, spacingUnit, radius, typeScale
+- Created sample `tenants/dev.json` with dev theme overrides
+- Wired provider at app root (wraps ToastProvider)
+- Added dev toggle in Kitchen Sink screen ("Load Dev Tenant" / "Reset to Default")
+- Shows active tenant name and color overrides when custom theme loaded
+- Fallback to brand theme on load failure
+- Added `docs/PR6_TENANT_THEMING.md` with architecture, usage examples, testing checklist, production rollout plan, migration guide, and security considerations
 
 Each PR: screenshots + a tiny test plan (two Android versions).
 

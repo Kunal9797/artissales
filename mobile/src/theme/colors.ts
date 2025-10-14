@@ -32,17 +32,21 @@ export const colors = {
     default: '#E0E0E0',      // Default borders
     light: '#F0F0F0',        // Subtle borders
     dark: '#CCCCCC',         // Stronger borders
+    active: '#D4A944',       // Gold border for active/focused states
   },
 
   // Status Colors
   success: '#4CAF50',        // Success states, confirmations
   successLight: '#E8F5E9',   // Success backgrounds
+  successDark: '#2E7D32',    // Darker green for success text (better contrast)
 
   warning: '#FFA726',        // Warnings, pending states
   warningLight: '#FFF3E0',   // Warning backgrounds
+  warningDark: '#E65100',    // Darker orange for warning text (better contrast)
 
   error: '#EF5350',          // Errors, destructive actions
   errorLight: '#FFEBEE',     // Error backgrounds
+  errorDark: '#C62828',      // Darker red for error text (better contrast)
 
   info: '#42A5F5',           // Info messages
   infoLight: '#E3F2FD',      // Info backgrounds

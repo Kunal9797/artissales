@@ -35,7 +35,7 @@ export const HomeScreenNew: React.FC<HomeScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',
@@ -47,8 +47,11 @@ export const HomeScreenNew: React.FC<HomeScreenProps> = ({ navigation }) => {
           onPress: async () => {
             try {
               await signOut(authInstance);
+              // Success - navigation will happen automatically via auth state listener
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to sign out');
+              console.error('Sign out error:', error);
+              // Don't show alert during navigation/unmount - just log it
+              // The error is rare and user will see they're still logged in
             }
           },
         },

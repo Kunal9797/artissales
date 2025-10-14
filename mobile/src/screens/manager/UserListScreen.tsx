@@ -53,7 +53,6 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
     setLoading(true);
     try {
       const response = await api.getUsersList({});
-      console.log('[UserList] Users loaded:', response);
       if (response.ok && response.users) {
         setUsers(response.users);
       }
@@ -230,7 +229,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -272,7 +271,7 @@ const styles = StyleSheet.create({
   },
   filterLabel: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     marginRight: spacing.sm,
   },
@@ -291,7 +290,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
   },
   filterChipTextActive: {
@@ -346,7 +345,7 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: '#fff',
   },
   loadingContainer: {

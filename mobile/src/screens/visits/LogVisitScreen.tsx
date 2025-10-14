@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   cameraButtonText: {
     fontSize: typography.fontSize.base,
     color: colors.accent,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   photoContainer: {
     backgroundColor: colors.surface,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   retakeButtonText: {
     color: colors.primary,
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   removeButton: {
     flex: 1,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: colors.text.secondary,
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   purposeGrid: {
     flexDirection: 'row',
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   },
   purposeButtonTextSelected: {
     color: colors.primary,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   notesInput: {
     backgroundColor: colors.surface,

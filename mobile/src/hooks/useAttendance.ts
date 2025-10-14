@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, collection, query, where, orderBy, onSnapshot } from '@react-native-firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, onSnapshot, FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export interface AttendanceStatus {
   hasCheckedIn: boolean;
@@ -60,7 +60,7 @@ export const useAttendance = () => {
           checkOutId: null,
         };
 
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           const timestamp = data.timestamp?.toDate();
 

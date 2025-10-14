@@ -46,9 +46,6 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
   }
 
   const url = `${API_BASE_URL}/${endpoint}`;
-  console.log(`[API] Calling ${endpoint}`);
-  console.log(`[API] URL: ${url}`);
-  console.log(`[API] Data:`, JSON.stringify(data, null, 2));
 
   try {
     const response = await fetch(url, {
@@ -60,10 +57,7 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
       body: JSON.stringify(data),
     });
 
-    console.log(`[API] ${endpoint} response status: ${response.status}`);
-
     const responseData = await response.json();
-    console.log(`[API] ${endpoint} response data:`, JSON.stringify(responseData, null, 2));
 
     if (!response.ok) {
       console.error(`[API] ${endpoint} error:`, JSON.stringify(responseData));

@@ -40,7 +40,6 @@ export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ na
     setLoading(true);
     try {
       const response = await api.getPendingDSRs({});
-      console.log('[DSRApprovalList] DSRs loaded:', response);
       if (response.ok && response.dsrs) {
         setDsrs(response.dsrs);
       }
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
   backButton: {
     color: colors.accent,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     marginBottom: spacing.md,
   },
   title: {
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     marginTop: spacing.md,
   },

@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.lg,
     padding: spacing.lg,
     fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     textAlign: 'center',
     letterSpacing: 12,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   buttonTextActive: {
     color: colors.primary, // Dark text on gold background

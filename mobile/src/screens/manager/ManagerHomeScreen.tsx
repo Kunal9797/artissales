@@ -20,14 +20,13 @@ import {
   ChevronDown,
   ChevronUp,
   Target,
+  Palette,
 } from 'lucide-react-native';
 import { Logo } from '../../components/ui';
 import type { DateRangeOption } from '../../components/DateRangeModal';
 import { api } from '../../services/api';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
-import { TargetProgressCard } from '../../components/TargetProgressCard';
-import { VisitProgressCard } from '../../components/VisitProgressCard';
 
 interface ManagerHomeScreenProps {
   navigation: any;
@@ -101,7 +100,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         date: currentDate,
         range: dateRange === 'today' ? undefined : dateRange
       });
-      console.log('[ManagerHome] Stats loaded:', response);
       if (response.ok && response.stats) {
         setStats(response.stats);
       }
@@ -191,25 +189,8 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
           </TouchableOpacity>
         </View>
 
-        {/* Target Progress Card */}
-        {user?.uid && (
-          <TargetProgressCard
-            userId={user.uid}
-            month={new Date().toISOString().substring(0, 7)}
-            onLogPress={() => navigation.navigate('SheetsEntry')}
-            style={{ marginBottom: spacing.md }}
-          />
-        )}
-
-        {/* Visit Progress Card */}
-        {user?.uid && (
-          <VisitProgressCard
-            userId={user.uid}
-            month={new Date().toISOString().substring(0, 7)}
-            onLogPress={() => navigation.navigate('SelectAccount')}
-            style={{ marginBottom: spacing.md }}
-          />
-        )}
+        {/* Note: Target and Visit Progress Cards removed for managers */}
+        {/* Managers don't log sheets or visits - they view team stats instead */}
 
         {/* Manage Accounts Button */}
         <TouchableOpacity
@@ -228,6 +209,16 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         >
           <Target size={24} color={colors.success} />
           <Text style={styles.teamTargetsButtonText}>Team Targets</Text>
+          <ChevronRight size={22} color={colors.text.tertiary} />
+        </TouchableOpacity>
+
+        {/* Kitchen Sink Button (Dev/Testing) */}
+        <TouchableOpacity
+          style={styles.kitchenSinkButton}
+          onPress={() => navigation.navigate('KitchenSink')}
+        >
+          <Palette size={24} color={colors.accent} />
+          <Text style={styles.kitchenSinkButtonText}>Design System</Text>
           <ChevronRight size={22} color={colors.text.tertiary} />
         </TouchableOpacity>
 
@@ -945,6 +936,29 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   teamTargetsButtonText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+    marginLeft: spacing.md,
+  },
+  // Kitchen Sink Button
+  kitchenSinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: spacing.borderRadius.lg,
+    marginBottom: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  kitchenSinkButtonText: {
     flex: 1,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,

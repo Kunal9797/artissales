@@ -10,19 +10,93 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Pressable,
 } from 'react-native';
-import { Button, Card, Input, Header } from '../components/ui';
-import { colors, typography, spacing, shadows } from '../theme';
-import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload } from 'lucide-react-native';
+import { Button, Card, Input, Header, Spinner, Badge, ProgressBar, Checkbox, Radio, Switch, Select, Tabs } from '../components/ui';
+import { useToast } from '../providers/ToastProvider';
+import { useTenantTheme } from '../providers/TenantThemeProvider';
+import { colors, typography, spacing, shadows, roles, states, applyState } from '../theme';
+import type { RoleKey, StateKey } from '../theme';
+import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle, Building2, Users, TrendingUp } from 'lucide-react-native';
+import { FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard } from '../patterns';
+import type { Chip, FilterSpec } from '../patterns';
 
 interface KitchenSinkScreenProps {
   navigation: any;
 }
 
+// Toast Demo Component
+const ToastDemoSection = () => {
+  const toast = useToast();
+
+  return (
+    <Card>
+      <Text style={styles.cardTitle}>Toasts</Text>
+      <Text style={[styles.caption, { marginBottom: spacing.sm }]}>
+        Tap buttons to show toast notifications
+      </Text>
+      <View style={styles.buttonGroup}>
+        <Button
+          onPress={() => toast.show({ kind: 'success', text: 'Action completed successfully!' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.success.base }}
+        >
+          Show Success Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'error', text: 'Something went wrong. Please try again.' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.error.base }}
+        >
+          Show Error Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'warning', text: 'This action cannot be undone.' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.warn.base }}
+        >
+          Show Warning Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'info', text: 'New features are available!' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.info.base }}
+        >
+          Show Info Toast
+        </Button>
+      </View>
+    </Card>
+  );
+};
+
 export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation }) => {
   const [inputValue, setInputValue] = useState('');
   const [inputError, setInputError] = useState('');
   const [useBrandBackground, setUseBrandBackground] = useState(false);
+
+  // PR6: Tenant theming
+  const { theme, loadTenant, resetToDefault, isCustomTenant } = useTenantTheme();
+
+  // PR3 state
+  const [checkboxValue, setCheckboxValue] = useState(false);
+  const [radioValue, setRadioValue] = useState('option1');
+  const [switchValue, setSwitchValue] = useState(false);
+  const [selectValue, setSelectValue] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState('tab1');
+
+  // PR4 state
+  const [filterChips, setFilterChips] = useState<Chip[]>([
+    { label: 'All', value: 'all', active: true },
+    { label: 'Active', value: 'active', active: false },
+    { label: 'Pending', value: 'pending', active: false },
+  ]);
+  const [showError, setShowError] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
 
   // Color comparison: Corporate Blue vs Brand Background
   const primaryColor = useBrandBackground ? '#393735' : '#3A5A7C';
@@ -50,6 +124,74 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
       />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+
+        {/* DEV-ONLY: Design Lab Link */}
+        {__DEV__ && (
+          <Section title="🧪 Design Lab (Dev Only)">
+            <Button
+              onPress={() => navigation.navigate('DesignLab')}
+              variant="primary"
+              style={{ backgroundColor: colors.accent }}
+            >
+              Open Design Lab →
+            </Button>
+            <Text style={[styles.instructionText, { marginTop: spacing.sm }]}>
+              Live theme token editor with real-time preview. Edit colors, spacing, and typography.
+            </Text>
+          </Section>
+        )}
+
+        {/* PR6: Tenant Theme Toggle */}
+        {__DEV__ && (
+          <Section title="🏢 Tenant Theme (White-label)">
+            <Card>
+              <Text style={styles.cardTitle}>
+                {isCustomTenant ? `Active: ${theme.tenantName}` : 'Default Brand Theme'}
+              </Text>
+              <Text style={[styles.caption, { marginBottom: spacing.md }]}>
+                {isCustomTenant
+                  ? 'Custom tenant theme loaded with role color overrides'
+                  : 'Using default Artis brand theme'}
+              </Text>
+              <View style={styles.buttonGroup}>
+                <Button
+                  onPress={() => loadTenant('dev')}
+                  variant="primary"
+                  size="small"
+                  disabled={isCustomTenant}
+                  style={{ flex: 1, marginRight: spacing.sm }}
+                >
+                  Load Dev Tenant
+                </Button>
+                <Button
+                  onPress={resetToDefault}
+                  variant="outline"
+                  size="small"
+                  disabled={!isCustomTenant}
+                  style={{ flex: 1 }}
+                >
+                  Reset to Default
+                </Button>
+              </View>
+              {isCustomTenant && (
+                <View style={{ marginTop: spacing.md, padding: spacing.sm, backgroundColor: colors.surface, borderRadius: spacing.borderRadius.md }}>
+                  <Text style={[styles.caption, { fontWeight: typography.fontWeight.semiBold }]}>
+                    Overrides Applied:
+                  </Text>
+                  <Text style={[styles.caption, { marginTop: spacing.xs }]}>
+                    • Primary: {theme.roles.primary.base}
+                  </Text>
+                  <Text style={styles.caption}>
+                    • Accent: {theme.roles.accent.base}
+                  </Text>
+                  <Text style={styles.caption}>
+                    • Success: {theme.roles.success.base}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          </Section>
+        )}
 
         {/* Color Toggle */}
         <Section title="🎨 Compare Primary Colors">
@@ -292,6 +434,187 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
           />
         </Section>
 
+        {/* NEW: Role Tokens */}
+        <Section title="🎭 Role Tokens (Semantic Colors)">
+          <Text style={styles.instructionText}>
+            Semantic roles ensure consistent color usage for status messages, badges, and alerts.
+          </Text>
+          <View style={styles.roleGrid}>
+            {(['success', 'warn', 'error', 'info', 'neutral', 'primary', 'accent'] as RoleKey[]).map((role) => (
+              <View key={role} style={styles.roleItem}>
+                <View style={[styles.roleSwatch, { backgroundColor: roles[role].bg }]}>
+                  <View style={[styles.roleSwatchInner, { backgroundColor: roles[role].base }]} />
+                </View>
+                <Text style={styles.roleLabel}>{role}</Text>
+                <View style={[styles.roleBadge, { backgroundColor: roles[role].bg, borderColor: roles[role].border }]}>
+                  {role === 'success' && <CheckCircle size={14} color={roles[role].text} />}
+                  {role === 'error' && <AlertCircle size={14} color={roles[role].text} />}
+                  {role === 'warn' && <AlertTriangle size={14} color={roles[role].text} />}
+                  {role === 'info' && <Info size={14} color={roles[role].text} />}
+                  <Text style={[styles.roleBadgeText, { color: roles[role].text }]}>
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Section>
+
+        {/* NEW: State Tokens */}
+        <Section title="⚡ State Tokens (Interactions)">
+          <Text style={styles.instructionText}>
+            State tokens define visual feedback for user interactions. Press the cards to see effects.
+          </Text>
+          <View style={styles.stateGrid}>
+            {/* Focus State */}
+            <Pressable style={[styles.stateCard, states.focus.shadow]}>
+              <Text style={styles.stateTitle}>Focus</Text>
+              <View style={[styles.stateSwatch, {
+                borderColor: states.focus.border,
+                borderWidth: states.focus.borderWidth,
+                backgroundColor: states.focus.bgTint
+              }]} />
+              <Text style={styles.stateDesc}>Accessibility border</Text>
+            </Pressable>
+
+            {/* Pressed State */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.stateCard,
+                pressed && { opacity: states.pressed.opacity }
+              ]}
+            >
+              <Text style={styles.stateTitle}>Pressed</Text>
+              <View style={[styles.stateSwatch, { backgroundColor: colors.primary }]} />
+              <Text style={styles.stateDesc}>Tap to see effect</Text>
+            </Pressable>
+
+            {/* Disabled State */}
+            <View style={[styles.stateCard, { opacity: states.disabled.opacity }]}>
+              <Text style={styles.stateTitle}>Disabled</Text>
+              <View style={[styles.stateSwatch, {
+                backgroundColor: states.disabled.bg,
+                borderColor: states.disabled.border,
+                borderWidth: 1
+              }]} />
+              <Text style={styles.stateDesc}>Inactive state</Text>
+            </View>
+
+            {/* Loading State */}
+            <View style={[styles.stateCard, { opacity: states.loading.opacity }]}>
+              <Text style={styles.stateTitle}>Loading</Text>
+              <View style={[styles.stateSwatch, { backgroundColor: colors.primary }]} />
+              <Text style={styles.stateDesc}>Processing...</Text>
+            </View>
+          </View>
+        </Section>
+
+        {/* NEW: applyState Helper Demo */}
+        <Section title="🔧 applyState() Helper Function">
+          <Text style={styles.instructionText}>
+            Use applyState() to quickly apply interaction states to any component.
+          </Text>
+          <View style={styles.buttonGroup}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.demoButton,
+                pressed ? applyState(styles.demoButton, 'pressed') : {}
+              ]}
+              onPress={() => Alert.alert('Pressed state applied!')}
+            >
+              <Text style={styles.demoButtonText}>Press Me (applyState)</Text>
+            </Pressable>
+
+            <View style={applyState(styles.demoButton, 'disabled')}>
+              <Text style={[styles.demoButtonText, { color: states.disabled.text }]}>
+                Disabled (applyState)
+              </Text>
+            </View>
+
+            <View style={applyState(styles.demoButton, 'focus')}>
+              <Text style={styles.demoButtonText}>Focus (applyState)</Text>
+            </View>
+          </View>
+        </Section>
+
+        {/* NEW: PR2 Components */}
+        <Section title="🎨 DS v0.1 Components (PR2)">
+          <Text style={styles.instructionText}>
+            New standardized UI components using role tokens
+          </Text>
+
+          {/* Spinners */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Spinners</Text>
+            <View style={styles.spinnerRow}>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="sm" tone="primary" />
+                <Text style={styles.caption}>Small</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="md" tone="primary" />
+                <Text style={styles.caption}>Medium</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="lg" tone="accent" />
+                <Text style={styles.caption}>Large (Accent)</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="md" tone="success" />
+                <Text style={styles.caption}>Success</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Badges */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Badges</Text>
+            <View style={styles.badgeRow}>
+              <Badge variant="success" size="md" icon={<CheckCircle size={12} color={roles.success.text} />}>
+                Success
+              </Badge>
+              <Badge variant="error" size="md" icon={<AlertCircle size={12} color={roles.error.text} />}>
+                Error
+              </Badge>
+              <Badge variant="warn" size="md" icon={<AlertTriangle size={12} color={roles.warn.text} />}>
+                Warning
+              </Badge>
+              <Badge variant="info" size="md" icon={<Info size={12} color={roles.info.text} />}>
+                Info
+              </Badge>
+              <Badge variant="neutral" size="sm">
+                Neutral
+              </Badge>
+            </View>
+          </Card>
+
+          {/* Progress Bars */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Progress Bars</Text>
+            <View style={{ gap: spacing.md }}>
+              <View>
+                <ProgressBar value={0.25} barColor={roles.success.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>25% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={0.5} barColor={roles.info.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>50% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={0.75} barColor={roles.warn.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>75% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={1.0} height={6} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>100% Complete (Thicker)</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Toast Demos */}
+          <ToastDemoSection />
+        </Section>
+
         {/* Real-World Example */}
         <Section title="Real-World Example">
           <Card>
@@ -324,6 +647,237 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
                 Follow Up
               </Button>
             </View>
+          </Card>
+        </Section>
+
+        {/* ========== PR3: Input Components ========== */}
+        <Section title="📋 PR3: Input Components">
+          <Card>
+            <Text style={styles.cardTitle}>Checkbox</Text>
+            <Checkbox
+              checked={checkboxValue}
+              onChange={setCheckboxValue}
+              label="I agree to the terms and conditions"
+            />
+            <Checkbox
+              checked={false}
+              onChange={() => {}}
+              label="Disabled checkbox"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Radio</Text>
+            <Radio
+              selected={radioValue === 'option1'}
+              onChange={() => setRadioValue('option1')}
+              label="Option 1"
+            />
+            <Radio
+              selected={radioValue === 'option2'}
+              onChange={() => setRadioValue('option2')}
+              label="Option 2"
+            />
+            <Radio
+              selected={radioValue === 'option3'}
+              onChange={() => setRadioValue('option3')}
+              label="Option 3"
+            />
+            <Radio
+              selected={false}
+              onChange={() => {}}
+              label="Disabled option"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Switch</Text>
+            <Switch
+              value={switchValue}
+              onChange={setSwitchValue}
+              label="Enable notifications"
+            />
+            <Switch
+              value={true}
+              onChange={() => {}}
+              label="Disabled switch"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Select</Text>
+            <Select
+              label="Choose a city"
+              value={selectValue}
+              onChange={setSelectValue}
+              options={[
+                { label: 'Mumbai', value: 'mumbai' },
+                { label: 'Delhi', value: 'delhi' },
+                { label: 'Bangalore', value: 'bangalore' },
+                { label: 'Chennai', value: 'chennai' },
+                { label: 'Kolkata', value: 'kolkata' },
+              ]}
+              searchable
+            />
+            <Text style={[styles.caption, { marginTop: spacing.sm }]}>
+              Selected: {selectValue || 'None'}
+            </Text>
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Tabs</Text>
+            <Tabs
+              items={[
+                { label: 'Overview', value: 'tab1' },
+                { label: 'Details', value: 'tab2' },
+                { label: 'Settings', value: 'tab3' },
+              ]}
+              value={tabValue}
+              onChange={setTabValue}
+            />
+            <Text style={[styles.caption, { marginTop: spacing.md }]}>
+              Current tab: {tabValue}
+            </Text>
+
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={[styles.caption, { marginBottom: spacing.sm }]}>Dense mode:</Text>
+              <Tabs
+                items={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Active', value: 'active' },
+                  { label: 'Archived', value: 'archived' },
+                ]}
+                value={tabValue}
+                onChange={setTabValue}
+                dense
+              />
+            </View>
+          </Card>
+        </Section>
+
+        {/* ========== PR4: Patterns ========== */}
+        <Section title="🎨 PR4: Patterns">
+          <Card>
+            <Text style={styles.cardTitle}>KPI Cards</Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm }}>
+              <KpiCard
+                title="Total Accounts"
+                value={142}
+                icon={<Building2 size={20} color={colors.primary} />}
+                delta={{ value: 12, positiveIsGood: true }}
+              />
+              <KpiCard
+                title="Active Users"
+                value={89}
+                icon={<Users size={20} color={roles.success.base} />}
+                delta={{ value: -5, positiveIsGood: true }}
+              />
+              <KpiCard
+                title="Revenue"
+                value="₹2.4L"
+                icon={<TrendingUp size={20} color={roles.info.base} />}
+                delta={{ value: 18, positiveIsGood: true }}
+              />
+            </View>
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>FiltersBar</Text>
+            <FiltersBar
+              chips={filterChips}
+              onChipToggle={(value) => {
+                setFilterChips(prev => prev.map(c => ({ ...c, active: c.value === value })));
+              }}
+              moreFilters={[
+                {
+                  key: 'region',
+                  label: 'Region',
+                  options: [
+                    { label: 'North', value: 'north' },
+                    { label: 'South', value: 'south' },
+                    { label: 'East', value: 'east' },
+                    { label: 'West', value: 'west' },
+                  ],
+                },
+                {
+                  key: 'type',
+                  label: 'Account Type',
+                  options: [
+                    { label: 'Distributor', value: 'distributor' },
+                    { label: 'Dealer', value: 'dealer' },
+                    { label: 'Architect', value: 'architect' },
+                  ],
+                },
+              ]}
+              onApply={(filters) => Alert.alert('Filters Applied', JSON.stringify(filters, null, 2))}
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Skeleton (Loading State)</Text>
+            <Button
+              onPress={() => {
+                setShowSkeleton(true);
+                setTimeout(() => setShowSkeleton(false), 3000);
+              }}
+              variant="primary"
+              size="small"
+            >
+              Show Skeleton (3s)
+            </Button>
+            {showSkeleton && (
+              <View style={{ marginTop: spacing.md }}>
+                <Skeleton rows={3} avatar />
+                <Skeleton rows={2} />
+                <Skeleton card />
+              </View>
+            )}
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>EmptyState</Text>
+            <Button
+              onPress={() => setShowEmpty(!showEmpty)}
+              variant="primary"
+              size="small"
+            >
+              {showEmpty ? 'Hide' : 'Show'} EmptyState
+            </Button>
+            {showEmpty && (
+              <View style={{ marginTop: spacing.md, height: 300 }}>
+                <EmptyState
+                  icon={<Building2 size={48} color={colors.text.tertiary} />}
+                  title="No accounts found"
+                  subtitle="Try adjusting your filters or create a new account"
+                  primaryAction={{
+                    label: 'Add Account',
+                    onPress: () => Alert.alert('Add Account', 'Action triggered!'),
+                  }}
+                />
+              </View>
+            )}
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>ErrorState</Text>
+            <Button
+              onPress={() => setShowError(!showError)}
+              variant="primary"
+              size="small"
+            >
+              {showError ? 'Hide' : 'Show'} ErrorState
+            </Button>
+            {showError && (
+              <View style={{ marginTop: spacing.md, height: 300 }}>
+                <ErrorState
+                  message="Network error. Please check your connection."
+                  retry={() => Alert.alert('Retry', 'Retrying...')}
+                />
+              </View>
+            )}
           </Card>
         </Section>
 
@@ -421,5 +975,116 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+
+  // Role Tokens
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  roleItem: {
+    width: '30%',
+    alignItems: 'center',
+  },
+  roleSwatch: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.xs,
+    marginBottom: spacing.xs,
+    borderWidth: 2,
+    borderColor: colors.border.default,
+  },
+  roleSwatchInner: {
+    flex: 1,
+    borderRadius: spacing.borderRadius.sm,
+  },
+  roleLabel: {
+    ...typography.styles.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    textTransform: 'capitalize',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: spacing.borderRadius.sm,
+    borderWidth: 1,
+  },
+  roleBadgeText: {
+    ...typography.styles.caption,
+    fontSize: 11,
+  },
+
+  // State Tokens
+  stateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  stateCard: {
+    width: '47%',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  stateTitle: {
+    ...typography.styles.label,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  stateSwatch: {
+    width: 60,
+    height: 60,
+    borderRadius: spacing.borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  stateDesc: {
+    ...typography.styles.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+  },
+
+  // Demo Button for applyState
+  demoButton: {
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  demoButtonText: {
+    ...typography.styles.button,
+    color: colors.text.inverse,
+  },
+
+  // PR2 Component Styles
+  spinnerRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+  },
+  spinnerDemo: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  caption: {
+    ...typography.styles.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 });

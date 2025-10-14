@@ -116,7 +116,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out?',
@@ -128,8 +128,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           onPress: async () => {
             try {
               await signOut(authInstance);
+              // Success - navigation will happen automatically via auth state listener
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to sign out');
+              console.error('Sign out error:', error);
+              // Don't show alert during navigation/unmount - just log it
+              // The error is rare and user will see they're still logged in
             }
           },
         },
@@ -274,7 +277,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -290,7 +293,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -333,7 +336,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: '#fff',
   },
   saveButton: {

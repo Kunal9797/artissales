@@ -58,7 +58,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   // Check if current user can edit this account
   const canEditAccount = (account: Account): boolean => {
     if (!user) {
-      console.log('[canEditAccount] No user');
       return false;
     }
 
@@ -67,17 +66,8 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     const currentUser = authInstance.currentUser;
     const userId = currentUser?.uid;
 
-    console.log('[canEditAccount] Checking:', {
-      accountName: account.name,
-      accountType: account.type,
-      createdBy: account.createdByUserId,
-      currentUser: userId,
-      userRole: user.role,
-    });
-
     // Admin and National Head can edit any account
     if (user.role === 'admin' || user.role === 'national_head') {
-      console.log('[canEditAccount] User is admin/national_head - allowing');
       return true;
     }
 
@@ -85,16 +75,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     if (user.role === 'rep') {
       const isCorrectType = account.type === 'dealer' || account.type === 'architect' || account.type === 'contractor';
       const isCreatedByUser = account.createdByUserId === userId;
-      const canEdit = isCorrectType && isCreatedByUser;
-
-      console.log('[canEditAccount] Rep detailed check:', {
-        isCorrectType,
-        isCreatedByUser,
-        canEdit,
-        createdByMatch: `${account.createdByUserId} === ${userId}`,
-      });
-
-      return canEdit;
+      return isCorrectType && isCreatedByUser;
     }
 
     return false;

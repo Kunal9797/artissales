@@ -179,8 +179,6 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         primaryDistributorId: selectedDistributor?.id,
       });
 
-      console.log('[AddUserScreen] User created:', response);
-
       Alert.alert(
         'Success',
         `User created successfully!\n\nName: ${name.trim()}\nPhone: ${phone}\nRole: ${ROLES.find(r => r.value === selectedRole)?.label}`,
@@ -434,7 +432,7 @@ const styles = StyleSheet.create({
   backButton: {
     color: colors.accent,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     marginBottom: spacing.md,
   },
   title: {
@@ -458,7 +456,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -518,7 +516,7 @@ const styles = StyleSheet.create({
   },
   roleButtonTextActive: {
     color: colors.primary,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   submitButton: {
     backgroundColor: colors.accent,
@@ -564,7 +562,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: typography.fontSize.xs,
     color: colors.accent,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   modalOverlay: {
     flex: 1,
@@ -629,7 +627,7 @@ const styles = StyleSheet.create({
   },
   modalItemName: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   modalItemMeta: {
@@ -642,7 +640,7 @@ const styles = StyleSheet.create({
   },
   modalEmptyText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },

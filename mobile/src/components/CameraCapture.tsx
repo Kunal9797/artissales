@@ -14,6 +14,7 @@ import {
   Image,
 } from 'react-native';
 import { Camera, CameraType } from 'expo-camera';
+import { colors } from '../theme';
 
 interface CameraCaptureProps {
   onPhotoTaken: (uri: string) => void;
@@ -71,7 +72,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   if (hasPermission === null) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2196F3" />
+        <ActivityIndicator size="large" color={colors.info} />
         <Text style={styles.loadingText}>Requesting camera permission...</Text>
       </View>
     );
@@ -205,13 +206,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: '#2196F3',
+    borderColor: colors.info,
   },
   captureButtonInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.info,
   },
   preview: {
     flex: 1,
@@ -232,15 +233,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#FF5722',
+    borderColor: colors.error,
   },
   retakeButtonText: {
-    color: '#FF5722',
+    color: colors.error,
     fontSize: 16,
     fontWeight: '600',
   },
   useButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: colors.success,
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 8,
@@ -269,7 +270,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cancelButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: colors.info,
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 8,

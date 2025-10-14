@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   },
   entryCatalog: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   entryCount: {
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   addSectionTitle: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   catalogButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
   },
   catalogButtonTextSelected: {
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.lg,
     padding: spacing.lg,
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   addButton: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.primary,
   },
   divider: {
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   distributorButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   distributorButtonTextSelected: {

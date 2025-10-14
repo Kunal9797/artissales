@@ -45,20 +45,14 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
     try {
       setLoading(true);
       const response = await api.getTarget({ userId, month });
-      console.log('[SetTarget] getTarget response:', JSON.stringify(response, null, 2));
 
       if (response.ok && response.target) {
-        console.log('[SetTarget] Loading existing target:', response.target.id);
-        console.log('[SetTarget] Sheet targets:', response.target.targetsByCatalog);
-        console.log('[SetTarget] Visit targets:', response.target.targetsByAccountType);
-
         setExistingTarget(response.target);
         setTargets(response.target.targetsByCatalog);
         setVisitTargets(response.target.targetsByAccountType || {});
         setAutoRenew(response.target.autoRenew);
       } else {
         // No existing target
-        console.log('[SetTarget] No existing target found');
         setTargets({});
         setVisitTargets({});
         setAutoRenew(false);

@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   backButton: {
     color: colors.accent,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     marginBottom: spacing.md,
   },
   title: {
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
   },
   sectionValue: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   attendanceRow: {
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   commentsInput: {

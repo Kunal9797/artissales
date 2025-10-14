@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, collection, query, where, orderBy, onSnapshot } from '@react-native-firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, onSnapshot, FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export interface Account {
   id: string;
@@ -58,7 +58,7 @@ export const useAccounts = () => {
       (snapshot) => {
         const accountsData: Account[] = [];
 
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           accountsData.push({
             id: doc.id,

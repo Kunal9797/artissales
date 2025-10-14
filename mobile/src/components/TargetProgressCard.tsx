@@ -27,19 +27,15 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log('[TargetProgressCard] Fetching target for userId:', userId, 'month:', month);
     const fetchTarget = async () => {
       try {
         setLoading(true);
         setError(null);
         const response = await api.getTarget({ userId, month });
-        console.log('[TargetProgressCard] API response:', JSON.stringify(response, null, 2));
 
         if (response.target && response.progress) {
-          console.log('[TargetProgressCard] Setting progress:', response.progress);
           setProgress(response.progress);
         } else {
-          console.log('[TargetProgressCard] No target found');
           setProgress(null);
         }
       } catch (err: any) {
@@ -55,18 +51,15 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
   }, [userId, month]);
 
   if (loading) {
-    console.log('[TargetProgressCard] Rendering loading state');
     return null; // Don't show anything while loading
   }
 
   if (error) {
-    console.log('[TargetProgressCard] Rendering error state:', error);
     return null; // Don't show error, fail silently
   }
 
   // No targets - show "Log Sheet Sales" prompt
   if (!progress || progress.length === 0) {
-    console.log('[TargetProgressCard] No progress data, showing empty state');
     return (
       <TouchableOpacity
         style={[styles.emptyCard, style]}
@@ -79,8 +72,6 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
       </TouchableOpacity>
     );
   }
-
-  console.log('[TargetProgressCard] Rendering progress data');
 
   const getProgressColor = (percentage: number): string => {
     if (percentage >= 80) return colors.success;
@@ -161,7 +152,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   header: {
@@ -196,7 +187,7 @@ const styles = StyleSheet.create({
   },
   catalogName: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     width: 80,
     flexShrink: 0,

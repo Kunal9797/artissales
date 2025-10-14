@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, collection, query, where, onSnapshot, Timestamp } from '@react-native-firebase/firestore';
+import { getFirestore, collection, query, where, onSnapshot, FirebaseFirestoreTypes, Timestamp } from '@react-native-firebase/firestore';
 
 export interface TodayStats {
   checkInAt?: any;
@@ -58,7 +58,7 @@ export const useTodayStats = () => {
         let checkIn: any = null;
         let checkOut: any = null;
 
-        snapshot.docs.forEach((doc) => {
+        snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           if (data.type === 'check_in' && !checkIn) {
             checkIn = data.timestamp;
@@ -89,7 +89,7 @@ export const useTodayStats = () => {
         const todayStart = Timestamp.fromDate(startOfDay);
         const todayEnd = Timestamp.fromDate(endOfDay);
 
-        snapshot.docs.forEach((doc) => {
+        snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           const visitTime = data.timestamp;
 
@@ -127,7 +127,7 @@ export const useTodayStats = () => {
         let total = 0;
         const byCatalog: { [key: string]: number } = {};
 
-        snapshot.docs.forEach((doc) => {
+        snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           const catalog = data.catalog;
           const count = data.sheetsCount || 0;
@@ -161,7 +161,7 @@ export const useTodayStats = () => {
         let total = 0;
         const byCategory: { [key: string]: number } = {};
 
-        snapshot.docs.forEach((doc) => {
+        snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
           const expenseTotal = data.totalAmount || 0;
           total += expenseTotal;

@@ -25,28 +25,18 @@ export const VisitProgressCard: React.FC<VisitProgressCardProps> = ({
     const fetchVisitProgress = async () => {
       try {
         setLoading(true);
-        console.log('[VisitProgressCard] Fetching visit progress for:', { userId, month });
         const response = await api.getTarget({ userId, month });
 
-        console.log('[VisitProgressCard] Full API response:', JSON.stringify(response, null, 2));
-        console.log('[VisitProgressCard] response.ok:', response.ok);
-        console.log('[VisitProgressCard] response.target:', response.target);
-        console.log('[VisitProgressCard] response.visitProgress:', response.visitProgress);
-
         if (response.ok && response.visitProgress) {
-          console.log('[VisitProgressCard] Setting visit progress:', response.visitProgress);
           setVisitProgress(response.visitProgress);
         } else {
-          console.log('[VisitProgressCard] No visit progress found. response.ok:', response.ok, 'visitProgress exists:', !!response.visitProgress);
           setVisitProgress(null);
         }
       } catch (err: any) {
         console.error('[VisitProgressCard] Error fetching:', err);
-        console.error('[VisitProgressCard] Error message:', err.message);
         setVisitProgress(null);
       } finally {
         setLoading(false);
-        console.log('[VisitProgressCard] Loading complete. Final visitProgress:', visitProgress);
       }
     };
 
@@ -154,7 +144,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   // Card with progress
@@ -204,7 +194,7 @@ const styles = StyleSheet.create({
   },
   compactCount: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     width: 40,
     flexShrink: 0,
@@ -238,7 +228,7 @@ const styles = StyleSheet.create({
   },
   compactPercentageComplete: {
     color: colors.success,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   // Skeleton loading styles
   skeletonHeaderText: {
