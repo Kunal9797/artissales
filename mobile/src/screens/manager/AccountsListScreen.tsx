@@ -13,8 +13,8 @@ import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-nati
 import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { AccountType, AccountListItem } from '../../types';
-import { EmptyState, ErrorState, Skeleton } from '../../patterns';
-import { Tabs } from '../../components/ui';
+import { EmptyState, ErrorState, Skeleton, FiltersBar } from '../../patterns';
+import type { Chip } from '../../patterns';
 
 type AccountsListScreenProps = NativeStackScreenProps<any, 'AccountsList'>;
 
@@ -133,12 +133,13 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   // ✅ Performance: Memoized key extractor
   const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
 
-  // Prepare filter tabs
-  const filterTabs = [
-    { label: 'All', value: 'all' },
-    { label: 'Distributors', value: 'distributor' },
-    { label: 'Dealers', value: 'dealer' },
-    { label: 'Architects', value: 'architect' },
+  // Prepare filter chips
+  const filterChips: Chip[] = [
+    { label: 'All', value: 'all', active: selectedType === 'all' },
+    { label: 'Distributors', value: 'distributor', active: selectedType === 'distributor' },
+    { label: 'Dealers', value: 'dealer', active: selectedType === 'dealer' },
+    { label: 'Architects', value: 'architect', active: selectedType === 'architect' },
+    { label: 'Contractors', value: 'contractor', active: selectedType === 'contractor' },
   ];
 
   // Calculate KPIs
@@ -146,6 +147,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const distributorCount = accounts.filter(a => a.type === 'distributor').length;
   const dealerCount = accounts.filter(a => a.type === 'dealer').length;
   const architectCount = accounts.filter(a => a.type === 'architect').length;
+  const contractorCount = accounts.filter(a => a.type === 'contractor').length;
 
   return (
     <View style={styles.container}>
@@ -170,27 +172,38 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
 
       {/* Stats Summary - Compact inline format */}
       {!loading && !error && accounts.length > 0 && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{totalAccounts}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.statsScrollContent}
+        >
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{totalAccounts}</Text>
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{distributorCount}</Text>
+              <Text style={styles.statLabel}>Distributors</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{dealerCount}</Text>
+              <Text style={styles.statLabel}>Dealers</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{architectCount}</Text>
+              <Text style={styles.statLabel}>Architects</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{contractorCount}</Text>
+              <Text style={styles.statLabel}>Contractors</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{distributorCount}</Text>
-            <Text style={styles.statLabel}>Distributors</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{dealerCount}</Text>
-            <Text style={styles.statLabel}>Dealers</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{architectCount}</Text>
-            <Text style={styles.statLabel}>Architects</Text>
-          </View>
-        </View>
+        </ScrollView>
       )}
 
       {/* Search Bar */}
@@ -206,14 +219,11 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         />
       </View>
 
-      {/* Filter Tabs */}
-      <View style={styles.filtersContainer}>
-        <Tabs
-          items={filterTabs}
-          value={selectedType}
-          onChange={(value) => setSelectedType(value as AccountType | 'all')}
-        />
-      </View>
+      {/* Filter Chips */}
+      <FiltersBar
+        chips={filterChips}
+        onChipToggle={(value) => setSelectedType(value as AccountType | 'all')}
+      />
 
       {/* Content Area */}
       {loading ? (
@@ -296,22 +306,22 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
   },
+  statsScrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingVertical: spacing.sm,
+  },
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    marginHorizontal: spacing.screenPadding,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
     borderRadius: spacing.borderRadius.md,
     padding: spacing.md,
-    justifyContent: 'space-around',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.default,
   },
   statItem: {
     alignItems: 'center',
-    flex: 1,
+    paddingHorizontal: spacing.sm,
   },
   statValue: {
     fontSize: typography.fontSize['2xl'],
@@ -328,10 +338,7 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: colors.border.light,
-  },
-  filtersContainer: {
-    paddingHorizontal: spacing.screenPadding,
-    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   searchContainer: {
     flexDirection: 'row',
