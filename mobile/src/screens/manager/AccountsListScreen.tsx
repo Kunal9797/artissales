@@ -13,8 +13,7 @@ import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-nati
 import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { AccountType, AccountListItem } from '../../types';
-import { EmptyState, ErrorState, Skeleton, FiltersBar } from '../../patterns';
-import type { Chip } from '../../patterns';
+import { EmptyState, ErrorState, Skeleton } from '../../patterns';
 
 type AccountsListScreenProps = NativeStackScreenProps<any, 'AccountsList'>;
 
@@ -134,7 +133,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
 
   // Prepare filter chips
-  const filterChips: Chip[] = [
+  const filterChips = [
     { label: 'All', value: 'all', active: selectedType === 'all' },
     { label: 'Distributors', value: 'distributor', active: selectedType === 'distributor' },
     { label: 'Dealers', value: 'dealer', active: selectedType === 'dealer' },
@@ -170,60 +169,41 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </Text>
       </View>
 
-      {/* Stats Summary - Compact inline format */}
-      {!loading && !error && accounts.length > 0 && (
+      {/* Search and Filters Section */}
+      <View style={styles.searchAndFiltersSection}>
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color={colors.text.secondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name, city, or phone"
+            placeholderTextColor={colors.text.secondary}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            autoCapitalize="none"
+          />
+        </View>
+
+        {/* Filter Chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.statsScrollContent}
+          style={styles.filtersScroll}
+          contentContainerStyle={styles.filtersScrollContent}
         >
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{totalAccounts}</Text>
-              <Text style={styles.statLabel}>Total</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{distributorCount}</Text>
-              <Text style={styles.statLabel}>Distributors</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{dealerCount}</Text>
-              <Text style={styles.statLabel}>Dealers</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{architectCount}</Text>
-              <Text style={styles.statLabel}>Architects</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{contractorCount}</Text>
-              <Text style={styles.statLabel}>Contractors</Text>
-            </View>
-          </View>
+          {filterChips.map((chip) => (
+            <TouchableOpacity
+              key={chip.value}
+              onPress={() => setSelectedType(chip.value as AccountType | 'all')}
+              style={[styles.filterChip, chip.active && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]}>
+                {chip.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
-      )}
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Search size={20} color={colors.text.secondary} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, city, or phone"
-          placeholderTextColor={colors.text.secondary}
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          autoCapitalize="none"
-        />
       </View>
-
-      {/* Filter Chips */}
-      <FiltersBar
-        chips={filterChips}
-        onChipToggle={(value) => setSelectedType(value as AccountType | 'all')}
-      />
 
       {/* Content Area */}
       {loading ? (
@@ -306,61 +286,57 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
   },
-  statsScrollContent: {
-    paddingLeft: spacing.screenPadding,
-    paddingRight: spacing.screenPadding,
-    paddingVertical: spacing.sm,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  statItem: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    minWidth: 80,
-  },
-  statValue: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
-  },
-  statLabel: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: colors.border.light,
-    marginHorizontal: spacing.xs,
+  searchAndFiltersSection: {
+    backgroundColor: colors.background,
+    paddingBottom: spacing.sm,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: spacing.screenPadding,
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
     paddingHorizontal: spacing.md,
-    borderRadius: spacing.borderRadius.lg,
+    paddingVertical: spacing.xs,
+    borderRadius: spacing.borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border.default,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
+    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
+  },
+  filtersScroll: {
+    marginTop: spacing.xs,
+  },
+  filtersScrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+  },
+  filterChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    marginRight: spacing.sm,
+  },
+  filterChipActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  filterChipText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+  },
+  filterChipTextActive: {
+    color: '#fff',
+    fontWeight: typography.fontWeight.bold,
   },
   content: {
     flex: 1,
