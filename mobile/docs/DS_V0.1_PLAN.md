@@ -185,11 +185,18 @@ No behavior change by default; dev flag to preview a sample tenant.
 
 ## 10) Rollout (small, safe PRs)
 
-**PR1:** `feat(theme): roles & states tokens + types`  
+**PR1:** `feat(theme): roles & states tokens + types` ✅ **COMPLETE** (Oct 14, 2025)
 Files: `theme/roles.ts`, `theme/states.ts`, `theme/tokens.d.ts`, `theme/index.ts`.
+Bonus: Added Design Lab (dev-only) for live token editing + Kitchen Sink demonstrations.
 
-**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar`  
+### Theme Source of Truth
+- **Design Lab**: Use to experiment with role colors, spacing, and typography in real-time (Kitchen Sink → Design Lab).
+- **Preset**: Apply chosen colors from Design Lab to `src/theme/colorThemes.ts` (preset name: `brandTheme`).
+- All components in PR2+ should reference `roles` tokens (bg/base/text/border) from the active preset.
+
+**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar`
 Wire `ToastProvider` at app root; add `components/StatusBar.tsx`.
+**Note:** Use role tokens (bg/base/text/border) from preset: `brandTheme`.
 
 **PR3:** `feat(ui): Checkbox, Radio, Switch, Select, Tabs`  
 Docs: begin `COMPONENT_CATALOG.md`.
