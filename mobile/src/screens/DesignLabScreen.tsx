@@ -13,8 +13,8 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Clipboard,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { Header, Button, Card } from '../components/ui';
 import { colors, typography, spacing, shadows, states } from '../theme';
 import type { RoleKey } from '../theme';
@@ -100,9 +100,9 @@ export const DesignLabScreen: React.FC<DesignLabScreenProps> = ({ navigation }) 
   };
 
   // Export to clipboard
-  const handleExport = async () => {
+  const handleExport = () => {
     const json = serializeThemeOverrides(overrides);
-    await Clipboard.setStringAsync(json);
+    Clipboard.setString(json);
     setCopiedToClipboard(true);
     Alert.alert('Copied!', 'Theme overrides copied to clipboard');
     setTimeout(() => setCopiedToClipboard(false), 2000);
