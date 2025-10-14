@@ -14,7 +14,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import Clipboard from '@react-native-clipboard/clipboard';
 import { Header, Button, Card } from '../components/ui';
 import { colors, typography, spacing, shadows, states } from '../theme';
 import type { RoleKey } from '../theme';
@@ -99,12 +98,18 @@ export const DesignLabScreen: React.FC<DesignLabScreenProps> = ({ navigation }) 
     }
   };
 
-  // Export to clipboard
+  // Export to clipboard (show in alert instead - no native clipboard needed)
   const handleExport = () => {
     const json = serializeThemeOverrides(overrides);
-    Clipboard.setString(json);
+
+    // Show JSON in alert with scrollable view
+    Alert.alert(
+      'Theme Overrides JSON',
+      'Copy this manually:\n\n' + json,
+      [{ text: 'OK' }]
+    );
+
     setCopiedToClipboard(true);
-    Alert.alert('Copied!', 'Theme overrides copied to clipboard');
     setTimeout(() => setCopiedToClipboard(false), 2000);
   };
 
