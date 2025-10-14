@@ -1,4 +1,4 @@
-package com.artis.sales
+package com.artissales
 
 import android.app.Application
 import android.content.res.Configuration

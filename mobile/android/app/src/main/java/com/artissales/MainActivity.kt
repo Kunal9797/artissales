@@ -1,4 +1,4 @@
-package com.artis.sales
+package com.artissales
 
 import android.os.Build
 import android.os.Bundle
