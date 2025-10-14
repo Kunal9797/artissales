@@ -12,7 +12,8 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import { Button, Card, Input, Header } from '../components/ui';
+import { Button, Card, Input, Header, Spinner, Badge, ProgressBar } from '../components/ui';
+import { useToast } from '../providers/ToastProvider';
 import { colors, typography, spacing, shadows, roles, states, applyState } from '../theme';
 import type { RoleKey, StateKey } from '../theme';
 import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react-native';
@@ -20,6 +21,54 @@ import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, I
 interface KitchenSinkScreenProps {
   navigation: any;
 }
+
+// Toast Demo Component
+const ToastDemoSection = () => {
+  const toast = useToast();
+
+  return (
+    <Card>
+      <Text style={styles.cardTitle}>Toasts</Text>
+      <Text style={[styles.caption, { marginBottom: spacing.sm }]}>
+        Tap buttons to show toast notifications
+      </Text>
+      <View style={styles.buttonGroup}>
+        <Button
+          onPress={() => toast.show({ kind: 'success', text: 'Action completed successfully!' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.success.base }}
+        >
+          Show Success Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'error', text: 'Something went wrong. Please try again.' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.error.base }}
+        >
+          Show Error Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'warning', text: 'This action cannot be undone.' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.warn.base }}
+        >
+          Show Warning Toast
+        </Button>
+        <Button
+          onPress={() => toast.show({ kind: 'info', text: 'New features are available!' })}
+          variant="primary"
+          size="small"
+          style={{ backgroundColor: roles.info.base }}
+        >
+          Show Info Toast
+        </Button>
+      </View>
+    </Card>
+  );
+};
 
 export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation }) => {
   const [inputValue, setInputValue] = useState('');
@@ -413,6 +462,84 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
           </View>
         </Section>
 
+        {/* NEW: PR2 Components */}
+        <Section title="🎨 DS v0.1 Components (PR2)">
+          <Text style={styles.instructionText}>
+            New standardized UI components using role tokens
+          </Text>
+
+          {/* Spinners */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Spinners</Text>
+            <View style={styles.spinnerRow}>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="sm" tone="primary" />
+                <Text style={styles.caption}>Small</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="md" tone="primary" />
+                <Text style={styles.caption}>Medium</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="lg" tone="accent" />
+                <Text style={styles.caption}>Large (Accent)</Text>
+              </View>
+              <View style={styles.spinnerDemo}>
+                <Spinner size="md" tone="success" />
+                <Text style={styles.caption}>Success</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Badges */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Badges</Text>
+            <View style={styles.badgeRow}>
+              <Badge variant="success" size="md" icon={<CheckCircle size={12} color={roles.success.text} />}>
+                Success
+              </Badge>
+              <Badge variant="error" size="md" icon={<AlertCircle size={12} color={roles.error.text} />}>
+                Error
+              </Badge>
+              <Badge variant="warn" size="md" icon={<AlertTriangle size={12} color={roles.warn.text} />}>
+                Warning
+              </Badge>
+              <Badge variant="info" size="md" icon={<Info size={12} color={roles.info.text} />}>
+                Info
+              </Badge>
+              <Badge variant="neutral" size="sm">
+                Neutral
+              </Badge>
+            </View>
+          </Card>
+
+          {/* Progress Bars */}
+          <Card style={{ marginBottom: spacing.md }}>
+            <Text style={styles.cardTitle}>Progress Bars</Text>
+            <View style={{ gap: spacing.md }}>
+              <View>
+                <ProgressBar value={0.25} barColor={roles.success.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>25% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={0.5} barColor={roles.info.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>50% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={0.75} barColor={roles.warn.base} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>75% Complete</Text>
+              </View>
+              <View>
+                <ProgressBar value={1.0} height={6} />
+                <Text style={[styles.caption, { marginTop: spacing.xs }]}>100% Complete (Thicker)</Text>
+              </View>
+            </View>
+          </Card>
+
+          {/* Toast Demos */}
+          <ToastDemoSection />
+        </Section>
+
         {/* Real-World Example */}
         <Section title="Real-World Example">
           <Card>
@@ -631,5 +758,27 @@ const styles = StyleSheet.create({
   demoButtonText: {
     ...typography.styles.button,
     color: colors.text.inverse,
+  },
+
+  // PR2 Component Styles
+  spinnerRow: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+  },
+  spinnerDemo: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  caption: {
+    ...typography.styles.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
   },
 });
