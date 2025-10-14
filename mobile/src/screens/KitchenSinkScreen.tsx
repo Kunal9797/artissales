@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Button, Card, Input, Header, Spinner, Badge, ProgressBar, Checkbox, Radio, Switch, Select, Tabs } from '../components/ui';
 import { useToast } from '../providers/ToastProvider';
+import { useTenantTheme } from '../providers/TenantThemeProvider';
 import { colors, typography, spacing, shadows, roles, states, applyState } from '../theme';
 import type { RoleKey, StateKey } from '../theme';
 import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle, Building2, Users, TrendingUp } from 'lucide-react-native';
@@ -77,6 +78,9 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
   const [inputError, setInputError] = useState('');
   const [useBrandBackground, setUseBrandBackground] = useState(false);
 
+  // PR6: Tenant theming
+  const { theme, loadTenant, resetToDefault, isCustomTenant } = useTenantTheme();
+
   // PR3 state
   const [checkboxValue, setCheckboxValue] = useState(false);
   const [radioValue, setRadioValue] = useState('option1');
@@ -134,6 +138,58 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
             <Text style={[styles.instructionText, { marginTop: spacing.sm }]}>
               Live theme token editor with real-time preview. Edit colors, spacing, and typography.
             </Text>
+          </Section>
+        )}
+
+        {/* PR6: Tenant Theme Toggle */}
+        {__DEV__ && (
+          <Section title="🏢 Tenant Theme (White-label)">
+            <Card>
+              <Text style={styles.cardTitle}>
+                {isCustomTenant ? `Active: ${theme.tenantName}` : 'Default Brand Theme'}
+              </Text>
+              <Text style={[styles.caption, { marginBottom: spacing.md }]}>
+                {isCustomTenant
+                  ? 'Custom tenant theme loaded with role color overrides'
+                  : 'Using default Artis brand theme'}
+              </Text>
+              <View style={styles.buttonGroup}>
+                <Button
+                  onPress={() => loadTenant('dev')}
+                  variant="primary"
+                  size="small"
+                  disabled={isCustomTenant}
+                  style={{ flex: 1, marginRight: spacing.sm }}
+                >
+                  Load Dev Tenant
+                </Button>
+                <Button
+                  onPress={resetToDefault}
+                  variant="outline"
+                  size="small"
+                  disabled={!isCustomTenant}
+                  style={{ flex: 1 }}
+                >
+                  Reset to Default
+                </Button>
+              </View>
+              {isCustomTenant && (
+                <View style={{ marginTop: spacing.md, padding: spacing.sm, backgroundColor: colors.surface, borderRadius: spacing.borderRadius.md }}>
+                  <Text style={[styles.caption, { fontWeight: typography.fontWeight.semiBold }]}>
+                    Overrides Applied:
+                  </Text>
+                  <Text style={[styles.caption, { marginTop: spacing.xs }]}>
+                    • Primary: {theme.roles.primary.base}
+                  </Text>
+                  <Text style={styles.caption}>
+                    • Accent: {theme.roles.accent.base}
+                  </Text>
+                  <Text style={styles.caption}>
+                    • Success: {theme.roles.success.base}
+                  </Text>
+                </View>
+              )}
+            </Card>
           </Section>
         )}
 

@@ -4,17 +4,20 @@ import { AppStatusBar } from './src/components/ui';
 import { ErrorBoundary } from './src/providers/ErrorBoundary';
 import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
+import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 
-// DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab
+// DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab and TenantThemeProvider for white-label
 const isDev = __DEV__;
 
 export default function App() {
   const AppContent = (
     <ErrorBoundary>
-      <ToastProvider>
-        <AppStatusBar />
-        <RootNavigator />
-      </ToastProvider>
+      <TenantThemeProvider>
+        <ToastProvider>
+          <AppStatusBar />
+          <RootNavigator />
+        </ToastProvider>
+      </TenantThemeProvider>
     </ErrorBoundary>
   );
 

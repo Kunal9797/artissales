@@ -226,11 +226,25 @@ Files: `FiltersBar/index.tsx`, `EmptyState.tsx`, `ErrorState.tsx`, `Skeleton.tsx
 - Kitchen Sink demos added for all patterns
 - `COMPONENT_CATALOG.md` updated with pattern documentation
 
-**PR5 (optional):** `perf(list): FlashList on <HeaviestScreen>`  
-Comment with before/after timings.
+**PR5:** `perf(list): FlashList on AccountsListScreen` ✅ **COMPLETE** (Oct 14, 2025)
+File: `AccountsListScreen.tsx`
+- Replaced FlatList with @shopify/flash-list FlashList
+- Set `estimatedItemSize=64` (account card height)
+- Removed redundant perf props (windowSize, maxToRenderPerBatch, etc.)
+- Kept all memoization (renderItem, keyExtractor)
+- No UX changes: FiltersBar, Empty/Error/Skeleton patterns intact
+- Added `docs/PR5_FLASHLIST_PERF.md` with before/after comparison, migration pattern, testing checklist, and rollback plan
 
-**PR6:** `feat(tenant): TenantThemeProvider (runtime only)`  
-Add sample `tenants/dev.json`; dev switch.
+**PR6:** `feat(tenant): TenantThemeProvider (runtime only)` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `providers/TenantThemeProvider.tsx`, `tenants/dev.json`, `App.tsx`, `KitchenSinkScreen.tsx`
+- Added TenantThemeProvider with `useTenantTheme()` hook
+- Supports runtime overrides: roles, spacingUnit, radius, typeScale
+- Created sample `tenants/dev.json` with dev theme overrides
+- Wired provider at app root (wraps ToastProvider)
+- Added dev toggle in Kitchen Sink screen ("Load Dev Tenant" / "Reset to Default")
+- Shows active tenant name and color overrides when custom theme loaded
+- Fallback to brand theme on load failure
+- Added `docs/PR6_TENANT_THEMING.md` with architecture, usage examples, testing checklist, production rollout plan, migration guide, and security considerations
 
 Each PR: screenshots + a tiny test plan (two Android versions).
 
