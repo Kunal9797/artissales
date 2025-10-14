@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
-import { roles, typography, spacing, shadows } from '../theme';
+import { roles, typography, spacing, shadows } from '../../theme';
 import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react-native';
 
 export interface ToastProps {

@@ -5,8 +5,8 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { roles, typography, spacing } from '../theme';
-import type { RoleKey } from '../theme';
+import { roles, typography, spacing } from '../../theme';
+import type { RoleKey } from '../../theme';
 
 export interface BadgeProps {
   /**

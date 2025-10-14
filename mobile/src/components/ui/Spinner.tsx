@@ -5,8 +5,8 @@
 
 import React from 'react';
 import { ActivityIndicator, ActivityIndicatorProps, StyleSheet } from 'react-native';
-import { colors, roles } from '../theme';
-import type { RoleKey } from '../theme';
+import { colors, roles } from '../../theme';
+import type { RoleKey } from '../../theme';
 
 export interface SpinnerProps {
   /**

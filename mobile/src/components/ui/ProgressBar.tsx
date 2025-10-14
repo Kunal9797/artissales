@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, spacing } from '../../theme';
 
 export interface ProgressBarProps {
   /**

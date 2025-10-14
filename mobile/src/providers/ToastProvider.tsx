@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Toast, ToastProps } from '../ui/Toast';
+import { Toast, ToastProps } from '../components/ui/Toast';
 
 export interface ToastItem {
   id: number;
