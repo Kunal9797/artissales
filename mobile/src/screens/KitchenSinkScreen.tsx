@@ -10,10 +10,12 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Pressable,
 } from 'react-native';
 import { Button, Card, Input, Header } from '../components/ui';
-import { colors, typography, spacing, shadows } from '../theme';
-import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload } from 'lucide-react-native';
+import { colors, typography, spacing, shadows, roles, states, applyState } from '../theme';
+import type { RoleKey, StateKey } from '../theme';
+import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react-native';
 
 interface KitchenSinkScreenProps {
   navigation: any;
@@ -292,6 +294,109 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
           />
         </Section>
 
+        {/* NEW: Role Tokens */}
+        <Section title="🎭 Role Tokens (Semantic Colors)">
+          <Text style={styles.instructionText}>
+            Semantic roles ensure consistent color usage for status messages, badges, and alerts.
+          </Text>
+          <View style={styles.roleGrid}>
+            {(['success', 'warn', 'error', 'info', 'neutral', 'primary', 'accent'] as RoleKey[]).map((role) => (
+              <View key={role} style={styles.roleItem}>
+                <View style={[styles.roleSwatch, { backgroundColor: roles[role].bg }]}>
+                  <View style={[styles.roleSwatchInner, { backgroundColor: roles[role].base }]} />
+                </View>
+                <Text style={styles.roleLabel}>{role}</Text>
+                <View style={[styles.roleBadge, { backgroundColor: roles[role].bg, borderColor: roles[role].border }]}>
+                  {role === 'success' && <CheckCircle size={14} color={roles[role].text} />}
+                  {role === 'error' && <AlertCircle size={14} color={roles[role].text} />}
+                  {role === 'warn' && <AlertTriangle size={14} color={roles[role].text} />}
+                  {role === 'info' && <Info size={14} color={roles[role].text} />}
+                  <Text style={[styles.roleBadgeText, { color: roles[role].text }]}>
+                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Section>
+
+        {/* NEW: State Tokens */}
+        <Section title="⚡ State Tokens (Interactions)">
+          <Text style={styles.instructionText}>
+            State tokens define visual feedback for user interactions. Press the cards to see effects.
+          </Text>
+          <View style={styles.stateGrid}>
+            {/* Focus State */}
+            <Pressable style={[styles.stateCard, states.focus.shadow]}>
+              <Text style={styles.stateTitle}>Focus</Text>
+              <View style={[styles.stateSwatch, {
+                borderColor: states.focus.border,
+                borderWidth: states.focus.borderWidth,
+                backgroundColor: states.focus.bgTint
+              }]} />
+              <Text style={styles.stateDesc}>Accessibility border</Text>
+            </Pressable>
+
+            {/* Pressed State */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.stateCard,
+                pressed && { opacity: states.pressed.opacity }
+              ]}
+            >
+              <Text style={styles.stateTitle}>Pressed</Text>
+              <View style={[styles.stateSwatch, { backgroundColor: colors.primary }]} />
+              <Text style={styles.stateDesc}>Tap to see effect</Text>
+            </Pressable>
+
+            {/* Disabled State */}
+            <View style={[styles.stateCard, { opacity: states.disabled.opacity }]}>
+              <Text style={styles.stateTitle}>Disabled</Text>
+              <View style={[styles.stateSwatch, {
+                backgroundColor: states.disabled.bg,
+                borderColor: states.disabled.border,
+                borderWidth: 1
+              }]} />
+              <Text style={styles.stateDesc}>Inactive state</Text>
+            </View>
+
+            {/* Loading State */}
+            <View style={[styles.stateCard, { opacity: states.loading.opacity }]}>
+              <Text style={styles.stateTitle}>Loading</Text>
+              <View style={[styles.stateSwatch, { backgroundColor: colors.primary }]} />
+              <Text style={styles.stateDesc}>Processing...</Text>
+            </View>
+          </View>
+        </Section>
+
+        {/* NEW: applyState Helper Demo */}
+        <Section title="🔧 applyState() Helper Function">
+          <Text style={styles.instructionText}>
+            Use applyState() to quickly apply interaction states to any component.
+          </Text>
+          <View style={styles.buttonGroup}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.demoButton,
+                pressed ? applyState(styles.demoButton, 'pressed') : {}
+              ]}
+              onPress={() => Alert.alert('Pressed state applied!')}
+            >
+              <Text style={styles.demoButtonText}>Press Me (applyState)</Text>
+            </Pressable>
+
+            <View style={applyState(styles.demoButton, 'disabled')}>
+              <Text style={[styles.demoButtonText, { color: states.disabled.text }]}>
+                Disabled (applyState)
+              </Text>
+            </View>
+
+            <View style={applyState(styles.demoButton, 'focus')}>
+              <Text style={styles.demoButtonText}>Focus (applyState)</Text>
+            </View>
+          </View>
+        </Section>
+
         {/* Real-World Example */}
         <Section title="Real-World Example">
           <Card>
@@ -421,5 +526,94 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+
+  // Role Tokens
+  roleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  roleItem: {
+    width: '30%',
+    alignItems: 'center',
+  },
+  roleSwatch: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.xs,
+    marginBottom: spacing.xs,
+    borderWidth: 2,
+    borderColor: colors.border.default,
+  },
+  roleSwatchInner: {
+    flex: 1,
+    borderRadius: spacing.borderRadius.sm,
+  },
+  roleLabel: {
+    ...typography.styles.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+    textTransform: 'capitalize',
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs / 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs / 2,
+    borderRadius: spacing.borderRadius.sm,
+    borderWidth: 1,
+  },
+  roleBadgeText: {
+    ...typography.styles.caption,
+    fontSize: 11,
+  },
+
+  // State Tokens
+  stateGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  stateCard: {
+    width: '47%',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  stateTitle: {
+    ...typography.styles.label,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  stateSwatch: {
+    width: 60,
+    height: 60,
+    borderRadius: spacing.borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  stateDesc: {
+    ...typography.styles.caption,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+  },
+
+  // Demo Button for applyState
+  demoButton: {
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  demoButtonText: {
+    ...typography.styles.button,
+    color: colors.text.inverse,
   },
 });
