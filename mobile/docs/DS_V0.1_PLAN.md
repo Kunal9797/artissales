@@ -194,15 +194,37 @@ Bonus: Added Design Lab (dev-only) for live token editing + Kitchen Sink demonst
 - **Preset**: Apply chosen colors from Design Lab to `src/theme/colorThemes.ts` (preset name: `brandTheme`).
 - All components in PR2+ should reference `roles` tokens (bg/base/text/border) from the active preset.
 
-**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar`
-Wire `ToastProvider` at app root; add `components/StatusBar.tsx`.
-**Note:** Use role tokens (bg/base/text/border) from preset: `brandTheme`.
+**PR2:** `feat(ui): Spinner, Badge, Toast (provider+hook), ProgressBar` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `components/ui/Spinner.tsx`, `components/ui/Badge.tsx`, `components/ui/Toast.tsx`, `components/ui/ProgressBar.tsx`, `providers/ToastProvider.tsx`.
+Wired `ToastProvider` at app root. StatusBar already centralized as `AppStatusBar.tsx`.
+All components use role tokens (bg/base/text/border) from brandTheme preset.
+Kitchen Sink demos added for all components with interactive toast testing.
 
-**PR3:** `feat(ui): Checkbox, Radio, Switch, Select, Tabs`  
-Docs: begin `COMPONENT_CATALOG.md`.
+**PR3:** `feat(ui): Checkbox, Radio, Switch, Select, Tabs` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `Checkbox.tsx`, `Radio.tsx`, `Switch.tsx`, `Select.tsx`, `Tabs.tsx`
+- All components use role tokens and state tokens (focus ring)
+- ≥48dp hit targets on all interactive elements
+- Proper `accessibilityRole` + `accessibilityLabel` support
+- Select uses modal with optional search (react-native-safe-area-context)
+- Tabs supports dense mode
+- Kitchen Sink demos added with interactive examples
+- Docs: `COMPONENT_CATALOG.md` created with full API reference
 
-**PR4:** `feat(patterns): FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard`  
-Convert one target screen to use 2–3 of these.
+**PR4:** `feat(patterns): FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard` ✅ **COMPLETE** (Oct 14, 2025)
+Files: `FiltersBar/index.tsx`, `EmptyState.tsx`, `ErrorState.tsx`, `Skeleton.tsx`, `KpiCard.tsx`
+- FiltersBar: Quick chips + "More filters" modal with Select components
+- EmptyState: Flexible empty state with optional icon and primary action
+- ErrorState: Error display with retry button
+- Skeleton: Animated opacity loop (no shimmer lib), supports rows/avatar/card layouts
+- KpiCard: Auto-colored delta based on `positiveIsGood` flag
+- **Screen conversion:** AccountsListScreen.tsx converted to use all patterns
+  - FiltersBar for account type filtering
+  - KPI cards row showing total/distributors/dealers/architects
+  - Skeleton for loading state
+  - ErrorState for error handling
+  - EmptyState for no results
+- Kitchen Sink demos added for all patterns
+- `COMPONENT_CATALOG.md` updated with pattern documentation
 
 **PR5 (optional):** `perf(list): FlashList on <HeaviestScreen>`  
 Comment with before/after timings.

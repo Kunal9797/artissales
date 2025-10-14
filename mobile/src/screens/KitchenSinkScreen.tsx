@@ -12,11 +12,13 @@ import {
   Alert,
   Pressable,
 } from 'react-native';
-import { Button, Card, Input, Header, Spinner, Badge, ProgressBar } from '../components/ui';
+import { Button, Card, Input, Header, Spinner, Badge, ProgressBar, Checkbox, Radio, Switch, Select, Tabs } from '../components/ui';
 import { useToast } from '../providers/ToastProvider';
 import { colors, typography, spacing, shadows, roles, states, applyState } from '../theme';
 import type { RoleKey, StateKey } from '../theme';
-import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react-native';
+import { Check, Plus, Save, Trash2, ArrowRight, Download, Upload, AlertCircle, Info, CheckCircle, AlertTriangle, Building2, Users, TrendingUp } from 'lucide-react-native';
+import { FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard } from '../patterns';
+import type { Chip, FilterSpec } from '../patterns';
 
 interface KitchenSinkScreenProps {
   navigation: any;
@@ -74,6 +76,23 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
   const [inputValue, setInputValue] = useState('');
   const [inputError, setInputError] = useState('');
   const [useBrandBackground, setUseBrandBackground] = useState(false);
+
+  // PR3 state
+  const [checkboxValue, setCheckboxValue] = useState(false);
+  const [radioValue, setRadioValue] = useState('option1');
+  const [switchValue, setSwitchValue] = useState(false);
+  const [selectValue, setSelectValue] = useState<string | null>(null);
+  const [tabValue, setTabValue] = useState('tab1');
+
+  // PR4 state
+  const [filterChips, setFilterChips] = useState<Chip[]>([
+    { label: 'All', value: 'all', active: true },
+    { label: 'Active', value: 'active', active: false },
+    { label: 'Pending', value: 'pending', active: false },
+  ]);
+  const [showError, setShowError] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
 
   // Color comparison: Corporate Blue vs Brand Background
   const primaryColor = useBrandBackground ? '#393735' : '#3A5A7C';
@@ -572,6 +591,237 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
                 Follow Up
               </Button>
             </View>
+          </Card>
+        </Section>
+
+        {/* ========== PR3: Input Components ========== */}
+        <Section title="📋 PR3: Input Components">
+          <Card>
+            <Text style={styles.cardTitle}>Checkbox</Text>
+            <Checkbox
+              checked={checkboxValue}
+              onChange={setCheckboxValue}
+              label="I agree to the terms and conditions"
+            />
+            <Checkbox
+              checked={false}
+              onChange={() => {}}
+              label="Disabled checkbox"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Radio</Text>
+            <Radio
+              selected={radioValue === 'option1'}
+              onChange={() => setRadioValue('option1')}
+              label="Option 1"
+            />
+            <Radio
+              selected={radioValue === 'option2'}
+              onChange={() => setRadioValue('option2')}
+              label="Option 2"
+            />
+            <Radio
+              selected={radioValue === 'option3'}
+              onChange={() => setRadioValue('option3')}
+              label="Option 3"
+            />
+            <Radio
+              selected={false}
+              onChange={() => {}}
+              label="Disabled option"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Switch</Text>
+            <Switch
+              value={switchValue}
+              onChange={setSwitchValue}
+              label="Enable notifications"
+            />
+            <Switch
+              value={true}
+              onChange={() => {}}
+              label="Disabled switch"
+              disabled
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Select</Text>
+            <Select
+              label="Choose a city"
+              value={selectValue}
+              onChange={setSelectValue}
+              options={[
+                { label: 'Mumbai', value: 'mumbai' },
+                { label: 'Delhi', value: 'delhi' },
+                { label: 'Bangalore', value: 'bangalore' },
+                { label: 'Chennai', value: 'chennai' },
+                { label: 'Kolkata', value: 'kolkata' },
+              ]}
+              searchable
+            />
+            <Text style={[styles.caption, { marginTop: spacing.sm }]}>
+              Selected: {selectValue || 'None'}
+            </Text>
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Tabs</Text>
+            <Tabs
+              items={[
+                { label: 'Overview', value: 'tab1' },
+                { label: 'Details', value: 'tab2' },
+                { label: 'Settings', value: 'tab3' },
+              ]}
+              value={tabValue}
+              onChange={setTabValue}
+            />
+            <Text style={[styles.caption, { marginTop: spacing.md }]}>
+              Current tab: {tabValue}
+            </Text>
+
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={[styles.caption, { marginBottom: spacing.sm }]}>Dense mode:</Text>
+              <Tabs
+                items={[
+                  { label: 'All', value: 'all' },
+                  { label: 'Active', value: 'active' },
+                  { label: 'Archived', value: 'archived' },
+                ]}
+                value={tabValue}
+                onChange={setTabValue}
+                dense
+              />
+            </View>
+          </Card>
+        </Section>
+
+        {/* ========== PR4: Patterns ========== */}
+        <Section title="🎨 PR4: Patterns">
+          <Card>
+            <Text style={styles.cardTitle}>KPI Cards</Text>
+            <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap', marginTop: spacing.sm }}>
+              <KpiCard
+                title="Total Accounts"
+                value={142}
+                icon={<Building2 size={20} color={colors.primary} />}
+                delta={{ value: 12, positiveIsGood: true }}
+              />
+              <KpiCard
+                title="Active Users"
+                value={89}
+                icon={<Users size={20} color={roles.success.base} />}
+                delta={{ value: -5, positiveIsGood: true }}
+              />
+              <KpiCard
+                title="Revenue"
+                value="₹2.4L"
+                icon={<TrendingUp size={20} color={roles.info.base} />}
+                delta={{ value: 18, positiveIsGood: true }}
+              />
+            </View>
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>FiltersBar</Text>
+            <FiltersBar
+              chips={filterChips}
+              onChipToggle={(value) => {
+                setFilterChips(prev => prev.map(c => ({ ...c, active: c.value === value })));
+              }}
+              moreFilters={[
+                {
+                  key: 'region',
+                  label: 'Region',
+                  options: [
+                    { label: 'North', value: 'north' },
+                    { label: 'South', value: 'south' },
+                    { label: 'East', value: 'east' },
+                    { label: 'West', value: 'west' },
+                  ],
+                },
+                {
+                  key: 'type',
+                  label: 'Account Type',
+                  options: [
+                    { label: 'Distributor', value: 'distributor' },
+                    { label: 'Dealer', value: 'dealer' },
+                    { label: 'Architect', value: 'architect' },
+                  ],
+                },
+              ]}
+              onApply={(filters) => Alert.alert('Filters Applied', JSON.stringify(filters, null, 2))}
+            />
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>Skeleton (Loading State)</Text>
+            <Button
+              onPress={() => {
+                setShowSkeleton(true);
+                setTimeout(() => setShowSkeleton(false), 3000);
+              }}
+              variant="primary"
+              size="small"
+            >
+              Show Skeleton (3s)
+            </Button>
+            {showSkeleton && (
+              <View style={{ marginTop: spacing.md }}>
+                <Skeleton rows={3} avatar />
+                <Skeleton rows={2} />
+                <Skeleton card />
+              </View>
+            )}
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>EmptyState</Text>
+            <Button
+              onPress={() => setShowEmpty(!showEmpty)}
+              variant="primary"
+              size="small"
+            >
+              {showEmpty ? 'Hide' : 'Show'} EmptyState
+            </Button>
+            {showEmpty && (
+              <View style={{ marginTop: spacing.md, height: 300 }}>
+                <EmptyState
+                  icon={<Building2 size={48} color={colors.text.tertiary} />}
+                  title="No accounts found"
+                  subtitle="Try adjusting your filters or create a new account"
+                  primaryAction={{
+                    label: 'Add Account',
+                    onPress: () => Alert.alert('Add Account', 'Action triggered!'),
+                  }}
+                />
+              </View>
+            )}
+          </Card>
+
+          <Card style={{ marginTop: spacing.md }}>
+            <Text style={styles.cardTitle}>ErrorState</Text>
+            <Button
+              onPress={() => setShowError(!showError)}
+              variant="primary"
+              size="small"
+            >
+              {showError ? 'Hide' : 'Show'} ErrorState
+            </Button>
+            {showError && (
+              <View style={{ marginTop: spacing.md, height: 300 }}>
+                <ErrorState
+                  message="Network error. Please check your connection."
+                  retry={() => Alert.alert('Retry', 'Retrying...')}
+                />
+              </View>
+            )}
           </Card>
         </Section>
 

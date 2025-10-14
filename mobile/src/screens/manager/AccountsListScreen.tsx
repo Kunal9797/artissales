@@ -6,14 +6,14 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { AccountType, AccountListItem } from '../../types';
+import { FiltersBar, EmptyState, ErrorState, Skeleton, KpiCard } from '../../patterns';
+import type { Chip } from '../../patterns';
 
 type AccountsListScreenProps = NativeStackScreenProps<any, 'AccountsList'>;
 
@@ -21,7 +21,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [filteredAccounts, setFilteredAccounts] = useState<AccountListItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<AccountType | 'all'>('all');
 
@@ -54,21 +54,19 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const loadAccounts = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await api.getAccountsList({});
       if (response.ok) {
         setAccounts(response.accounts);
+      } else {
+        setError('Failed to load accounts');
       }
-    } catch (error) {
-      console.error('Error loading accounts:', error);
+    } catch (err) {
+      console.error('Error loading accounts:', err);
+      setError('Network error. Please check your connection.');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadAccounts();
   };
 
   const getAccountTypeColor = (type: AccountType): string => {
@@ -134,6 +132,24 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   // ✅ Performance: Memoized key extractor
   const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
 
+  // Prepare filter chips
+  const filterChips: Chip[] = [
+    { label: 'All', value: 'all', active: selectedType === 'all' },
+    { label: 'Distributors', value: 'distributor', active: selectedType === 'distributor' },
+    { label: 'Dealers', value: 'dealer', active: selectedType === 'dealer' },
+    { label: 'Architects', value: 'architect', active: selectedType === 'architect' },
+  ];
+
+  const handleChipToggle = (value: string) => {
+    setSelectedType(value as AccountType | 'all');
+  };
+
+  // Calculate KPIs
+  const totalAccounts = accounts.length;
+  const distributorCount = accounts.filter(a => a.type === 'distributor').length;
+  const dealerCount = accounts.filter(a => a.type === 'dealer').length;
+  const architectCount = accounts.filter(a => a.type === 'architect').length;
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -155,6 +171,16 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </Text>
       </View>
 
+      {/* KPI Cards */}
+      {!loading && !error && accounts.length > 0 && (
+        <View style={styles.kpiRow}>
+          <KpiCard title="Total" value={totalAccounts} icon={<Building2 size={20} color={colors.primary} />} />
+          <KpiCard title="Distributors" value={distributorCount} />
+          <KpiCard title="Dealers" value={dealerCount} />
+          <KpiCard title="Architects" value={architectCount} />
+        </View>
+      )}
+
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Search size={20} color={colors.text.secondary} style={styles.searchIcon} />
@@ -168,77 +194,44 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         />
       </View>
 
-      {/* Type Filter Tabs */}
-      <View style={styles.filterContainer}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={[
-            { value: 'all', label: 'All' },
-            { value: 'distributor', label: 'Distributors' },
-            { value: 'dealer', label: 'Dealers' },
-            { value: 'architect', label: 'Architects' },
-          ]}
-          keyExtractor={(item) => item.value}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                selectedType === item.value && styles.filterChipActive,
-              ]}
-              onPress={() => setSelectedType(item.value as any)}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  selectedType === item.value && styles.filterChipTextActive,
-                ]}
-              >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
+      {/* FiltersBar */}
+      <FiltersBar chips={filterChips} onChipToggle={handleChipToggle} />
 
-      {/* Accounts List */}
-      {loading && !refreshing ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading accounts...</Text>
+      {/* Content Area */}
+      {loading ? (
+        <View style={styles.content}>
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
         </View>
+      ) : error ? (
+        <ErrorState message={error} retry={loadAccounts} />
       ) : filteredAccounts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Building2 size={48} color={colors.text.tertiary} />
-          <Text style={styles.emptyText}>No accounts found</Text>
-          <Text style={styles.emptySubtext}>
-            {searchTerm || selectedType !== 'all'
+        <EmptyState
+          icon={<Building2 size={48} color={colors.text.tertiary} />}
+          title="No accounts found"
+          subtitle={
+            searchTerm || selectedType !== 'all'
               ? 'Try adjusting your filters'
-              : 'Create your first account to get started'}
-          </Text>
-          <TouchableOpacity
-            style={styles.emptyButton}
-            onPress={() => navigation.navigate('AddAccount')}
-          >
-            <Plus size={20} color="#fff" />
-            <Text style={styles.emptyButtonText}>Add Account</Text>
-          </TouchableOpacity>
-        </View>
+              : 'Create your first account to get started'
+          }
+          primaryAction={{
+            label: 'Add Account',
+            onPress: () => navigation.navigate('AddAccount'),
+          }}
+        />
       ) : (
         <FlatList
           data={filteredAccounts}
           renderItem={renderAccountCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
-          }
           // ✅ Performance: Optimizations for large lists
-          windowSize={8} // Reduced from default 21 (render 8 items ahead/behind)
-          removeClippedSubviews={true} // Remove offscreen items from native view hierarchy
-          maxToRenderPerBatch={10} // Render 10 items per batch
-          updateCellsBatchingPeriod={50} // Batch updates every 50ms
-          initialNumToRender={15} // Render 15 items initially
+          windowSize={8}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={15}
         />
       )}
     </View>
@@ -285,12 +278,19 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
   },
+  kpiRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.screenPadding,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+    overflow: 'scroll',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     marginHorizontal: spacing.screenPadding,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: spacing.borderRadius.lg,
     borderWidth: 1,
@@ -305,30 +305,9 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
   },
-  filterContainer: {
-    paddingHorizontal: spacing.screenPadding,
-    paddingVertical: spacing.md,
-  },
-  filterChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: spacing.borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    marginRight: spacing.sm,
-  },
-  filterChipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  filterChipText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    color: colors.text.secondary,
-  },
-  filterChipTextActive: {
-    color: '#fff',
+  content: {
+    flex: 1,
+    padding: spacing.screenPadding,
   },
   listContent: {
     padding: spacing.screenPadding,
@@ -393,49 +372,6 @@ const styles = StyleSheet.create({
   },
   accountTypeBadgeText: {
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    marginTop: spacing.md,
-  },
-  emptySubtext: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.accent,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    marginTop: spacing.lg,
-  },
-  emptyButtonText: {
-    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: '#fff',
   },

@@ -27,3 +27,19 @@ export type { ToastProps } from './Toast';
 
 export { ProgressBar } from './ProgressBar';
 export type { ProgressBarProps } from './ProgressBar';
+
+// DS v0.1 Components (PR3)
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps } from './Checkbox';
+
+export { Radio } from './Radio';
+export type { RadioProps } from './Radio';
+
+export { Switch } from './Switch';
+export type { SwitchProps } from './Switch';
+
+export { Select } from './Select';
+export type { SelectProps, SelectOption } from './Select';
+
+export { Tabs } from './Tabs';
+export type { TabsProps, TabItem } from './Tabs';

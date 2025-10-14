@@ -61,7 +61,7 @@ export function ProgressBar({
         style={[
           styles.bar,
           {
-            width: progressPercentage,
+            width: progressPercentage as any, // TypeScript doesn't recognize % strings but RN does
             backgroundColor: barColor,
             height,
             borderRadius: height / 2,
