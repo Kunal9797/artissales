@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Animated, Pressable, AccessibilityInfo } from 'react-native';
 import { roles, typography, spacing, shadows } from '../../theme';
 import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react-native';
 
@@ -43,7 +43,10 @@ export function Toast({ kind, text, onDismiss }: ToastProps) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+
+    // Announce toast text to screen reader (TalkBack/VoiceOver)
+    AccessibilityInfo.announceForAccessibility(text);
+  }, [text]);
 
   // Map kind to role
   const role = roles[kind];

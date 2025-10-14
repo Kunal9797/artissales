@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   // Card with progress
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   },
   compactCount: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     width: 40,
     flexShrink: 0,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   compactPercentageComplete: {
     color: colors.success,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   // Skeleton loading styles
   skeletonHeaderText: {

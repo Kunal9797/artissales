@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   },
   accountTypeDisplay: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   accountTypeContainer: {
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   },
   accountTypeText: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
   },
   accountTypeTextActive: {
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontSize: typography.fontSize.xs,
     color: colors.accent,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   submitButton: {
     backgroundColor: colors.accent,

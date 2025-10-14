@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: '#fff',
   },
   saveButton: {

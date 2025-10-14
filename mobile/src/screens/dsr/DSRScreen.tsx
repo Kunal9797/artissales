@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {

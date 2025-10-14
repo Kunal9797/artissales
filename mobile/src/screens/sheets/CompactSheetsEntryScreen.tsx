@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   title: {
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   catalogButtonText: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
   },
   catalogButtonTextSelected: {
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.md,
     padding: spacing.sm,
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   addButton: {

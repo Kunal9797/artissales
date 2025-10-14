@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.accent,
   },
   addButton: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   },
   accountTypeBadgeText: {
     fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
+    fontWeight: typography.fontWeight.semiBold,
     color: '#fff',
   },
 });
