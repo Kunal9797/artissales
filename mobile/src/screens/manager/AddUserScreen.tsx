@@ -179,8 +179,6 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         primaryDistributorId: selectedDistributor?.id,
       });
 
-      console.log('[AddUserScreen] User created:', response);
-
       Alert.alert(
         'Success',
         `User created successfully!\n\nName: ${name.trim()}\nPhone: ${phone}\nRole: ${ROLES.find(r => r.value === selectedRole)?.label}`,

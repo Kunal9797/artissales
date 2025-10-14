@@ -40,7 +40,6 @@ export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ na
     setLoading(true);
     try {
       const response = await api.getPendingDSRs({});
-      console.log('[DSRApprovalList] DSRs loaded:', response);
       if (response.ok && response.dsrs) {
         setDsrs(response.dsrs);
       }

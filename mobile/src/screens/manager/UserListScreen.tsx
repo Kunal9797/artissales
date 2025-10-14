@@ -53,7 +53,6 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
     setLoading(true);
     try {
       const response = await api.getUsersList({});
-      console.log('[UserList] Users loaded:', response);
       if (response.ok && response.users) {
         setUsers(response.users);
       }

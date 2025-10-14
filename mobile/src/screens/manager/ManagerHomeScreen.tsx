@@ -101,7 +101,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         date: currentDate,
         range: dateRange === 'today' ? undefined : dateRange
       });
-      console.log('[ManagerHome] Stats loaded:', response);
       if (response.ok && response.stats) {
         setStats(response.stats);
       }
