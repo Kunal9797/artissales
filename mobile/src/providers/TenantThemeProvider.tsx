@@ -81,9 +81,17 @@ export function TenantThemeProvider({ children }: { children: ReactNode }) {
 
   const loadTenant = async (tenantId: string) => {
     try {
-      // In a real app, this would fetch from API or bundled assets
-      // For dev, we'll try to load from /tenants/{tenantId}.json
-      const config: TenantConfig = require(`../../tenants/${tenantId}.json`);
+      // Metro bundler doesn't allow dynamic requires, so we use a switch
+      // In production, this would fetch from API
+      let config: TenantConfig;
+
+      switch (tenantId) {
+        case 'dev':
+          config = require('../../tenants/dev.json');
+          break;
+        default:
+          throw new Error(`Unknown tenant ID: ${tenantId}`);
+      }
 
       // Merge overrides with brand defaults
       const mergedRoles = {
