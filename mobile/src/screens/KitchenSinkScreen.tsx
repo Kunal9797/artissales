@@ -53,6 +53,22 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
 
+        {/* DEV-ONLY: Design Lab Link */}
+        {__DEV__ && (
+          <Section title="🧪 Design Lab (Dev Only)">
+            <Button
+              onPress={() => navigation.navigate('DesignLab')}
+              variant="primary"
+              style={{ backgroundColor: colors.accent }}
+            >
+              Open Design Lab →
+            </Button>
+            <Text style={[styles.instructionText, { marginTop: spacing.sm }]}>
+              Live theme token editor with real-time preview. Edit colors, spacing, and typography.
+            </Text>
+          </Section>
+        )}
+
         {/* Color Toggle */}
         <Section title="🎨 Compare Primary Colors">
           <View style={styles.toggleContainer}>
