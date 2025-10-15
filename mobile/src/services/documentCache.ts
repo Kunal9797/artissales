@@ -1,5 +1,7 @@
 import { Paths, Directory, File } from 'expo-file-system';
+import { downloadAsync, getContentUriAsync } from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 const CACHE_METADATA_KEY = '@document_cache_metadata';
 const CACHE_DIR_NAME = 'documents';
@@ -30,8 +32,8 @@ class DocumentCacheService {
    * Ensure cache directory exists
    */
   private async ensureCacheDirectory(): Promise<void> {
-    if (!(await this.cacheDir.exists())) {
-      await this.cacheDir.create();
+    if (!this.cacheDir.exists) {
+      this.cacheDir.create({ intermediates: true, idempotent: true });
     }
   }
 
@@ -105,25 +107,19 @@ class DocumentCacheService {
       // Generate local file path
       const fileExtension = this.getFileExtension(fileName);
       const localFileName = `${documentId}.${fileExtension}`;
+      const file = new File(this.cacheDir, localFileName);
+      const localUri = file.uri;
 
-      // Download file
-      const response = await fetch(fileUrl);
-      if (!response.ok) {
-        throw new Error(`Download failed: ${response.statusText}`);
+      // Download file directly to disk using expo-file-system's downloadAsync
+      // This streams the file to disk without loading it all into memory
+      const downloadResult = await downloadAsync(fileUrl, localUri);
+
+      if (downloadResult.status !== 200) {
+        throw new Error(`Download failed with status: ${downloadResult.status}`);
       }
 
-      const blob = await response.blob();
-      const fileSize = blob.size;
-
-      // Create file in cache directory
-      const file = new File(this.cacheDir, localFileName);
-
-      // Write blob to file
-      await file.create({
-        binary: await blob.arrayBuffer(),
-      });
-
-      const localUri = file.uri;
+      // Get file size from the downloaded file
+      const fileSize = file.size || 0;
       const mimeType = this.getMimeType(fileName);
 
       // Update cache metadata
@@ -160,7 +156,7 @@ class DocumentCacheService {
 
       // Verify file still exists
       const file = new File(cachedDoc.localUri);
-      const exists = await file.exists();
+      const exists = file.exists;
 
       if (!exists) {
         // Clean up stale metadata
@@ -190,7 +186,7 @@ class DocumentCacheService {
 
       // Verify file still exists
       const file = new File(cachedDoc.localUri);
-      const exists = await file.exists();
+      const exists = file.exists;
 
       if (!exists) {
         // Clean up stale metadata
@@ -217,8 +213,8 @@ class DocumentCacheService {
       if (cachedDoc) {
         // Delete file
         const file = new File(cachedDoc.localUri);
-        if (await file.exists()) {
-          await file.delete();
+        if (file.exists) {
+          file.delete();
         }
 
         // Remove from metadata
@@ -243,7 +239,7 @@ class DocumentCacheService {
       // Verify each cached document still exists
       for (const [documentId, cachedDoc] of Object.entries(metadata)) {
         const file = new File(cachedDoc.localUri);
-        if (await file.exists()) {
+        if (file.exists) {
           cachedDocs.push(cachedDoc);
           updatedMetadata[documentId] = cachedDoc;
         }
@@ -281,8 +277,8 @@ class DocumentCacheService {
   async clearAllCache(): Promise<void> {
     try {
       // Delete cache directory
-      if (await this.cacheDir.exists()) {
-        await this.cacheDir.delete();
+      if (this.cacheDir.exists) {
+        this.cacheDir.delete();
       }
 
       // Clear metadata
@@ -298,10 +294,22 @@ class DocumentCacheService {
 
   /**
    * Get content URI for opening file with native apps
-   * Returns the file URI directly - modern OS handles this
+   * On Android, we need to convert file:// URIs to content:// URIs
+   * On iOS, file:// URIs work directly
    */
   async getContentUri(localUri: string): Promise<string> {
-    return localUri;
+    try {
+      // On Android, convert to content URI for sharing/opening
+      if (Platform.OS === 'android') {
+        return await getContentUriAsync(localUri);
+      }
+      // On iOS, use file URI directly
+      return localUri;
+    } catch (error) {
+      console.error('Error getting content URI:', error);
+      // Fallback to original URI
+      return localUri;
+    }
   }
 }
 

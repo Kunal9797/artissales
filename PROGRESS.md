@@ -4069,18 +4069,67 @@ match /incentiveResults/{resultId} {
 - Automatic cleanup of stale metadata
 - Error handling and recovery
 
-**Testing Requirements:**
-1. Download a document and verify it appears in Manage Downloads
-2. Turn off internet, open cached document (should work)
-3. Try opening non-cached document without internet (should fail gracefully)
-4. Delete individual document and verify file is removed
-5. Clear all downloads and verify storage is freed
-6. Close and reopen app - cached documents should persist
+**Testing Status:**
+✅ Download functionality - Working (streams to disk, no OOM errors)
+✅ Offline badge - Improved (green pill with white text "Downloaded")
+✅ Manage Downloads screen - Working
+✅ Delete cached documents - Working
+⚠️ Opening cached files - **Requires real device testing** (emulator lacks PDF viewer)
 
-**Next Steps (Phase 2):**
-- Add share functionality using `expo-sharing`
-- Enable sharing to WhatsApp, Email, etc.
-- Estimated time: 1-2 hours
+**Known Emulator Limitation:**
+- Opening cached PDFs doesn't work on emulator (no PDF viewer installed)
+- Solution: Use `IntentLauncher` on Android with proper error messages
+- **Must test on real Android device** (has built-in PDF viewers)
+
+**Real Device Testing Checklist:**
+- [ ] Download a PDF document
+- [ ] Verify "Downloaded" badge appears (green pill)
+- [ ] Tap to open cached document (should open in device's PDF viewer)
+- [ ] Turn on Airplane Mode
+- [ ] Open cached document again (should work offline)
+- [ ] Go to "Manage Downloads" → verify document is listed
+- [ ] Delete cached document
+- [ ] Close and reopen app → verify cached documents persist
+
+### Phase 2 Implementation Complete ✅ (October 15, 2025)
+
+**Share Functionality Added:**
+1. **Share Button UI:**
+   - Orange/amber colored button next to green checkmark for cached documents
+   - Appears in both DocumentLibraryScreen and ManageDownloadsScreen
+   - Only visible for downloaded documents
+
+2. **Native Share Integration:**
+   - Uses `expo-sharing` for native Android/iOS share sheet
+   - Shares documents via WhatsApp, Email, Drive, Bluetooth, etc.
+   - Proper MIME type detection (application/pdf, image/*)
+   - User-friendly error handling
+
+3. **Design Improvements:**
+   - Better card shadows and elevation
+   - Colored borders for action buttons (green for cached, orange for share, red for delete)
+   - Larger rounded buttons (40x40px)
+   - Improved spacing and alignment
+   - Fixed "Invalid date" issue with fallback to "Recently"
+
+**Dependencies Added:**
+- `expo-sharing@^13.0.0`
+- `expo-intent-launcher@^0.5.1`
+
+**Files Modified:**
+- [DocumentLibraryScreen.tsx](mobile/src/screens/DocumentLibraryScreen.tsx) - Added share button and handler
+- [ManageDownloadsScreen.tsx](mobile/src/screens/ManageDownloadsScreen.tsx) - Added share button and handler
+
+**How It Works:**
+1. User downloads document → Gets checkmark + share button
+2. Tap share button → Native share sheet opens
+3. Choose app (WhatsApp, Email, etc.) → Document attaches as file
+4. Works offline - shares cached copy from device storage
+
+**Testing Notes:**
+- ✅ Share functionality tested on emulator (works)
+- ⚠️ Full WhatsApp/Email testing requires real device or emulator with apps installed
+- Date formatting improved with fallback for invalid timestamps
 
 ---
 

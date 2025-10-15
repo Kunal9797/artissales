@@ -8,9 +8,12 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { FileText, Image as ImageIcon, Trash2, HardDrive } from 'lucide-react-native';
+import { FileText, Image as ImageIcon, Trash2, HardDrive, Share2 } from 'lucide-react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Sharing from 'expo-sharing';
 import { colors, spacing, typography } from '../theme';
 import { EmptyState } from '../patterns';
 import { documentCache, CachedDocument } from '../services/documentCache';
@@ -33,6 +36,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
     try {
       setLoading(true);
       const docs = await documentCache.listCachedDocuments();
+      console.log('Loaded cached documents:', JSON.stringify(docs, null, 2));
       setCachedDocs(docs);
 
       const size = await documentCache.getTotalCacheSize();
@@ -52,28 +56,92 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
   };
 
   const formatDate = (timestamp: number): string => {
+    console.log('formatDate called with:', timestamp, 'type:', typeof timestamp);
+
+    if (!timestamp || isNaN(timestamp)) {
+      console.log('Invalid timestamp - returning Just now');
+      return 'Just now';
+    }
+
     const date = new Date(timestamp);
+    console.log('Date object created:', date, 'isValid:', !isNaN(date.getTime()));
+
+    if (isNaN(date.getTime())) {
+      console.log('Invalid date object - returning Just now');
+      return 'Just now';
+    }
+
+    // Format as relative time
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+
+    // For older dates, show the actual date
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     });
   };
 
   const handleOpenDocument = async (doc: CachedDocument) => {
     try {
       const contentUri = await documentCache.getContentUri(doc.localUri);
-      const supported = await Linking.canOpenURL(contentUri);
-      if (supported) {
-        await Linking.openURL(contentUri);
+
+      // Use platform-specific opening method
+      if (Platform.OS === 'android') {
+        // On Android, use IntentLauncher to explicitly open with chooser
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: doc.mimeType,
+        });
       } else {
-        Alert.alert('Error', 'Cannot open this file type');
+        // On iOS, use Linking
+        await Linking.openURL(contentUri);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error opening document:', err);
-      Alert.alert('Error', 'Failed to open document');
+
+      // Check if it's a "no handler" error
+      if (err?.message?.includes('No Activity found') || err?.message?.includes('no handler')) {
+        Alert.alert(
+          'No App Available',
+          'Please install a PDF viewer app from Google Play Store to view documents offline.\n\nRecommended: Google PDF Viewer or Adobe Acrobat Reader',
+          [{ text: 'OK', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to open document');
+      }
+    }
+  };
+
+  const handleShareDocument = async (doc: CachedDocument) => {
+    try {
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
+
+      // Share the document using the file:// URI (expo-sharing requires file:// not content://)
+      await Sharing.shareAsync(doc.localUri, {
+        mimeType: doc.mimeType,
+        dialogTitle: `Share ${doc.fileName}`,
+        UTI: doc.mimeType === 'application/pdf' ? 'com.adobe.pdf' : undefined,
+      });
+    } catch (err: any) {
+      console.error('Error sharing document:', err);
+      if (!err.message?.includes('cancelled')) {
+        Alert.alert('Share Failed', 'Could not share document. Please try again.');
+      }
     }
   };
 
@@ -167,21 +235,31 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
             {item.fileName}
           </Text>
           <Text style={styles.documentMeta}>
-            {formatFileSize(item.fileSize)} • Downloaded {formatDate(item.downloadedAt)}
+            {formatFileSize(item.fileSize)} • {formatDate(item.downloadedAt)}
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.deleteButton, isDeleting && styles.deletingButton]}
-          onPress={() => handleDeleteDocument(item)}
-          disabled={isDeleting}
-        >
-          {isDeleting ? (
-            <ActivityIndicator size="small" color={colors.error} />
-          ) : (
-            <Trash2 size={20} color={colors.error} />
-          )}
-        </TouchableOpacity>
+        <View style={styles.documentActions}>
+          <TouchableOpacity
+            style={styles.shareButton}
+            onPress={() => handleShareDocument(item)}
+            disabled={isDeleting}
+          >
+            <Share2 size={20} color="#F57C00" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.deleteButton, isDeleting && styles.deletingButton]}
+            onPress={() => handleDeleteDocument(item)}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color={colors.error} />
+            ) : (
+              <Trash2 size={20} color={colors.error} />
+            )}
+          </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -298,12 +376,17 @@ const styles = StyleSheet.create({
   documentCard: {
     backgroundColor: '#fff',
     borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.default,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   documentIcon: {
     width: 48,
@@ -327,14 +410,30 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.text.tertiary,
   },
+  documentActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.borderRadius.lg,
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: '#FFB74D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   deleteButton: {
     width: 40,
     height: 40,
-    borderRadius: spacing.borderRadius.md,
+    borderRadius: spacing.borderRadius.lg,
     backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#EF9A9A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: spacing.sm,
   },
   deletingButton: {
     opacity: 0.5,

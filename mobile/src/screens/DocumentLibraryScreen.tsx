@@ -8,9 +8,12 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { FileText, Image as ImageIcon, Download, Trash2, Plus, CheckCircle, HardDrive } from 'lucide-react-native';
+import { FileText, Image as ImageIcon, Download, Trash2, Plus, CheckCircle, HardDrive, Share2 } from 'lucide-react-native';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Sharing from 'expo-sharing';
 import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 import { Document } from '../types';
@@ -100,32 +103,85 @@ export const DocumentLibraryScreen: React.FC<DocumentLibraryScreenProps> = ({ na
     }
   };
 
+  const handleShareDocument = async (document: Document) => {
+    try {
+      // Get cached document
+      const cachedDoc = await documentCache.getCachedDocument(document.id);
+      if (!cachedDoc) {
+        Alert.alert('Error', 'Document not available offline. Please download it first.');
+        return;
+      }
+
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
+
+      // Share the document using the file:// URI (expo-sharing requires file:// not content://)
+      await Sharing.shareAsync(cachedDoc.localUri, {
+        mimeType: cachedDoc.mimeType,
+        dialogTitle: `Share ${document.name}`,
+        UTI: cachedDoc.mimeType === 'application/pdf' ? 'com.adobe.pdf' : undefined,
+      });
+    } catch (err: any) {
+      console.error('Error sharing document:', err);
+      if (!err.message?.includes('cancelled')) {
+        Alert.alert('Share Failed', 'Could not share document. Please try again.');
+      }
+    }
+  };
+
   const handleOpenDocument = async (document: Document) => {
     try {
       // Check if document is cached
       const cachedDoc = await documentCache.getCachedDocument(document.id);
 
       if (cachedDoc) {
+        console.log('Opening cached document:', cachedDoc.localUri);
+
         // Open cached document
         const contentUri = await documentCache.getContentUri(cachedDoc.localUri);
-        const supported = await Linking.canOpenURL(contentUri);
-        if (supported) {
-          await Linking.openURL(contentUri);
+        console.log('Content URI:', contentUri);
+
+        // Use platform-specific opening method
+        if (Platform.OS === 'android') {
+          // On Android, use IntentLauncher to explicitly open with chooser
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: contentUri,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+            type: cachedDoc.mimeType,
+          });
+          console.log('File opened with IntentLauncher');
         } else {
-          Alert.alert('Error', 'Cannot open this file type');
+          // On iOS, use Linking
+          await Linking.openURL(contentUri);
+          console.log('File opened with Linking');
         }
       } else {
         // Open from web (requires internet)
-        const supported = await Linking.canOpenURL(document.fileUrl);
-        if (supported) {
-          await Linking.openURL(document.fileUrl);
-        } else {
-          Alert.alert('Error', 'Cannot open this file type');
-        }
+        console.log('Opening document from web:', document.fileUrl);
+        await Linking.openURL(document.fileUrl);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error opening document:', err);
-      Alert.alert('Error', 'Failed to open document');
+
+      // Check if it's a "no handler" error
+      if (err?.message?.includes('No Activity found') || err?.message?.includes('no handler')) {
+        Alert.alert(
+          'No App Available',
+          'Please install a PDF viewer app from Google Play Store to view documents offline.\n\nRecommended: Google PDF Viewer or Adobe Acrobat Reader',
+          [
+            { text: 'OK', style: 'default' },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error Opening File',
+          err?.message || 'Failed to open document. Make sure you have a PDF viewer installed.'
+        );
+      }
     }
   };
 
@@ -194,17 +250,9 @@ export const DocumentLibraryScreen: React.FC<DocumentLibraryScreenProps> = ({ na
         </View>
 
         <View style={styles.documentInfo}>
-          <View style={styles.documentHeader}>
-            <Text style={styles.documentName} numberOfLines={2}>
-              {item.name}
-            </Text>
-            {isCached && (
-              <View style={styles.cachedBadge}>
-                <CheckCircle size={14} color={colors.success} />
-                <Text style={styles.cachedText}>Offline</Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.documentName} numberOfLines={2}>
+            {item.name}
+          </Text>
           {item.description && (
             <Text style={styles.documentDescription} numberOfLines={1}>
               {item.description}
@@ -221,23 +269,35 @@ export const DocumentLibraryScreen: React.FC<DocumentLibraryScreenProps> = ({ na
         </View>
 
         <View style={styles.documentActions}>
-          {/* Download/Progress Button */}
-          {!isCached && (
+          {/* Download/Cached Status Button */}
+          {isCached ? (
+            <>
+              <View style={[styles.actionButton, styles.cachedButton]}>
+                <CheckCircle size={20} color={colors.success} />
+              </View>
+              {/* Share Button */}
+              <TouchableOpacity
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={() => handleShareDocument(item)}
+              >
+                <Share2 size={20} color="#F57C00" />
+              </TouchableOpacity>
+            </>
+          ) : isDownloading ? (
+            <View style={[styles.actionButton, styles.downloadingButton]}>
+              <View style={styles.progressContainer}>
+                <ActivityIndicator size="small" color={colors.info} />
+                {progress !== undefined && progress > 0 && (
+                  <Text style={styles.progressText}>{progress}%</Text>
+                )}
+              </View>
+            </View>
+          ) : (
             <TouchableOpacity
-              style={[styles.actionButton, isDownloading && styles.downloadingButton]}
+              style={styles.actionButton}
               onPress={() => handleDownloadDocument(item)}
-              disabled={isDownloading}
             >
-              {isDownloading ? (
-                <View style={styles.progressContainer}>
-                  <ActivityIndicator size="small" color={colors.info} />
-                  {progress !== undefined && progress > 0 && (
-                    <Text style={styles.progressText}>{progress}%</Text>
-                  )}
-                </View>
-              ) : (
-                <Download size={20} color={colors.info} />
-              )}
+              <Download size={20} color={colors.info} />
             </TouchableOpacity>
           )}
 
@@ -401,12 +461,17 @@ const styles = StyleSheet.create({
   documentCard: {
     backgroundColor: '#fff',
     borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.default,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   documentIcon: {
     width: 48,
@@ -420,31 +485,11 @@ const styles = StyleSheet.create({
   documentInfo: {
     flex: 1,
   },
-  documentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs / 2,
-    gap: spacing.xs,
-  },
   documentName: {
-    flex: 1,
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
-  },
-  cachedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: spacing.borderRadius.sm,
-    gap: 4,
-  },
-  cachedText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.success,
+    marginBottom: spacing.xs / 2,
   },
   documentDescription: {
     fontSize: typography.fontSize.sm,
@@ -467,13 +512,23 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: spacing.borderRadius.md,
+    width: 40,
+    height: 40,
+    borderRadius: spacing.borderRadius.lg,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xs,
+  },
+  cachedButton: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#A5D6A7',
+  },
+  shareButton: {
+    backgroundColor: '#FFF3E0',
+    borderWidth: 1,
+    borderColor: '#FFB74D',
   },
   downloadingButton: {
     backgroundColor: '#E3F2FD',
