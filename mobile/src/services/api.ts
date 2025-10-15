@@ -24,6 +24,7 @@ import {
   GetTargetRequest,
   GetUserTargetsRequest,
   StopAutoRenewRequest,
+  DeleteDocumentRequest,
 } from '../types';
 
 const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
@@ -178,5 +179,97 @@ export const api = {
 
   stopAutoRenew: async (data: StopAutoRenewRequest) => {
     return callFunction('stopAutoRenew', data);
+  },
+
+  // Document Library APIs
+  getDocuments: async () => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new ApiError('Not authenticated', 401);
+    }
+
+    const url = `${API_BASE_URL}/getDocuments`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new ApiError(errorData.error || 'Request failed', response.status, errorData);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Network error', 0, error);
+    }
+  },
+
+  uploadDocument: async (name: string, description: string | undefined, fileUri: string, fileName: string, fileType: string) => {
+    const token = await getAuthToken();
+    if (!token) {
+      throw new ApiError('Not authenticated', 401);
+    }
+
+    const url = `${API_BASE_URL}/uploadDocument`;
+
+    // Create FormData with proper React Native format
+    const formData = new FormData();
+    formData.append('name', name);
+    if (description) {
+      formData.append('description', description);
+    }
+
+    // Add file with explicit type casting for React Native
+    // React Native FormData requires specific format for file objects
+    const file: any = {
+      uri: fileUri,
+      name: fileName,
+      type: fileType || 'application/octet-stream',
+    };
+
+    formData.append('file', file);
+
+    try {
+      console.log('[API] Uploading document:', { name, fileName, fileType, uri: fileUri.substring(0, 50) + '...' });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // React Native's FormData automatically sets Content-Type with boundary
+        },
+        body: formData,
+      });
+
+      console.log('[API] Upload response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[API] Upload error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        throw new ApiError(errorData.error || 'Upload failed', response.status, errorData);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('[API] Upload exception:', error);
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('Network error', 0, error);
+    }
+  },
+
+  deleteDocument: async (data: DeleteDocumentRequest) => {
+    return callFunction('deleteDocument', data);
   },
 };

@@ -333,6 +333,123 @@ export interface StopAutoRenewResponse {
   message: string;
 }
 
+// ============================================================================
+// DOCUMENT LIBRARY TYPES
+// ============================================================================
+
+export type DocumentFileType = 'pdf' | 'image';
+
+export interface Document {
+  id: string;
+  name: string;
+  description?: string;
+  fileUrl: string;
+  fileType: DocumentFileType;
+  fileSizeBytes: number;
+  uploadedBy: string;
+  uploadedByName: string;
+  uploadedAt: string; // ISO timestamp string
+}
+
+export interface UploadDocumentRequest {
+  name: string;
+  description?: string;
+  file: any; // File object (handled by FormData)
+}
+
+export interface UploadDocumentResponse {
+  ok: true;
+  documentId: string;
+  fileUrl: string;
+}
+
+export interface GetDocumentsResponse {
+  ok: true;
+  documents: Document[];
+}
+
+export interface DeleteDocumentRequest {
+  documentId: string;
+}
+
+export interface DeleteDocumentResponse {
+  ok: true;
+  message: string;
+}
+
+// ============================================================================
+// INCENTIVE SCHEME TYPES
+// ============================================================================
+
+export type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis';
+
+export interface IncentiveScheme {
+  id: string;
+  name: string;
+  description: string;
+  userIds: string[];
+  territory?: string;
+  type: 'sheets';
+  catalog?: CatalogType;
+  targetSheets: number;
+  rewardAmount: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  isActive: boolean;
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IncentiveResult {
+  id: string;
+  schemeId: string;
+  schemeName: string;
+  userId: string;
+  userName: string;
+  actualSheets: number;
+  targetSheets: number;
+  qualified: boolean;
+  rewardAmount: number;
+  periodStart: string;
+  periodEnd: string;
+  calculatedAt: string;
+}
+
+export interface CreateIncentiveSchemeRequest {
+  name: string;
+  description: string;
+  userIds: string[];
+  territory?: string;
+  catalog?: CatalogType;
+  targetSheets: number;
+  rewardAmount: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface CreateIncentiveSchemeResponse {
+  ok: true;
+  schemeId: string;
+}
+
+export interface ActiveSchemeWithProgress extends IncentiveScheme {
+  currentSheets: number;
+  progressPercent: number;
+}
+
+export interface GetActiveSchemesResponse {
+  ok: true;
+  schemes: ActiveSchemeWithProgress[];
+}
+
+export interface GetIncentiveResultsResponse {
+  ok: true;
+  results: IncentiveResult[];
+  totalEarned: number;
+}
+
 // API Response Types
 export interface ApiResponse {
   ok: boolean;

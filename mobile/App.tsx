@@ -6,6 +6,9 @@ import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 
+// Initialize Firebase (must be imported before any Firebase usage)
+import './src/services/firebase';
+
 // DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab and TenantThemeProvider for white-label
 const isDev = __DEV__;
 

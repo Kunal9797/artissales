@@ -269,6 +269,50 @@ service cloud.firestore {
     }
 
     // ========================================================================
+    // DOCUMENTS COLLECTION (Document Library)
+    // ========================================================================
+    match /documents/{documentId} {
+      // All authenticated users can read documents
+      allow read: if isAuthenticated();
+
+      // Only managers can create/delete documents
+      // (Handled by Cloud Functions, but allow for security)
+      allow create, delete: if isManager();
+
+      // No updates allowed (delete and re-upload instead)
+      allow update: if false;
+    }
+
+    // ========================================================================
+    // INCENTIVE SCHEMES COLLECTION
+    // ========================================================================
+    match /incentiveSchemes/{schemeId} {
+      // All authenticated users can read schemes
+      allow read: if isAuthenticated();
+
+      // Only National Head and Admin can create/update/delete schemes
+      allow create, update, delete: if isNationalHeadOrAdmin();
+    }
+
+    // ========================================================================
+    // INCENTIVE RESULTS COLLECTION
+    // ========================================================================
+    match /incentiveResults/{resultId} {
+      // Users can read their own results
+      // Managers can read all results
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManager()
+      );
+
+      // Only cloud functions can create/update results
+      // (Calculated by scheduled function)
+      allow create, update: if false;
+
+      // Only admins can delete results
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================================
     // EVENTS COLLECTION (Outbox Pattern)
     // ========================================================================
     match /events/{eventId} {

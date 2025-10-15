@@ -1,50 +1,50 @@
 /**
- * Firebase Service - Modular API (v22+)
+ * Firebase Service - React Native Firebase
  *
- * This file provides Firebase initialization and helper functions
- * using the new modular API to avoid deprecation warnings.
+ * This file provides Firebase initialization and helper functions.
+ *
+ * Note: React Native Firebase auto-initializes from google-services.json
+ * and GoogleService-Info.plist, so no manual initializeApp() is needed.
  */
 
-import { getAuth, getIdToken } from '@react-native-firebase/auth';
-import { getFirestore, initializeFirestore } from '@react-native-firebase/firestore';
-import { getStorage } from '@react-native-firebase/storage';
-import { getApp } from '@react-native-firebase/app';
+import app from '@react-native-firebase/app';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
 
-// Initialize Firestore with offline persistence settings
-const app = getApp();
-initializeFirestore(app, {
-  cacheSizeBytes: -1, // -1 means unlimited cache (same as CACHE_SIZE_UNLIMITED)
+// Configure Firestore settings (must be called before any Firestore usage)
+firestore().settings({
+  cacheSizeBytes: firestore.CACHE_SIZE_UNLIMITED,
+  persistence: true,
 });
 
 /**
  * Get Firestore instance
  */
-export const getFirestoreInstance = () => getFirestore();
+export const getFirestoreInstance = () => firestore();
 
 /**
  * Get Auth instance
  */
-export const getAuthInstance = () => getAuth();
+export const getAuthInstance = () => auth();
 
 /**
  * Get Storage instance
  */
-export const getStorageInstance = () => getStorage();
+export const getStorageInstance = () => storage();
 
 /**
  * Get current user ID (convenience helper)
  */
 export const getCurrentUserId = (): string | null => {
-  const authInstance = getAuth();
-  return authInstance.currentUser?.uid || null;
+  return auth().currentUser?.uid || null;
 };
 
 /**
  * Get auth token for API calls
  */
 export const getAuthToken = async (): Promise<string | null> => {
-  const authInstance = getAuth();
-  const user = authInstance.currentUser;
+  const user = auth().currentUser;
   if (!user) return null;
-  return await getIdToken(user);
+  return await user.getIdToken();
 };

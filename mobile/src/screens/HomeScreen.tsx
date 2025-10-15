@@ -18,6 +18,7 @@ import {
   IndianRupee,
   FileBarChart,
   ClipboardList,
+  FileText,
   User,
   Palette,
   ChevronRight,
@@ -130,6 +131,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               <ClipboardList size={24} color={colors.accent} />
             </View>
             <Text style={styles.menuCardText}>Daily Report (DSR)</Text>
+          </View>
+          <ChevronRight size={24} color={colors.text.tertiary} />
+        </Card>
+
+        {/* Documents & Resources */}
+        <Card elevation="md" onPress={() => navigation.navigate('DocumentLibrary')} style={styles.menuCard}>
+          <View style={styles.menuCardContent}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.info + '20' }]}>
+              <FileText size={24} color={colors.info} />
+            </View>
+            <Text style={styles.menuCardText}>Documents & Resources</Text>
           </View>
           <ChevronRight size={24} color={colors.text.tertiary} />
         </Card>

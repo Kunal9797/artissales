@@ -15,7 +15,9 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@types/busboy": "^1.5.4",
     "@types/express": "^5.0.3",
+    "busboy": "^1.6.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "firebase-admin": "^12.6.0",

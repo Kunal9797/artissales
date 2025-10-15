@@ -677,6 +677,147 @@ export interface StopAutoRenewResponse {
 }
 
 // ============================================================================
+// DOCUMENT LIBRARY TYPES
+// ============================================================================
+
+export type DocumentFileType = "pdf" | "image";
+
+export interface Document {
+  id: string;
+  name: string;
+  description?: string;
+  fileUrl: string; // Firebase Storage download URL
+  fileType: DocumentFileType;
+  fileSizeBytes: number;
+  uploadedBy: string; // userId (manager/national_head)
+  uploadedByName: string;
+  uploadedAt: Timestamp;
+}
+
+export interface UploadDocumentRequest {
+  name: string;
+  description?: string;
+  // File uploaded separately via multipart/form-data
+}
+
+export interface UploadDocumentResponse {
+  ok: true;
+  documentId: string;
+  fileUrl: string;
+}
+
+export interface GetDocumentsRequest {
+  // No filters for now - return all documents
+}
+
+export interface GetDocumentsResponse {
+  ok: true;
+  documents: Document[];
+}
+
+export interface DeleteDocumentRequest {
+  documentId: string;
+}
+
+export interface DeleteDocumentResponse {
+  ok: true;
+  message: string;
+}
+
+// ============================================================================
+// INCENTIVE SCHEME TYPES
+// ============================================================================
+
+export interface IncentiveScheme {
+  id: string;
+  name: string; // e.g., "Q4 Fine Decor Bonus"
+  description: string;
+
+  // Eligibility
+  userIds: string[]; // Which reps this applies to
+  territory?: string; // Optional: area/zone filter
+
+  // Rules (sheet sales only for now)
+  type: "sheets"; // Future: 'visits' | 'combined'
+  catalog?: CatalogType; // Specific catalog or undefined (all catalogs)
+  targetSheets: number; // e.g., 500
+  rewardAmount: number; // e.g., 5000 (in INR)
+
+  // Time period
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+
+  // Status
+  isActive: boolean;
+  createdBy: string; // National Head userId
+  createdByName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface IncentiveResult {
+  id: string;
+  schemeId: string;
+  schemeName: string;
+  userId: string;
+  userName: string;
+
+  // Calculation
+  actualSheets: number;
+  targetSheets: number;
+  qualified: boolean; // actualSheets >= targetSheets
+  rewardAmount: number; // 0 if not qualified
+
+  // Period
+  periodStart: string; // YYYY-MM-DD
+  periodEnd: string; // YYYY-MM-DD
+
+  // Metadata
+  calculatedAt: Timestamp;
+}
+
+export interface CreateIncentiveSchemeRequest {
+  name: string;
+  description: string;
+  userIds: string[];
+  territory?: string;
+  catalog?: CatalogType;
+  targetSheets: number;
+  rewardAmount: number;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+}
+
+export interface CreateIncentiveSchemeResponse {
+  ok: true;
+  schemeId: string;
+}
+
+export interface GetActiveSchemesRequest {
+  // userId from auth token
+}
+
+export interface ActiveSchemeWithProgress extends IncentiveScheme {
+  currentSheets: number; // Current progress
+  progressPercent: number; // 0-100
+}
+
+export interface GetActiveSchemesResponse {
+  ok: true;
+  schemes: ActiveSchemeWithProgress[];
+}
+
+export interface GetIncentiveResultsRequest {
+  // userId from auth token
+}
+
+export interface GetIncentiveResultsResponse {
+  ok: true;
+  results: IncentiveResult[];
+  totalEarned: number; // Sum of all qualified rewardAmounts
+}
+
+// ============================================================================
 // UTILITY TYPES
 // ============================================================================
 
