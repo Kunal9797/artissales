@@ -259,3 +259,244 @@ export const submitExpense = onRequest({cors: true}, async (request, response) =
     response.status(500).json(apiError);
   }
 });
+
+/**
+ * Get Expense - Fetch a specific expense by ID
+ */
+export const getExpense = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id} = request.body;
+
+    if (!id) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: id",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const expenseDoc = await db.collection("expenses").doc(id).get();
+
+    if (!expenseDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Expense not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    const expenseData = expenseDoc.data();
+
+    // Verify ownership
+    if (expenseData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to access this expense",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    response.status(200).json({...expenseData, id: expenseDoc.id});
+  } catch (error: any) {
+    logger.error("Error fetching expense", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
+ * Update Expense - Update an existing expense
+ */
+export const updateExpense = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id, date, items, receiptPhotos} = request.body;
+
+    if (!id || !date || !items) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required fields: id, date, items",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      const error: ApiError = {
+        ok: false,
+        error: "Invalid date format. Expected YYYY-MM-DD",
+        code: "INVALID_DATE_FORMAT",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate items array
+    if (!Array.isArray(items) || items.length === 0) {
+      const error: ApiError = {
+        ok: false,
+        error: "At least one expense item is required",
+        code: "NO_ITEMS",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const expenseRef = db.collection("expenses").doc(id);
+    const expenseDoc = await expenseRef.get();
+
+    if (!expenseDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Expense not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const expenseData = expenseDoc.data();
+    if (expenseData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to update this expense",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Calculate total amount
+    const totalAmount = items.reduce((sum: number, item: ExpenseItemRequest) => sum + item.amount, 0);
+
+    // Update the expense
+    const updateData: any = {
+      date,
+      items,
+      totalAmount,
+      updatedAt: firestore.Timestamp.now(),
+    };
+
+    if (receiptPhotos !== undefined) {
+      updateData.receiptPhotos = receiptPhotos;
+    }
+
+    await expenseRef.update(updateData);
+
+    logger.info("Expense updated", {
+      expenseId: id,
+      userId: auth.uid,
+      totalAmount,
+      itemCount: items.length,
+    });
+
+    response.status(200).json({ok: true, expenseId: id, totalAmount});
+  } catch (error: any) {
+    logger.error("Error updating expense", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
+ * Delete Expense - Delete an existing expense
+ */
+export const deleteExpense = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id} = request.body;
+
+    if (!id) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: id",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const expenseRef = db.collection("expenses").doc(id);
+    const expenseDoc = await expenseRef.get();
+
+    if (!expenseDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Expense not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const expenseData = expenseDoc.data();
+    if (expenseData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to delete this expense",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Delete the expense
+    await expenseRef.delete();
+
+    logger.info("Expense deleted", {
+      expenseId: id,
+      userId: auth.uid,
+    });
+
+    response.status(200).json({ok: true, expenseId: id});
+  } catch (error: any) {
+    logger.error("Error deleting expense", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});

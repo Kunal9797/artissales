@@ -4,9 +4,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { useAuth } from '../hooks/useAuth';
+import { TabNavigator } from './TabNavigator';
+import { ManagerTabNavigator } from './ManagerTabNavigator';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OTPScreen } from '../screens/OTPScreen';
-import { HomeScreen } from '../screens/HomeScreen';
 import { AttendanceScreen } from '../screens/attendance/AttendanceScreen';
 import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
 import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
@@ -16,17 +17,18 @@ import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
-import { AddUserScreen } from '../screens/manager/AddUserScreen';
-import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
-import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
-import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
-import { UserListScreen } from '../screens/manager/UserListScreen';
-import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
-import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
-import { AddAccountScreen } from '../screens/AddAccountScreen';
-import { EditAccountScreen } from '../screens/EditAccountScreen';
-import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
-import { TeamTargetsScreen } from '../screens/manager/TeamTargetsScreen';
+// TODO: Temporarily commented out until we fix StyleSheet.create issues
+// import { AddUserScreen } from '../screens/manager/AddUserScreen';
+// import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
+// import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
+// import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
+// import { UserListScreen } from '../screens/manager/UserListScreen';
+// import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
+// import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
+// import { AddAccountScreen } from '../screens/AddAccountScreen';
+// import { EditAccountScreen } from '../screens/EditAccountScreen';
+// import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
+// import { TeamTargetsScreen } from '../screens/manager/TeamTargetsScreen';
 import { DocumentLibraryScreen } from '../screens/DocumentLibraryScreen';
 import { UploadDocumentScreen } from '../screens/UploadDocumentScreen';
 import { ManageDownloadsScreen } from '../screens/ManageDownloadsScreen';
@@ -35,10 +37,10 @@ export type RootStackParamList = {
   Home: undefined;
   ManagerHome: undefined;
   Attendance: undefined;
-  SelectAccount: undefined;
-  LogVisit: { accountId: string; accountName: string; accountType: string };
-  ExpenseEntry: undefined;
-  SheetsEntry: undefined;
+  SelectAccount: { editActivityId?: string };
+  LogVisit: { account?: { id: string; name: string; type: string }; editActivityId?: string };
+  ExpenseEntry: { editActivityId?: string };
+  SheetsEntry: { editActivityId?: string };
   DSR: undefined;
   Profile: undefined;
   KitchenSink: undefined;
@@ -81,13 +83,21 @@ export const RootNavigator: React.FC = () => {
     );
   }
 
+  // Determine if user is a manager
+  const isManager = user?.role && ['area_manager', 'zonal_head', 'national_head', 'admin'].includes(user.role);
+
   return (
     <NavigationContainer>
       {user ? (
-        // User is authenticated
+        // User is authenticated - Route to appropriate TabNavigator based on role
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="ManagerHome" component={ManagerHomeScreen} />
+          {isManager ? (
+            <Stack.Screen name="Home" component={ManagerTabNavigator} />
+          ) : (
+            <Stack.Screen name="Home" component={TabNavigator} />
+          )}
+          {/* TODO: Temporarily commented out manager screens until StyleSheet.create issues are fixed */}
+          {/* <Stack.Screen name="ManagerHome" component={ManagerHomeScreen} /> */}
           <Stack.Screen name="Attendance" component={AttendanceScreen} />
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
           <Stack.Screen name="LogVisit" component={LogVisitScreen} />
@@ -97,16 +107,16 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
           <Stack.Screen name="DesignLab" component={DesignLabScreen} />
-          <Stack.Screen name="AddUser" component={AddUserScreen} />
-          <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} />
-          <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
-          <Stack.Screen name="UserList" component={UserListScreen} />
-          <Stack.Screen name="UserDetail" component={UserDetailScreen} />
-          <Stack.Screen name="AccountsList" component={AccountsListScreen} />
-          <Stack.Screen name="AddAccount" component={AddAccountScreen} />
-          <Stack.Screen name="EditAccount" component={EditAccountScreen} />
-          <Stack.Screen name="SetTarget" component={SetTargetScreen} />
-          <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} />
+          {/* <Stack.Screen name="AddUser" component={AddUserScreen} /> */}
+          {/* <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} /> */}
+          {/* <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} /> */}
+          {/* <Stack.Screen name="UserList" component={UserListScreen} /> */}
+          {/* <Stack.Screen name="UserDetail" component={UserDetailScreen} /> */}
+          {/* <Stack.Screen name="AccountsList" component={AccountsListScreen} /> */}
+          {/* <Stack.Screen name="AddAccount" component={AddAccountScreen} /> */}
+          {/* <Stack.Screen name="EditAccount" component={EditAccountScreen} /> */}
+          {/* <Stack.Screen name="SetTarget" component={SetTargetScreen} /> */}
+          {/* <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} /> */}
           <Stack.Screen name="DocumentLibrary" component={DocumentLibraryScreen} />
           <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />
           <Stack.Screen name="ManageDownloads" component={ManageDownloadsScreen} />

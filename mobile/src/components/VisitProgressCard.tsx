@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Users, Plus } from 'lucide-react-native';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, featureColors } from '../theme';
 import { VisitProgress } from '../types';
 import { api } from '../services/api';
 
@@ -69,7 +69,7 @@ export const VisitProgressCard: React.FC<VisitProgressCardProps> = ({
         onPress={onLogPress}
         activeOpacity={0.7}
       >
-        <Users size={24} color={colors.accent} strokeWidth={2.5} />
+        <Users size={24} color={featureColors.visits.primary} strokeWidth={2.5} />
         <Text style={styles.emptyText}>Log Visit</Text>
       </TouchableOpacity>
     );
@@ -84,11 +84,11 @@ export const VisitProgressCard: React.FC<VisitProgressCardProps> = ({
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Users size={20} color={colors.info} strokeWidth={2.5} />
+          <Users size={20} color={featureColors.visits.primary} strokeWidth={2.5} />
           <Text style={styles.headerText}>Visit Targets</Text>
         </View>
         <View style={styles.logButton}>
-          <Plus size={18} color={colors.info} strokeWidth={2.5} />
+          <Plus size={18} color={featureColors.visits.primary} strokeWidth={2.5} />
         </View>
       </View>
 
@@ -107,8 +107,10 @@ export const VisitProgressCard: React.FC<VisitProgressCardProps> = ({
               <View
                 style={[
                   styles.compactBarFill,
-                  { width: `${Math.min(percentage, 100)}%` },
-                  isComplete && styles.compactBarComplete
+                  {
+                    width: `${Math.min(percentage, 100)}%`,
+                    backgroundColor: isComplete ? colors.success : featureColors.visits.primary
+                  },
                 ]}
               />
             </View>
@@ -175,7 +177,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: spacing.borderRadius.full,
-    backgroundColor: colors.info + '15',
+    backgroundColor: featureColors.visits.light,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -213,11 +215,8 @@ const styles = StyleSheet.create({
   },
   compactBarFill: {
     height: '100%',
-    backgroundColor: colors.info,
     borderRadius: spacing.borderRadius.full,
-  },
-  compactBarComplete: {
-    backgroundColor: colors.success,
+    // backgroundColor set inline based on completion status
   },
   compactPercentage: {
     fontSize: typography.fontSize.xs,

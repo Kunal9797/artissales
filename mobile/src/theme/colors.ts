@@ -3,16 +3,19 @@
  * Extracted from brand guidelines and logo
  */
 
+// Accent color - using Antique Gold (current setting)
+const ANTIQUE_GOLD = '#C9A961';  // Softer, more sophisticated gold
+
 export const colors = {
-  // Brand Colors - Brand Background + Yellower Gold
+  // Brand Colors - Brand Background + Gold Accent
   primary: '#393735',        // Brand Background - main buttons, headers
   primaryDark: '#2A2725',    // Darker background for pressed states
   primaryLight: '#4F4B48',   // Lighter background for hover/disabled
 
-  // Gold Accents (yellower than original)
-  accent: '#D4A944',         // Yellower gold for highlights, icons, badges
-  accentDark: '#B8935F',     // Darker gold
-  accentLight: '#E8C977',    // Lighter gold for backgrounds
+  // Gold Accents (hardcoded to antique gold to fix StyleSheet.create issue)
+  accent: ANTIQUE_GOLD,
+  accentDark: '#B08D4A',
+  accentLight: '#E0D4B8',
 
   // Neutral Colors
   background: '#FFFFFF',     // Main background
@@ -32,7 +35,7 @@ export const colors = {
     default: '#E0E0E0',      // Default borders
     light: '#F0F0F0',        // Subtle borders
     dark: '#CCCCCC',         // Stronger borders
-    active: '#D4A944',       // Gold border for active/focused states
+    active: ANTIQUE_GOLD,    // Gold border for active/focused states
   },
 
   // Status Colors

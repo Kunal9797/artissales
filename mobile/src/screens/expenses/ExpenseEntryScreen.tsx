@@ -4,7 +4,7 @@
  * (e.g., 100 for travel + 500 for hotel in one report)
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,15 +17,21 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { Car, UtensilsCrossed, Hotel, FileText, Camera } from 'lucide-react-native';
+import { Car, UtensilsCrossed, Hotel, FileText, Camera, ChevronLeft, IndianRupee } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { CameraCapture } from '../../components/CameraCapture';
+import { Card } from '../../components/ui';
 import { SubmitExpenseRequest, ExpenseItem } from '../../types';
-import { colors, spacing, typography, shadows } from '../../theme';
+import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
+  route: {
+    params?: {
+      editActivityId?: string;
+    };
+  };
 }
 
 type ExpenseCategory = 'travel' | 'food' | 'accommodation' | 'other';
@@ -47,13 +53,19 @@ interface TempExpenseItem {
 
 export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   navigation,
+  route,
 }) => {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Edit mode detection
+  const editActivityId = route.params?.editActivityId;
+  const isEditMode = !!editActivityId;
 
   const [date, setDate] = useState(today);
   const [items, setItems] = useState<ExpenseItem[]>([]);
   const [receiptPhotos, setReceiptPhotos] = useState<string[]>([]);
   const [receiptPhotoUrls, setReceiptPhotoUrls] = useState<string[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   // Current item being added/edited
   const [currentItem, setCurrentItem] = useState<TempExpenseItem>({
@@ -66,6 +78,33 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReceipts, setUploadingReceipts] = useState(false);
+
+  // Fetch existing expense data in edit mode
+  useEffect(() => {
+    if (isEditMode && editActivityId) {
+      const fetchExistingData = async () => {
+        try {
+          setSubmitting(true);
+          const response = await api.getExpense({ id: editActivityId });
+
+          if (response) {
+            setDate(response.date);
+            setItems(response.items || []);
+            if (response.receiptPhotos && response.receiptPhotos.length > 0) {
+              setReceiptPhotoUrls(response.receiptPhotos);
+              setReceiptPhotos(response.receiptPhotos); // Use URLs as local paths for display
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching expense data:', error);
+          Alert.alert('Error', 'Failed to load expense data');
+        } finally {
+          setSubmitting(false);
+        }
+      };
+      fetchExistingData();
+    }
+  }, [isEditMode, editActivityId]);
 
   const handlePhotoTaken = async (uri: string) => {
     setShowCamera(false);
@@ -165,29 +204,47 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     try {
       setSubmitting(true);
 
-      const expenseData: SubmitExpenseRequest = {
-        date,
-        items,
-        ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
-      };
+      if (isEditMode && editActivityId) {
+        // Update existing expense
+        const updateData = {
+          id: editActivityId,
+          date,
+          items,
+          ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
+        };
 
-      console.log('[Expense] Submitting expense report:', expenseData);
+        console.log('[Expense] Updating expense report:', updateData);
+        await api.updateExpense(updateData);
 
-      const response = await api.submitExpense(expenseData);
-
-      if (response.ok) {
-        Alert.alert(
-          'Success',
-          `Expense report submitted successfully!\nTotal: ₹${response.totalAmount}\nItems: ${response.itemCount}\n\nYour manager will review it.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => navigation.goBack(),
-            },
-          ]
-        );
+        Alert.alert('Success', 'Expense report updated successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
       } else {
-        Alert.alert('Error', response.error || 'Failed to submit expense');
+        // Create new expense
+        const expenseData: SubmitExpenseRequest = {
+          date,
+          items,
+          ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
+        };
+
+        console.log('[Expense] Submitting expense report:', expenseData);
+
+        const response = await api.submitExpense(expenseData);
+
+        if (response.ok) {
+          Alert.alert(
+            'Success',
+            `Expense report submitted successfully!\nTotal: ₹${response.totalAmount}\nItems: ${response.itemCount}\n\nYour manager will review it.`,
+            [
+              {
+                text: 'OK',
+                onPress: () => navigation.goBack(),
+              },
+            ]
+          );
+        } else {
+          Alert.alert('Error', response.error || 'Failed to submit expense');
+        }
       }
     } catch (error: any) {
       console.error('[Expense] Submit error:', error);
@@ -195,6 +252,36 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!isEditMode || !editActivityId) return;
+
+    Alert.alert(
+      'Delete Expense',
+      'Are you sure you want to delete this expense report?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await api.deleteExpense({ id: editActivityId });
+              Alert.alert('Success', 'Expense report deleted successfully', [
+                { text: 'OK', onPress: () => navigation.goBack() }
+              ]);
+            } catch (error: any) {
+              console.error('Error deleting expense:', error);
+              Alert.alert('Error', error.message || 'Failed to delete expense');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (showCamera) {
@@ -208,29 +295,25 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      {/* Modern Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <ChevronLeft size={24} color={colors.text.inverse} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Report Expenses</Text>
-        <Text style={styles.headerSubtitle}>
-          Add multiple expense items in one report
-        </Text>
+        <View style={styles.headerContent}>
+          <IndianRupee size={24} color={colors.text.inverse} />
+          <View>
+            <Text style={styles.headerTitle}>{isEditMode ? 'Edit Expenses' : 'Report Expenses'}</Text>
+            <Text style={styles.headerSubtitle}>{date}</Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-
-      {/* Date Field */}
-      <View style={styles.field}>
-        <Text style={styles.label}>Date</Text>
-        <View style={styles.dateContainer}>
-          <Text style={styles.dateText}>{date}</Text>
-          <Text style={styles.dateNote}>(Today)</Text>
-        </View>
-      </View>
 
       {/* Added Items List */}
       {items.length > 0 && (
@@ -400,18 +483,35 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           <ActivityIndicator size="small" color="#fff" />
         ) : (
           <Text style={styles.submitButtonText}>
-            Submit Report ({items.length} {items.length === 1 ? 'item' : 'items'})
+            {isEditMode ? 'Update Report' : `Submit Report (${items.length} ${items.length === 1 ? 'item' : 'items'})`}
           </Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => navigation.goBack()}
-        disabled={submitting}
-      >
-        <Text style={styles.cancelButtonText}>Cancel</Text>
-      </TouchableOpacity>
+      {/* Delete Button (Edit Mode Only) */}
+      {isEditMode && (
+        <TouchableOpacity
+          style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+          onPress={handleDelete}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.deleteButtonText}>Delete Expense Report</Text>
+          )}
+        </TouchableOpacity>
+      )}
+
+      {!isEditMode && (
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={() => navigation.goBack()}
+          disabled={submitting}
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      )}
       </ScrollView>
     </View>
   );
@@ -422,46 +522,53 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // Modern Header
   header: {
     backgroundColor: colors.primary,
-    paddingTop: 60,
+    paddingTop: 52, // Status bar space
+    paddingBottom: spacing.md,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
-    marginBottom: spacing.md,
+    padding: spacing.xs,
   },
-  backButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.accent,
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
   },
   headerTitle: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: '#fff',
-    marginBottom: spacing.xs,
+    fontSize: 19,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.inverse,
+    letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: typography.fontSize.sm,
-    color: '#fff',
-    opacity: 0.9,
+    fontSize: 12,
+    color: colors.text.inverse,
+    opacity: 0.8,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: spacing.lg,
+    padding: spacing.md,
     paddingBottom: spacing.xl * 2,
   },
   field: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   dateContainer: {
     backgroundColor: colors.surface,
@@ -484,9 +591,9 @@ const styles = StyleSheet.create({
   },
   itemCard: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.default,
   },
@@ -525,89 +632,91 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: spacing.lg,
-    borderRadius: spacing.borderRadius.lg,
-    marginTop: 8,
+    backgroundColor: featureColors.expenses.light,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    marginTop: spacing.xs,
   },
   totalLabel: {
-    fontSize: typography.fontSize.base,
-    fontWeight: '600',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   totalAmount: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: featureColors.expenses.primary,
   },
   addItemSection: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: featureColors.expenses.primary,
     borderStyle: 'dashed',
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 16,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: featureColors.expenses.primary,
+    marginBottom: spacing.sm,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: spacing.xs,
   },
   categoryButton: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    backgroundColor: colors.background,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.sm,
     borderWidth: 2,
     borderColor: colors.border.default,
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.xs / 2,
   },
   categoryButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: featureColors.expenses.primary,
+    backgroundColor: featureColors.expenses.light,
   },
   categoryButtonText: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     color: colors.text.secondary,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   categoryButtonTextSelected: {
-    color: colors.primary,
-    fontWeight: '600',
+    color: featureColors.expenses.primary,
+    fontWeight: typography.fontWeight.semiBold,
   },
   input: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    backgroundColor: colors.background,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.sm,
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
     borderWidth: 1,
     borderColor: colors.border.default,
   },
   textArea: {
-    minHeight: 60,
+    minHeight: 50,
     textAlignVertical: 'top',
   },
   addItemButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: featureColors.expenses.primary,
     borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.sm,
+    minHeight: 48,
+    ...shadows.sm,
   },
   addItemButtonText: {
-    color: '#fff',
+    color: colors.surface,
     fontSize: typography.fontSize.base,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semiBold,
   },
   photosGrid: {
     flexDirection: 'row',
@@ -650,11 +759,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addPhotoButton: {
-    backgroundColor: colors.surface,
+    backgroundColor: featureColors.expenses.light,
     borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    padding: spacing.md,
     borderWidth: 2,
-    borderColor: colors.border.default,
+    borderColor: featureColors.expenses.primary,
     borderStyle: 'dashed',
     alignItems: 'center',
     flexDirection: 'row',
@@ -663,23 +772,26 @@ const styles = StyleSheet.create({
   },
   addPhotoButtonText: {
     fontSize: typography.fontSize.base,
-    color: colors.primary,
-    fontWeight: '500',
+    color: featureColors.expenses.primary,
+    fontWeight: typography.fontWeight.medium,
   },
   submitButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: featureColors.expenses.primary,
     borderRadius: spacing.borderRadius.lg,
-    padding: 18,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.md,
+    minHeight: 48,
+    ...shadows.sm,
   },
   submitButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: colors.border.default,
+    opacity: 0.6,
   },
   submitButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    color: colors.surface,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
   },
   cancelButton: {
     backgroundColor: 'transparent',
@@ -692,5 +804,22 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: typography.fontSize.base,
     fontWeight: '500',
+  },
+  deleteButton: {
+    backgroundColor: colors.error,
+    borderRadius: spacing.borderRadius.lg,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    minHeight: 48,
+    ...shadows.sm,
+  },
+  deleteButtonDisabled: {
+    opacity: 0.6,
+  },
+  deleteButtonText: {
+    color: colors.surface,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
   },
 });

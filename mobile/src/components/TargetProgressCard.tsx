@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Target, Plus } from 'lucide-react-native';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, featureColors } from '../theme';
 import { TargetProgress } from '../types';
 import { api } from '../services/api';
 
@@ -67,16 +67,17 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
         activeOpacity={onLogPress ? 0.7 : 1}
         disabled={!onLogPress}
       >
-        <Target size={24} color={colors.accent} strokeWidth={2.5} />
+        <Target size={24} color={featureColors.sheets.primary} strokeWidth={2.5} />
         <Text style={styles.emptyText}>Log Sheet Sales</Text>
       </TouchableOpacity>
     );
   }
 
   const getProgressColor = (percentage: number): string => {
-    if (percentage >= 80) return colors.success;
-    if (percentage >= 50) return colors.warning;
-    return colors.error;
+    // Use feature color (orange) for sales, with intensity based on percentage
+    if (percentage >= 80) return colors.success;      // Green for great progress
+    if (percentage >= 50) return featureColors.sheets.primary;  // Orange for moderate
+    return colors.error;                               // Red for behind
   };
 
   const totalTarget = progress.reduce((sum, p) => sum + p.target, 0);
@@ -93,12 +94,12 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
       {/* Header with icon and log button */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Target size={20} color={colors.accent} />
+          <Target size={20} color={featureColors.sheets.primary} />
           <Text style={styles.headerText}>Sales Target</Text>
         </View>
         {onLogPress && (
           <View style={styles.logButton}>
-            <Plus size={18} color={colors.success} strokeWidth={2.5} />
+            <Plus size={18} color={featureColors.sheets.primary} strokeWidth={2.5} />
           </View>
         )}
       </View>
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: spacing.borderRadius.full,
-    backgroundColor: colors.success + '15',
+    backgroundColor: featureColors.sheets.light,
     alignItems: 'center',
     justifyContent: 'center',
   },

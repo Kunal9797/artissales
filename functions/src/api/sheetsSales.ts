@@ -149,3 +149,227 @@ export const logSheetsSale = onRequest(async (request, response) => {
     response.status(500).json(errorResponse);
   }
 });
+
+/**
+ * Get Sheets Sales - Fetch sheet sales for a user on a specific date
+ */
+export const getSheetsSales = onRequest(async (request, response) => {
+  try {
+    // Authenticate user
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {userId, date} = request.body;
+
+    // Validate required fields
+    if (!userId || !date) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required fields: userId, date",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const db = firestore();
+
+    // Fetch all sheet sales for the user on the specified date
+    const salesSnapshot = await db
+      .collection("sheetsSales")
+      .where("userId", "==", userId)
+      .where("date", "==", date)
+      .get();
+
+    const sales = salesSnapshot.docs.map((doc) => doc.data());
+
+    response.status(200).json(sales);
+  } catch (error: any) {
+    logger.error("Error fetching sheets sales", {error: error.message});
+    const errorResponse: ApiError = {
+      ok: false,
+      error: error.message || "Internal server error",
+      code: "INTERNAL_ERROR",
+    };
+    response.status(500).json(errorResponse);
+  }
+});
+
+/**
+ * Update Sheets Sale - Update an existing sheet sale
+ */
+export const updateSheetsSale = onRequest(async (request, response) => {
+  try {
+    // Authenticate user
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id, catalog, sheetsCount} = request.body;
+
+    // Validate required fields
+    if (!id || !catalog || !sheetsCount) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required fields: id, catalog, sheetsCount",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate catalog
+    const validCatalogs: CatalogType[] = [
+      "Fine Decor",
+      "Artvio",
+      "Woodrica",
+      "Artis",
+    ];
+    if (!validCatalogs.includes(catalog)) {
+      const error: ApiError = {
+        ok: false,
+        error: "Invalid catalog",
+        code: "INVALID_CATALOG",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate sheets count
+    if (typeof sheetsCount !== "number" || sheetsCount <= 0) {
+      const error: ApiError = {
+        ok: false,
+        error: "Sheets count must be a positive number",
+        code: "INVALID_SHEETS_COUNT",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const db = firestore();
+    const saleRef = db.collection("sheetsSales").doc(id);
+    const saleDoc = await saleRef.get();
+
+    if (!saleDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Sheet sale not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const saleData = saleDoc.data();
+    if (saleData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to update this sheet sale",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Update the sheet sale
+    await saleRef.update({
+      catalog,
+      sheetsCount,
+      updatedAt: firestore.Timestamp.now(),
+    });
+
+    logger.info("Sheet sale updated", {
+      saleId: id,
+      userId: auth.uid,
+      catalog,
+      sheetsCount,
+    });
+
+    response.status(200).json({ok: true, saleId: id});
+  } catch (error: any) {
+    logger.error("Error updating sheet sale", {error: error.message});
+    const errorResponse: ApiError = {
+      ok: false,
+      error: error.message || "Internal server error",
+      code: "INTERNAL_ERROR",
+    };
+    response.status(500).json(errorResponse);
+  }
+});
+
+/**
+ * Delete Sheets Sale - Delete an existing sheet sale
+ */
+export const deleteSheetsSale = onRequest(async (request, response) => {
+  try {
+    // Authenticate user
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id} = request.body;
+
+    // Validate required fields
+    if (!id) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: id",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const db = firestore();
+    const saleRef = db.collection("sheetsSales").doc(id);
+    const saleDoc = await saleRef.get();
+
+    if (!saleDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Sheet sale not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const saleData = saleDoc.data();
+    if (saleData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to delete this sheet sale",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Delete the sheet sale
+    await saleRef.delete();
+
+    logger.info("Sheet sale deleted", {
+      saleId: id,
+      userId: auth.uid,
+    });
+
+    response.status(200).json({ok: true, saleId: id});
+  } catch (error: any) {
+    logger.error("Error deleting sheet sale", {error: error.message});
+    const errorResponse: ApiError = {
+      ok: false,
+      error: error.message || "Internal server error",
+      code: "INTERNAL_ERROR",
+    };
+    response.status(500).json(errorResponse);
+  }
+});

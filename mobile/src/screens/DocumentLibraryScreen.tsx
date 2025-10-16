@@ -221,8 +221,29 @@ export const DocumentLibraryScreen: React.FC<DocumentLibraryScreenProps> = ({ na
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+  const formatDate = (dateValue: any): string => {
+    if (!dateValue) {
+      return 'Recently';
+    }
+
+    let date: Date;
+
+    // Handle Firestore Timestamp object
+    if (typeof dateValue === 'object' && '_seconds' in dateValue) {
+      // Convert Firestore Timestamp to Date (seconds * 1000 to get milliseconds)
+      date = new Date(dateValue._seconds * 1000);
+    } else if (typeof dateValue === 'string') {
+      date = new Date(dateValue);
+    } else if (typeof dateValue === 'number') {
+      date = new Date(dateValue);
+    } else {
+      return 'Recently';
+    }
+
+    if (isNaN(date.getTime())) {
+      return 'Recently';
+    }
+
     return date.toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'short',

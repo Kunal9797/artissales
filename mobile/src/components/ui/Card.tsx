@@ -1,6 +1,7 @@
 /**
  * Card Component
  * Reusable card container for content
+ * Enhanced with better press states and modern styling
  */
 
 import React from 'react';
@@ -9,6 +10,7 @@ import {
   StyleSheet,
   Pressable,
   ViewStyle,
+  Animated,
 } from 'react-native';
 import { colors, spacing, shadows } from '../../theme';
 
@@ -79,8 +81,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border.default,
   },
   pressed: {
-    opacity: 0.95,
-    transform: [{ scale: 0.99 }],
-    borderColor: colors.border.active,
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
   },
 });

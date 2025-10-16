@@ -141,30 +141,32 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderRadius: spacing.borderRadius.md,
-    padding: spacing.lg,
+    padding: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border.default,
   },
   header: {
-    marginBottom: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 2,
+    marginBottom: spacing.xs,
+    paddingBottom: spacing.xs,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   headerText: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
+    color: colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   compactRow: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border.default + '30',
+    borderBottomColor: colors.border.default + '20',
   },
   compactRowLast: {
     borderBottomWidth: 0,
@@ -174,28 +176,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs / 2,
   },
   catalogName: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
   },
   percentageBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: spacing.borderRadius.full,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: spacing.borderRadius.sm,
   },
   percentageText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
   },
   progressBar: {
-    height: 10,
+    height: 6,
     backgroundColor: colors.border.default + '40',
     borderRadius: spacing.borderRadius.full,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs / 2,
   },
   progressFill: {
     height: '100%',
@@ -207,15 +209,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
   },
   statsLabel: {
-    color: colors.text.secondary,
+    color: colors.text.tertiary,
     fontWeight: typography.fontWeight.medium,
   },
   statsValue: {
     color: colors.text.primary,
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: typography.fontWeight.semiBold,
   },
   // Skeleton loading styles
   skeletonHeaderText: {

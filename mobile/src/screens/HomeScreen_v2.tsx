@@ -1,0 +1,843 @@
+/**
+ * HomeScreen (Sales Rep Dashboard) - Redesigned with DS v0.1
+ *
+ * Changes from original:
+ * - Uses KpiCard pattern for status/stats
+ * - Uses Badge for attendance status
+ * - Uses featureColors for visual distinction
+ * - Reduced from 10+ cards to 5-6 essential items
+ * - Added Skeleton loading states
+ * - Improved visual hierarchy
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
+import { Card, Badge } from '../components/ui';
+import { KpiCard } from '../patterns/KpiCard';
+import { colors, spacing, typography, featureColors } from '../theme';
+import {
+  MapPin,
+  IndianRupee,
+  FileText,
+  ChevronRight,
+  CheckCircle,
+  Clock,
+  Bell,
+  Sun,
+  Edit2,
+  Moon,
+  Sunrise,
+} from 'lucide-react-native';
+
+interface HomeScreenProps {
+  navigation: any;
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+  const authInstance = getAuth();
+  const user = authInstance.currentUser;
+  const [userName, setUserName] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [attendanceStatus, setAttendanceStatus] = useState<{
+    isCheckedIn: boolean;
+    checkInTime: string | null;
+    location: string | null;
+  }>({
+    isCheckedIn: false,
+    checkInTime: null,
+    location: null,
+  });
+  const [todayStats, setTodayStats] = useState({
+    visits: 0,
+    sheets: 0,
+    expenses: 0,
+  });
+  const [pendingItems, setPendingItems] = useState<Array<{ id: number; text: string; screen: string }>>([]);
+  const [todayActivities, setTodayActivities] = useState<Array<{
+    id: string;
+    type: 'visit' | 'sheets' | 'expense' | 'attendance';
+    time: Date;
+    description: string;
+  }>>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch attendance data
+  const fetchAttendance = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const firestore = getFirestore();
+
+      // Get start of today (00:00:00)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Query attendance for today using timestamp field (not date)
+      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
+      const attendanceQuery = query(
+        collection(firestore, 'attendance'),
+        where('userId', '==', user.uid),
+        where('timestamp', '>=', today)
+      );
+
+      const snapshot = await getDocs(attendanceQuery);
+
+      if (!snapshot.empty) {
+        // Sort manually to get latest
+        const docs = snapshot.docs.sort((a: any, b: any) => {
+          const aTime = a.data().timestamp?.toMillis() || 0;
+          const bTime = b.data().timestamp?.toMillis() || 0;
+          return bTime - aTime;
+        });
+
+        const latestAttendance = docs[0].data();
+        const isCheckedIn = latestAttendance.type === 'check_in';
+        const time = latestAttendance.timestamp?.toDate();
+
+        setAttendanceStatus({
+          isCheckedIn,
+          checkInTime: time ? time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null,
+          location: 'Location',
+        });
+      } else {
+        // Reset to not checked in if no records found
+        setAttendanceStatus({
+          isCheckedIn: false,
+          checkInTime: null,
+          location: null,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    }
+  }, [user?.uid]);
+
+  // Fetch today's stats and activities
+  const fetchTodayStats = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const firestore = getFirestore();
+
+      // Get start of today (00:00:00)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayString = new Date().toISOString().substring(0, 10);
+
+      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
+
+      // Fetch visits - using timestamp field (not date)
+      const visitsQuery = query(
+        collection(firestore, 'visits'),
+        where('userId', '==', user.uid),
+        where('timestamp', '>=', today)
+      );
+      const visitsSnapshot = await getDocs(visitsQuery);
+
+      // Fetch sheets - using date field
+      const sheetsQuery = query(
+        collection(firestore, 'sheetsSales'),
+        where('userId', '==', user.uid),
+        where('date', '==', todayString)
+      );
+      const sheetsSnapshot = await getDocs(sheetsQuery);
+      let totalSheets = 0;
+      sheetsSnapshot.forEach((doc: any) => {
+        totalSheets += doc.data().sheetsCount || 0;
+      });
+
+      // Fetch expenses - using date field
+      const expensesQuery = query(
+        collection(firestore, 'expenses'),
+        where('userId', '==', user.uid),
+        where('date', '==', todayString)
+      );
+      const expensesSnapshot = await getDocs(expensesQuery);
+
+      // Fetch attendance for today - to include in timeline
+      const attendanceQuery = query(
+        collection(firestore, 'attendance'),
+        where('userId', '==', user.uid),
+        where('timestamp', '>=', today)
+      );
+      const attendanceSnapshot = await getDocs(attendanceQuery);
+
+      setTodayStats({
+        visits: visitsSnapshot.size,
+        sheets: totalSheets,
+        expenses: expensesSnapshot.size,
+      });
+
+      // Build activity timeline
+      const activities: Array<{
+        id: string;
+        type: 'visit' | 'sheets' | 'expense' | 'attendance';
+        time: Date;
+        description: string;
+      }> = [];
+
+      // Add attendance (check-in/check-out)
+      attendanceSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        const time = data.timestamp?.toDate() || new Date();
+        activities.push({
+          id: doc.id,
+          type: 'attendance',
+          time,
+          description: data.type === 'check_in'
+            ? `Checked in at ${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+            : `Checked out at ${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+        });
+      });
+
+      // Add visits
+      visitsSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          type: 'visit',
+          time: data.timestamp?.toDate() || new Date(),
+          description: `Visited ${data.accountName || 'a client'}`,
+        });
+      });
+
+      // Add sheets sales
+      sheetsSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          type: 'sheets',
+          time: data.createdAt?.toDate() || new Date(),
+          description: `Logged ${data.sheetsCount} sheets - ${data.catalog}`,
+        });
+      });
+
+      // Add expenses
+      expensesSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        activities.push({
+          id: doc.id,
+          type: 'expense',
+          time: data.createdAt?.toDate() || new Date(),
+          description: `Reported ₹${data.amount} expense - ${data.category}`,
+        });
+      });
+
+      // Sort by time (most recent first)
+      activities.sort((a, b) => b.time.getTime() - a.time.getTime());
+      setTodayActivities(activities);
+
+    } catch (error) {
+      console.error('Error fetching today stats:', error);
+    }
+  }, [user?.uid]);
+
+  // Refresh function for pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchAttendance(), fetchTodayStats()]);
+    setRefreshing(false);
+  }, [fetchAttendance, fetchTodayStats]);
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (user?.uid) {
+        try {
+          const firestore = getFirestore();
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const role = userData?.role || 'rep';
+            setUserName(userData?.name || 'User');
+
+            // Redirect managers to ManagerHomeScreen
+            if (role === 'national_head' || role === 'admin') {
+              navigation.replace('ManagerHome');
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          setUserName('User');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadUserData();
+  }, [user?.uid, navigation]);
+
+  // Fetch data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchAttendance();
+      fetchTodayStats();
+    }, [fetchAttendance, fetchTodayStats])
+  );
+
+  // Helper function to get time-based greeting and icon
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return { text: 'Good morning', icon: 'sunrise' };
+    if (hour < 17) return { text: 'Good afternoon', icon: 'sun' };
+    return { text: 'Good evening', icon: 'moon' };
+  };
+
+  // Helper function to get relative time ("2 hours ago")
+  const getRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
+  // Helper to calculate working duration
+  const getWorkingDuration = (): string | null => {
+    if (!attendanceStatus.isCheckedIn || !attendanceStatus.checkInTime) return null;
+
+    try {
+      const now = new Date();
+      const timeStr = attendanceStatus.checkInTime;
+
+      // Parse time string like "9:15 AM" or "2:30 PM"
+      const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!match) return null;
+
+      const hours = parseInt(match[1], 10);
+      const minutes = parseInt(match[2], 10);
+      const period = match[3].toUpperCase();
+
+      // Convert to 24-hour format
+      let checkInHour = hours;
+      if (period === 'PM' && hours !== 12) {
+        checkInHour = hours + 12;
+      } else if (period === 'AM' && hours === 12) {
+        checkInHour = 0;
+      }
+
+      const checkIn = new Date();
+      checkIn.setHours(checkInHour, minutes, 0, 0);
+
+      const diffMs = now.getTime() - checkIn.getTime();
+      if (diffMs < 0) return '0m'; // Future time
+
+      const totalMins = Math.floor(diffMs / 60000);
+      const hrs = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+
+      if (hrs === 0) return `${mins}m`;
+      return `${hrs}h ${mins}m`;
+    } catch (error) {
+      console.error('Error calculating duration:', error);
+      return null;
+    }
+  };
+
+  const greeting = getGreeting();
+
+  return (
+    <View style={styles.container}>
+      {/* Minimal Greeting Bar */}
+      <View style={styles.greetingBar}>
+        <View style={styles.greetingContent}>
+          {greeting.icon === 'sunrise' && <Sunrise size={20} color={colors.text.inverse} />}
+          {greeting.icon === 'sun' && <Sun size={20} color={colors.text.inverse} />}
+          {greeting.icon === 'moon' && <Moon size={20} color={colors.text.inverse} />}
+          <Text style={styles.greetingText}>
+            {greeting.text}, {userName || 'User'}
+          </Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+
+        {/* Attendance Status Card - Compact Design */}
+        <Card elevation="md" style={styles.attendanceCard}>
+          {attendanceStatus.isCheckedIn ? (
+            <>
+              <View style={styles.attendanceRow}>
+                <View style={styles.statusInfo}>
+                  <Text style={styles.statusLabel}>Working for</Text>
+                  <Text style={styles.statusValue}>{getWorkingDuration()}</Text>
+                  <Text style={styles.checkInText}>
+                    Checked in at {attendanceStatus.checkInTime}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.checkOutButton}
+                  onPress={() => navigation.navigate('Attendance')}
+                >
+                  <Text style={styles.checkOutButtonText}>Check Out</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.attendanceRow}>
+                <View style={styles.statusInfo}>
+                  <Text style={styles.statusLabel}>Attendance</Text>
+                  <Text style={styles.notCheckedInText}>Not checked in</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.checkInButton}
+                  onPress={() => navigation.navigate('Attendance')}
+                >
+                  <Text style={styles.checkInButtonText}>Check In</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </Card>
+
+        {/* Today's Activities - KPI Cards in a row */}
+        <View style={styles.kpiSection}>
+          <Text style={styles.sectionTitle}>Today's Activities</Text>
+          <View style={styles.kpiRow}>
+            <KpiCard
+              title="Visits"
+              value={todayStats.visits.toString()}
+              icon={<MapPin size={16} color={featureColors.visits.primary} />}
+            />
+            <KpiCard
+              title="Sheets"
+              value={todayStats.sheets.toString()}
+              icon={<FileText size={16} color={featureColors.sheets.primary} />}
+            />
+            <KpiCard
+              title="Expenses"
+              value={todayStats.expenses.toString()}
+              icon={<IndianRupee size={16} color={featureColors.expenses.primary} />}
+            />
+          </View>
+        </View>
+
+        {/* Activity Timeline with connecting lines */}
+        {todayActivities.length > 0 ? (
+          <View style={styles.timelineContainer}>
+            <Text style={styles.sectionTitle}>Today's Timeline</Text>
+            {todayActivities.map((activity, index) => {
+              const isLast = index === todayActivities.length - 1;
+
+              const getActivityIcon = () => {
+                switch (activity.type) {
+                  case 'visit':
+                    return <MapPin size={16} color={featureColors.visits.primary} />;
+                  case 'sheets':
+                    return <FileText size={16} color={featureColors.sheets.primary} />;
+                  case 'expense':
+                    return <IndianRupee size={16} color={featureColors.expenses.primary} />;
+                  default:
+                    return <CheckCircle size={16} color={featureColors.attendance.primary} />;
+                }
+              };
+
+              const getActivityColor = () => {
+                switch (activity.type) {
+                  case 'visit':
+                    return featureColors.visits.primary;
+                  case 'sheets':
+                    return featureColors.sheets.primary;
+                  case 'expense':
+                    return featureColors.expenses.primary;
+                  default:
+                    return featureColors.attendance.primary;
+                }
+              };
+
+              const getDotColor = () => {
+                switch (activity.type) {
+                  case 'visit':
+                    return featureColors.visits.light;
+                  case 'sheets':
+                    return featureColors.sheets.light;
+                  case 'expense':
+                    return featureColors.expenses.light;
+                  default:
+                    return featureColors.attendance.light;
+                }
+              };
+
+              return (
+                <View key={activity.id} style={styles.timelineItem}>
+                  {/* Timeline line and dot */}
+                  <View style={styles.timelineLine}>
+                    <View style={[styles.timelineDot, { backgroundColor: getDotColor(), borderColor: getActivityColor() }]} />
+                    {!isLast && <View style={styles.timelineConnector} />}
+                  </View>
+
+                  {/* Content */}
+                  <Card elevation="sm" style={styles.activityCard}>
+                    <View style={styles.activityRow}>
+                      <View style={[styles.activityIconContainer, { backgroundColor: getDotColor() }]}>
+                        {getActivityIcon()}
+                      </View>
+                      <View style={styles.activityContent}>
+                        <Text style={styles.activityDescription}>{activity.description}</Text>
+                        <Text style={styles.activityTime}>{getRelativeTime(activity.time)}</Text>
+                      </View>
+                      {/* Edit Action - Only for editable activities (not attendance) */}
+                      {(activity.type === 'visit' || activity.type === 'sheets' || activity.type === 'expense') && (
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => {
+                            // Navigate to the appropriate screen based on activity type
+                            switch (activity.type) {
+                              case 'visit':
+                                // For visits, go directly to LogVisit (account will be fetched via API)
+                                navigation.navigate('LogVisit', { editActivityId: activity.id });
+                                break;
+                              case 'sheets':
+                                navigation.navigate('SheetsEntry', { editActivityId: activity.id });
+                                break;
+                              case 'expense':
+                                navigation.navigate('ExpenseEntry', { editActivityId: activity.id });
+                                break;
+                            }
+                          }}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <Edit2 size={18} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </Card>
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <Card elevation="sm" style={styles.timelineCard}>
+            <View style={styles.emptyTimeline}>
+              <Clock size={20} color={colors.text.tertiary} />
+              <Text style={styles.emptyTimelineText}>
+                Your daily activities will appear here as you log visits, sheets, and expenses
+              </Text>
+            </View>
+          </Card>
+        )}
+
+        {/* Pending Action Items */}
+        {pendingItems.length > 0 && (
+          <Card elevation="md" style={styles.pendingCard}>
+            <View style={styles.pendingHeader}>
+              <Bell size={20} color={colors.warning} />
+              <Text style={styles.pendingTitle}>Action Items</Text>
+              <Badge variant="warning">{pendingItems.length}</Badge>
+            </View>
+            {pendingItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.pendingItem}
+                onPress={() => navigation.navigate(item.screen)}
+              >
+                <Text style={styles.pendingItemText}>• {item.text}</Text>
+                <ChevronRight size={16} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            ))}
+          </Card>
+        )}
+
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  // Minimal Greeting Bar
+  greetingBar: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 52, // Status bar space
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  greetingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  greetingText: {
+    fontSize: 19,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.inverse,
+    letterSpacing: 0.3,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: spacing.screenPadding,
+    paddingBottom: 100, // Extra padding to prevent content hidden behind floating nav bar
+  },
+
+  // Attendance Status Card - Compact Design
+  attendanceCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  attendanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  statusInfo: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  statusValue: {
+    fontSize: 24,
+    fontWeight: typography.fontWeight.bold,
+    color: featureColors.attendance.primary,
+    letterSpacing: -0.5,
+    marginBottom: 2,
+  },
+  checkInText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  notCheckedInText: {
+    fontSize: 15,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  // Check Out button
+  checkOutButton: {
+    backgroundColor: '#FFEBEE',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+  },
+  checkOutButtonText: {
+    fontSize: 14,
+    fontWeight: typography.fontWeight.semiBold,
+    color: '#C62828',
+  },
+  // Check In button
+  checkInButton: {
+    backgroundColor: featureColors.attendance.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+  },
+  checkInButtonText: {
+    fontSize: 14,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.surface,
+  },
+
+  // KPI Section
+  kpiSection: {
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    ...typography.styles.h4,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+
+  // Activity Timeline with connecting lines
+  timelineContainer: {
+    marginBottom: spacing.md,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.sm, // Add spacing between timeline cards
+  },
+  timelineLine: {
+    alignItems: 'center',
+    width: 24,
+    position: 'relative',
+  },
+  timelineDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    marginTop: 34, // 16px (card padding) + 18px (half of 36px icon) = 34px to center with icon
+    zIndex: 2,
+  },
+  timelineConnector: {
+    position: 'absolute',
+    width: 2,
+    top: 46, // 34px (dot position) + 12px (dot height) = 46px - start right after dot
+    bottom: -(spacing.sm + 34 + 6), // Extend through gap to next dot center: -(8px gap + 34px next dot position + 6px to dot center)
+    left: 11, // Center the 2px line in 24px width: (24-2)/2 = 11px
+    backgroundColor: colors.border.light,
+  },
+  activityCard: {
+    padding: spacing.md,
+    flex: 1,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  activityIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: spacing.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityDescription: {
+    ...typography.styles.body,
+    color: colors.text.primary,
+    fontWeight: typography.fontWeight.medium,
+    marginBottom: 2,
+  },
+  activityTime: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  editButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  timelineCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  emptyTimeline: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  emptyTimelineText: {
+    ...typography.styles.body,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // Pending Items Card
+  pendingCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  pendingTitle: {
+    ...typography.styles.h4,
+    color: colors.text.primary,
+    flex: 1,
+  },
+  pendingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  pendingItemText: {
+    ...typography.styles.body,
+    color: colors.text.primary,
+    flex: 1,
+  },
+
+  // Quick Actions
+  quickActionsSection: {
+    marginBottom: spacing.md,
+  },
+  quickActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: spacing.borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  quickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  quickActionText: {
+    ...typography.styles.body,
+    color: colors.text.primary,
+    flex: 1,
+    fontWeight: typography.fontWeight.medium,
+  },
+
+  // Dev button
+  devButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.accent + '20',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    marginTop: spacing.md,
+  },
+  devButtonText: {
+    ...typography.styles.button,
+    color: colors.accent,
+    fontSize: typography.fontSize.sm,
+  },
+});

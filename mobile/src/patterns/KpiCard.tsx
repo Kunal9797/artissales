@@ -1,12 +1,13 @@
 /**
  * KpiCard Pattern
  * Displays key performance indicator with auto-colored delta
+ * Enhanced with modern styling and optional accent colors
  */
 
 import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
-import { colors, spacing, typography, roles } from '../theme';
+import { colors, spacing, typography, roles, shadows } from '../theme';
 
 export interface KpiCardProps {
   /** KPI title */
@@ -35,24 +36,35 @@ export function KpiCard({ title, value, delta, icon }: KpiCardProps) {
     const isPositive = delta.value > 0;
     const iconColor = getDeltaColor();
     return isPositive ? (
-      <TrendingUp size={16} color={iconColor} />
+      <TrendingUp size={14} color={iconColor} />
     ) : (
-      <TrendingDown size={16} color={iconColor} />
+      <TrendingDown size={14} color={iconColor} />
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        {icon && <View style={styles.iconContainer}>{icon}</View>}
-      </View>
-      <Text style={styles.value}>{value}</Text>
+    <View style={[styles.container, shadows.sm]}>
+      {/* Icon Section */}
+      {icon && (
+        <View style={styles.iconContainer}>
+          {icon}
+        </View>
+      )}
+
+      {/* Title */}
+      <Text style={styles.title}>{title}</Text>
+
+      {/* Value */}
+      <Text style={styles.value}>
+        {value}
+      </Text>
+
+      {/* Delta */}
       {delta && (
         <View style={styles.deltaContainer}>
           {getDeltaIcon()}
           <Text style={[styles.deltaText, { color: getDeltaColor() }]}>
-            {Math.abs(delta.value)}%
+            {delta.value > 0 ? '+' : ''}{delta.value}%
           </Text>
         </View>
       )}
@@ -63,32 +75,29 @@ export function KpiCard({ title, value, delta, icon }: KpiCardProps) {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
-    padding: spacing.sm,
-    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border.default,
-    minWidth: 100,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs / 2,
-  },
-  title: {
-    fontSize: 10,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
+    flex: 1,
+    minHeight: 80,
   },
   iconContainer: {
-    marginLeft: spacing.xs / 2,
+    marginBottom: spacing.xs,
+  },
+  title: {
+    fontSize: 11,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs / 2,
   },
   value: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
+    marginBottom: spacing.xs,
   },
   deltaContainer: {
     flexDirection: 'row',
@@ -96,7 +105,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs / 2,
   },
   deltaText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: typography.fontWeight.semiBold,
   },
 });

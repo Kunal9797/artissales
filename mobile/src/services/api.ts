@@ -99,6 +99,45 @@ export const api = {
     return callFunction('logSheetsSale', data);
   },
 
+  // Get, Update, Delete for Sheets Sales
+  getSheetsSales: async (data: { userId: string; date: string }) => {
+    return callFunction('getSheetsSales', data);
+  },
+
+  updateSheetsSale: async (data: { id: string; catalog: string; sheetsCount: number }) => {
+    return callFunction('updateSheetsSale', data);
+  },
+
+  deleteSheetsSale: async (data: { id: string }) => {
+    return callFunction('deleteSheetsSale', data);
+  },
+
+  // Get, Update, Delete for Visits
+  getVisit: async (data: { id: string }) => {
+    return callFunction('getVisit', data);
+  },
+
+  updateVisit: async (data: { id: string; purpose: string; notes?: string; photos?: string[] }) => {
+    return callFunction('updateVisit', data);
+  },
+
+  deleteVisit: async (data: { id: string }) => {
+    return callFunction('deleteVisit', data);
+  },
+
+  // Get, Update, Delete for Expenses
+  getExpense: async (data: { id: string }) => {
+    return callFunction('getExpense', data);
+  },
+
+  updateExpense: async (data: { id: string; date: string; items: any[]; receiptPhotos?: string[] }) => {
+    return callFunction('updateExpense', data);
+  },
+
+  deleteExpense: async (data: { id: string }) => {
+    return callFunction('deleteExpense', data);
+  },
+
   updateProfile: async (data: { name?: string; email?: string }) => {
     return callFunction('updateProfile', data);
   },

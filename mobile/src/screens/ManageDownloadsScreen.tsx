@@ -36,7 +36,6 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
     try {
       setLoading(true);
       const docs = await documentCache.listCachedDocuments();
-      console.log('Loaded cached documents:', JSON.stringify(docs, null, 2));
       setCachedDocs(docs);
 
       const size = await documentCache.getTotalCacheSize();
@@ -56,18 +55,12 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
   };
 
   const formatDate = (timestamp: number): string => {
-    console.log('formatDate called with:', timestamp, 'type:', typeof timestamp);
-
     if (!timestamp || isNaN(timestamp)) {
-      console.log('Invalid timestamp - returning Just now');
       return 'Just now';
     }
 
     const date = new Date(timestamp);
-    console.log('Date object created:', date, 'isValid:', !isNaN(date.getTime()));
-
     if (isNaN(date.getTime())) {
-      console.log('Invalid date object - returning Just now');
       return 'Just now';
     }
 

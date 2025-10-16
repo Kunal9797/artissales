@@ -164,3 +164,219 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
     response.status(500).json(apiError);
   }
 });
+
+/**
+ * Get Visit - Fetch a specific visit by ID
+ */
+export const getVisit = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id} = request.body;
+
+    if (!id) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: id",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const visitDoc = await db.collection("visits").doc(id).get();
+
+    if (!visitDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Visit not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    const visitData = visitDoc.data();
+
+    // Verify ownership
+    if (visitData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to access this visit",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    response.status(200).json(visitData);
+  } catch (error: any) {
+    logger.error("Error fetching visit", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
+ * Update Visit - Update an existing visit
+ */
+export const updateVisit = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id, purpose, notes, photos} = request.body;
+
+    if (!id || !purpose) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required fields: id, purpose",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const visitRef = db.collection("visits").doc(id);
+    const visitDoc = await visitRef.get();
+
+    if (!visitDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Visit not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const visitData = visitDoc.data();
+    if (visitData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to update this visit",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Update the visit
+    const updateData: any = {
+      purpose,
+      updatedAt: firestore.Timestamp.now(),
+    };
+
+    if (notes !== undefined) {
+      updateData.notes = notes;
+    }
+
+    if (photos !== undefined) {
+      updateData.photos = photos;
+    }
+
+    await visitRef.update(updateData);
+
+    logger.info("Visit updated", {
+      visitId: id,
+      userId: auth.uid,
+      purpose,
+    });
+
+    response.status(200).json({ok: true, visitId: id});
+  } catch (error: any) {
+    logger.error("Error updating visit", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
+ * Delete Visit - Delete an existing visit
+ */
+export const deleteVisit = onRequest({cors: true}, async (request, response) => {
+  try {
+    // Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {id} = request.body;
+
+    if (!id) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: id",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    const visitRef = db.collection("visits").doc(id);
+    const visitDoc = await visitRef.get();
+
+    if (!visitDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Visit not found",
+        code: "NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    // Verify ownership
+    const visitData = visitDoc.data();
+    if (visitData?.userId !== auth.uid) {
+      const error: ApiError = {
+        ok: false,
+        error: "Unauthorized to delete this visit",
+        code: "UNAUTHORIZED",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // Delete the visit
+    await visitRef.delete();
+
+    logger.info("Visit deleted", {
+      visitId: id,
+      userId: auth.uid,
+    });
+
+    response.status(200).json({ok: true, visitId: id});
+  } catch (error: any) {
+    logger.error("Error deleting visit", {error: error.message});
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message || "Unknown error",
+    };
+    response.status(500).json(apiError);
+  }
+});
