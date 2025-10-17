@@ -27,7 +27,7 @@ import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { EditAccountScreen } from '../screens/EditAccountScreen';
 import { AccountDetailScreen } from '../screens/manager/AccountDetailScreen';
 // import { TeamTargetsScreen } from '../screens/manager/TeamTargetsScreen';
-import { DocumentLibraryScreen } from '../screens/DocumentLibraryScreen';
+import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { UploadDocumentScreen } from '../screens/UploadDocumentScreen';
 import { ManageDownloadsScreen } from '../screens/ManageDownloadsScreen';
 
@@ -54,7 +54,7 @@ export type RootStackParamList = {
   EditAccount: { account: any; onAccountUpdated?: () => void };
   SetTarget: { userId: string; userName: string; currentMonth: string };
   TeamTargets: undefined;
-  DocumentLibrary: undefined;
+  Documents: undefined;
   UploadDocument: { onUploadSuccess?: () => void };
   ManageDownloads: { onDelete?: () => void };
   Login: undefined;
@@ -121,7 +121,7 @@ export const RootNavigator: React.FC = () => {
 
           {/* TODO: Re-enable these as we build/test them */}
           {/* <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} /> */}
-          <Stack.Screen name="DocumentLibrary" component={DocumentLibraryScreen} />
+          <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />
           <Stack.Screen name="ManageDownloads" component={ManageDownloadsScreen} />
         </Stack.Navigator>

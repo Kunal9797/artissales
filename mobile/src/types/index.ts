@@ -148,6 +148,11 @@ export interface ReviewDSRResponse {
   message: string;
 }
 
+export interface GetPendingDSRsRequest {
+  date?: string; // YYYY-MM-DD (optional)
+  status?: 'pending' | 'approved' | 'needs_revision' | 'all'; // Optional status filter
+}
+
 // User List & Stats Types
 export interface GetUsersListRequest {
   role?: 'rep' | 'area_manager' | 'zonal_head' | 'national_head' | 'admin';

@@ -41,27 +41,27 @@ export const DetailedTargetProgressCard: React.FC<DetailedTargetProgressCardProp
     fetchTarget();
   }, [userId, month]);
 
-  // Loading skeleton
+  // Loading skeleton - compact version
   if (loading) {
     return (
-      <View style={[styles.container, style]}>
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Target size={20} color={colors.border.default} strokeWidth={2.5} />
-            <View style={styles.skeletonHeaderText} />
-          </View>
+      <View style={[{
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        padding: 12,
+        borderWidth: 1,
+        borderColor: '#E0E0E0',
+      }, style]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+          <Target size={16} color="#E0E0E0" strokeWidth={2.5} />
+          <View style={{ width: 100, height: 14, backgroundColor: '#F0F0F0', borderRadius: 4 }} />
         </View>
         {[1, 2].map((i) => (
-          <View key={i} style={[styles.compactRow, i === 2 && styles.compactRowLast]}>
-            <View style={styles.topRow}>
-              <View style={styles.skeletonCatalogName} />
-              <View style={styles.skeletonBadge} />
+          <View key={i} style={{ paddingVertical: 8, borderBottomWidth: i === 2 ? 0 : 1, borderBottomColor: '#F0F0F0' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+              <View style={{ width: 80, height: 16, backgroundColor: '#F0F0F0', borderRadius: 4 }} />
+              <View style={{ width: 60, height: 18, backgroundColor: '#F0F0F0', borderRadius: 4 }} />
             </View>
-            <View style={styles.skeletonProgressBar} />
-            <View style={styles.bottomRow}>
-              <View style={styles.skeletonStats} />
-              <View style={styles.skeletonStats} />
-            </View>
+            <View style={{ height: 4, backgroundColor: '#F0F0F0', borderRadius: 2 }} />
           </View>
         ))}
       </View>
@@ -79,56 +79,87 @@ export const DetailedTargetProgressCard: React.FC<DetailedTargetProgressCardProp
   };
 
   return (
-    <View style={[styles.container, style]}>
-      {/* Header with icon */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Target size={20} color={colors.accent} strokeWidth={2.5} />
-          <Text style={styles.headerText}>Your Progress</Text>
-        </View>
+    <View style={[{
+      backgroundColor: '#FFFFFF',
+      borderRadius: 8,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: '#E0E0E0',
+    }, style]}>
+      {/* Compact Header */}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 10,
+      }}>
+        <Target size={16} color="#C9A961" strokeWidth={2.5} />
+        <Text style={{
+          fontSize: 13,
+          fontWeight: '600',
+          color: '#666666',
+          textTransform: 'uppercase',
+          letterSpacing: 0.3,
+        }}>
+          Monthly Progress
+        </Text>
       </View>
 
-      {/* Progress rows with bars */}
+      {/* Compact Progress Rows */}
       {progress.map((item, index) => {
-        const isComplete = item.achieved >= item.target;
         const isLast = index === progress.length - 1;
         const progressColor = getProgressColor(item.percentage);
 
         return (
-          <View key={item.catalog} style={[styles.compactRow, isLast && styles.compactRowLast]}>
-            {/* Top row: name and percentage badge */}
-            <View style={styles.topRow}>
-              <Text style={styles.catalogName}>{item.catalog}</Text>
-              <View style={[styles.percentageBadge, { backgroundColor: progressColor + '20' }]}>
-                <Text style={[styles.percentageText, { color: progressColor }]}>
-                  {item.percentage >= 100 ? '+' : ''}{item.percentage}%
+          <View
+            key={item.catalog}
+            style={{
+              paddingVertical: 8,
+              borderBottomWidth: isLast ? 0 : 1,
+              borderBottomColor: '#F0F0F0',
+            }}
+          >
+            {/* Catalog name and percentage in one line */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>
+                {item.catalog}
+              </Text>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <Text style={{ fontSize: 11, color: '#666666' }}>
+                  {item.achieved.toLocaleString()} / {item.target.toLocaleString()}
                 </Text>
+                <View style={{
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: progressColor + '20',
+                }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: progressColor }}>
+                    {item.percentage >= 100 ? '+' : ''}{item.percentage}%
+                  </Text>
+                </View>
               </View>
             </View>
 
-            {/* Progress bar with animation effect */}
-            <View style={styles.progressBar}>
+            {/* Thin progress bar */}
+            <View style={{
+              height: 4,
+              backgroundColor: '#F0F0F0',
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}>
               <View
-                style={[
-                  styles.progressFill,
-                  {
-                    width: `${Math.min(item.percentage, 100)}%`,
-                    backgroundColor: progressColor,
-                  },
-                ]}
+                style={{
+                  height: '100%',
+                  width: `${Math.min(item.percentage, 100)}%`,
+                  backgroundColor: progressColor,
+                  borderRadius: 2,
+                }}
               />
-            </View>
-
-            {/* Bottom row: achieved vs target */}
-            <View style={styles.bottomRow}>
-              <Text style={styles.statsText}>
-                <Text style={styles.statsLabel}>Achieved: </Text>
-                <Text style={styles.statsValue}>{item.achieved.toLocaleString()}</Text>
-              </Text>
-              <Text style={styles.statsText}>
-                <Text style={styles.statsLabel}>Target: </Text>
-                <Text style={styles.statsValue}>{item.target.toLocaleString()}</Text>
-              </Text>
             </View>
           </View>
         );

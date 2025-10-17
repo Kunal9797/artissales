@@ -8,7 +8,7 @@
  * - Performance trends
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -17,22 +17,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Modal,
 } from 'react-native';
-import { Calendar as CalendarComponent } from 'react-native-calendars';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
-import { TargetProgressCard } from '../components/TargetProgressCard';
-import { VisitProgressCard } from '../components/VisitProgressCard';
-import { Card } from '../components/ui';
-import { KpiCard } from '../patterns/KpiCard';
+import { DetailedStatsView } from '../components/DetailedStatsView';
 import { colors, spacing, typography, featureColors } from '../theme';
+import { api } from '../services/api';
 import {
-  TrendingUp,
   Calendar,
-  Target,
-  MapPin,
   FileText,
   IndianRupee,
   ChevronLeft,
@@ -52,12 +45,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   const currentMonth = selectedDate.toISOString().substring(0, 7);
 
   // State for monthly stats
-  const [monthlyStats, setMonthlyStats] = useState({
-    totalVisits: 0,
-    totalSheets: 0,
-    totalExpenses: 0,
-    daysWorked: 0,
-  });
+  const [detailedStats, setDetailedStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -68,11 +56,13 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   });
   const [loadingPending, setLoadingPending] = useState(false);
 
-  // State for attendance calendar modal
-  const [showCalendar, setShowCalendar] = useState(false);
+  // State for attendance calendar
   const [attendanceDays, setAttendanceDays] = useState<Set<string>>(new Set());
 
-  // Fetch pending items count
+  // State for targets
+  const [targets, setTargets] = useState<{ visits?: number; sheets?: number }>({});
+
+  // Fetch pending items count from DSR reports
   const fetchPendingCounts = useCallback(async () => {
     if (!user?.uid) return;
 
@@ -81,25 +71,26 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       const firestore = getFirestore();
       const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
 
-      // Fetch pending expenses (status = 'pending')
-      const expensesQuery = query(
-        collection(firestore, 'expenses'),
+      // Fetch pending DSR reports and sum their totals
+      const dsrQuery = query(
+        collection(firestore, 'dsrReports'),
         where('userId', '==', user.uid),
         where('status', '==', 'pending')
       );
-      const expensesSnapshot = await getDocs(expensesQuery);
+      const dsrSnapshot = await getDocs(dsrQuery);
 
-      // Fetch unverified sheet sales (verified = false or missing)
-      const sheetsQuery = query(
-        collection(firestore, 'sheetsSales'),
-        where('userId', '==', user.uid),
-        where('verified', '==', false)
-      );
-      const sheetsSnapshot = await getDocs(sheetsQuery);
+      let totalPendingExpenseAmount = 0;
+      let totalPendingSheets = 0;
+
+      dsrSnapshot.forEach(doc => {
+        const data = doc.data();
+        totalPendingExpenseAmount += data.totalExpenses || 0;
+        totalPendingSheets += data.totalSheetsSold || 0;
+      });
 
       setPendingCounts({
-        pendingExpenses: expensesSnapshot.size,
-        unverifiedSheets: sheetsSnapshot.size,
+        pendingExpenses: totalPendingExpenseAmount,  // Actual rupee amount
+        unverifiedSheets: totalPendingSheets,  // Actual sheet count
       });
     } catch (error) {
       console.error('Error fetching pending counts:', error);
@@ -134,85 +125,43 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     year: 'numeric'
   });
 
-  // Fetch monthly stats
+  // Fetch monthly stats using getUserStats API
   const fetchMonthlyStats = useCallback(async () => {
     if (!user?.uid) return;
 
     try {
       setLoading(true);
-      const firestore = getFirestore();
-      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
-
-      const attendanceDaysSet = new Set<string>();
+      const startTime = Date.now();
 
       // Get first and last day of selected month
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
       const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
+      const lastDay = new Date(year, month + 1, 0);
 
-      // Fetch visits for the month
-      const visitsQuery = query(
-        collection(firestore, 'visits'),
-        where('userId', '==', user.uid),
-        where('timestamp', '>=', firstDay),
-        where('timestamp', '<=', lastDay)
-      );
-      const visitsSnapshot = await getDocs(visitsQuery);
+      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
 
-      // Fetch sheets for the month
-      const startDateStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const endDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
-
-      const sheetsQuery = query(
-        collection(firestore, 'sheetsSales'),
-        where('userId', '==', user.uid),
-        where('date', '>=', startDateStr),
-        where('date', '<=', endDateStr)
-      );
-      const sheetsSnapshot = await getDocs(sheetsQuery);
-      let totalSheets = 0;
-      sheetsSnapshot.forEach((doc: any) => {
-        totalSheets += doc.data().sheetsCount || 0;
+      console.log('[Stats] Fetching stats...');
+      // Fetch detailed stats from API
+      const response = await api.getUserStats({
+        userId: user.uid,
+        startDate,
+        endDate,
       });
+      console.log(`[Stats] Stats fetched in ${Date.now() - startTime}ms`);
 
-      // Fetch expenses for the month
-      const expensesQuery = query(
-        collection(firestore, 'expenses'),
-        where('userId', '==', user.uid),
-        where('date', '>=', startDateStr),
-        where('date', '<=', endDateStr)
-      );
-      const expensesSnapshot = await getDocs(expensesQuery);
+      setDetailedStats(response.stats);
 
-      // Fetch attendance for the month to count days worked
-      const attendanceQuery = query(
-        collection(firestore, 'attendance'),
-        where('userId', '==', user.uid),
-        where('type', '==', 'check_in'),
-        where('timestamp', '>=', firstDay),
-        where('timestamp', '<=', lastDay)
-      );
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-
-      // Count unique days worked and store for calendar
-      const uniqueDays = new Set<string>();
-      attendanceSnapshot.forEach((doc: any) => {
-        const timestamp = doc.data().timestamp?.toDate();
-        if (timestamp) {
-          const dateStr = timestamp.toISOString().substring(0, 10);
-          uniqueDays.add(dateStr);
+      // Extract attendance days for calendar
+      const attendanceDaysSet = new Set<string>();
+      response.stats.attendance.records.forEach((record: any) => {
+        if (record.type === 'check_in' && record.timestamp) {
+          const date = record.timestamp.toDate?.() || new Date(record.timestamp);
+          const dateStr = date.toISOString().substring(0, 10);
           attendanceDaysSet.add(dateStr);
         }
       });
-
-      setMonthlyStats({
-        totalVisits: visitsSnapshot.size,
-        totalSheets: totalSheets,
-        totalExpenses: expensesSnapshot.size,
-        daysWorked: uniqueDays.size,
-      });
-
       setAttendanceDays(attendanceDaysSet);
     } catch (error) {
       console.error('Error fetching monthly stats:', error);
@@ -221,12 +170,59 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid, selectedDate]);
 
+  // Fetch targets
+  const fetchTargets = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      console.log('[Stats] Fetching targets for:', { userId: user.uid, month: currentMonth });
+      const response = await api.getTarget({
+        userId: user.uid,
+        month: currentMonth,
+      });
+
+      console.log('[Stats] Target response:', response);
+
+      if (response.ok && response.target) {
+        const newTargets: any = {};
+
+        // Pass category-level targets directly
+        if (response.target.targetsByAccountType) {
+          newTargets.visitsByType = {
+            distributor: response.target.targetsByAccountType.distributor,
+            dealer: response.target.targetsByAccountType.dealer,
+            architect: response.target.targetsByAccountType.architect,
+            contractor: response.target.targetsByAccountType.contractor,
+          };
+        }
+
+        if (response.target.targetsByCatalog) {
+          newTargets.sheetsByCatalog = {
+            'Fine Decor': response.target.targetsByCatalog['Fine Decor'],
+            'Artvio': response.target.targetsByCatalog['Artvio'],
+            'Woodrica': response.target.targetsByCatalog['Woodrica'],
+            'Artis': response.target.targetsByCatalog['Artis'],
+          };
+        }
+
+        console.log('[Stats] Setting targets:', newTargets);
+        setTargets(newTargets);
+      } else {
+        console.log('[Stats] No target found for this month');
+      }
+    } catch (error) {
+      console.error('[Stats] Error fetching targets:', error);
+      // Targets are optional, so don't show error to user
+    }
+  }, [user?.uid, currentMonth]);
+
   // Fetch data when screen is focused or month changes
   useFocusEffect(
     useCallback(() => {
       fetchMonthlyStats();
       fetchPendingCounts();
-    }, [fetchMonthlyStats, fetchPendingCounts])
+      fetchTargets();
+    }, [fetchMonthlyStats, fetchPendingCounts, fetchTargets])
   );
 
   return (
@@ -272,66 +268,58 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         }
       >
 
-        {/* Target Progress Card */}
-        {user?.uid && (
-          <TargetProgressCard
-            userId={user.uid}
-            month={currentMonth}
-            onLogPress={() => navigation.navigate('SheetsEntry')}
-            style={{ marginBottom: spacing.md }}
-          />
-        )}
-
-        {/* Visit Progress Card */}
-        {user?.uid && (
-          <VisitProgressCard
-            userId={user.uid}
-            month={currentMonth}
-            onLogPress={() => navigation.navigate('SelectAccount')}
-            style={{ marginBottom: spacing.md }}
-          />
-        )}
-
-        {/* Monthly Summary - Moved before Pending */}
-        <Text style={styles.sectionTitle}>This Month's Summary</Text>
+        {/* Detailed Stats View */}
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        ) : (
-          <>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiRow}>
-                <KpiCard
-                  title="Total Visits"
-                  value={monthlyStats.totalVisits.toString()}
-                  icon={<MapPin size={16} color={featureColors.visits.primary} />}
-                />
-                <KpiCard
-                  title="Total Sheets"
-                  value={monthlyStats.totalSheets.toString()}
-                  icon={<FileText size={16} color={featureColors.sheets.primary} />}
-                />
-              </View>
-              <View style={styles.kpiRow}>
-                <KpiCard
-                  title="Total Expenses"
-                  value={monthlyStats.totalExpenses.toString()}
-                  icon={<IndianRupee size={16} color={featureColors.expenses.primary} />}
-                />
-                <View style={{ flex: 1 }}>
-                  <TouchableOpacity onPress={() => setShowCalendar(true)} activeOpacity={0.8}>
-                    <KpiCard
-                      title="Days Worked"
-                      value={monthlyStats.daysWorked.toString()}
-                      icon={<Calendar size={16} color={featureColors.attendance.primary} />}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </>
-        )}
+        ) : detailedStats ? (
+          <DetailedStatsView
+            stats={detailedStats}
+            attendanceDays={{
+              present: attendanceDays.size,
+              absent: (() => {
+                const now = new Date();
+                const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
+                                      selectedDate.getMonth() === now.getMonth();
+                // If viewing current month, count days from 1st to today
+                // If viewing past month, count all days in that month
+                const totalDaysToConsider = isCurrentMonth
+                  ? now.getDate()
+                  : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+                return Math.max(0, totalDaysToConsider - attendanceDays.size);
+              })(),
+              total: (() => {
+                const now = new Date();
+                const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
+                                      selectedDate.getMonth() === now.getMonth();
+                return isCurrentMonth
+                  ? now.getDate()
+                  : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+              })(),
+            }}
+            attendancePercentage={(() => {
+              const now = new Date();
+              const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
+                                    selectedDate.getMonth() === now.getMonth();
+              const totalDaysToConsider = isCurrentMonth
+                ? now.getDate()
+                : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+              return attendanceDays.size > 0
+                ? Math.round((attendanceDays.size / totalDaysToConsider) * 100)
+                : 0;
+            })()}
+            attendanceMarkedDates={Object.fromEntries(
+              Array.from(attendanceDays).map(date => [
+                date,
+                { marked: true, dotColor: '#2E7D32', selected: false }
+              ])
+            )}
+            selectedMonth={selectedDate}
+            targets={targets}
+            userId={user?.uid}
+          />
+        ) : null}
 
         {/* Pending Approvals Section - Moved after summary, more compact */}
         {(pendingCounts.pendingExpenses > 0 || pendingCounts.unverifiedSheets > 0) && (
@@ -374,59 +362,6 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         )}
 
       </ScrollView>
-
-      {/* Attendance Calendar Modal */}
-      <Modal visible={showCalendar} transparent animationType="slide" onRequestClose={() => setShowCalendar(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', padding: 20 }}>
-          <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={{ fontSize: 20, fontWeight: '700' }}>
-                Attendance - {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </Text>
-              <TouchableOpacity onPress={() => setShowCalendar(false)}>
-                <Text style={{ fontSize: 28, color: '#666' }}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-              {monthlyStats.daysWorked} days present • Green = present
-            </Text>
-
-            <CalendarComponent
-              current={selectedDate.toISOString().substring(0, 10)}
-              markedDates={Object.fromEntries(
-                Array.from(attendanceDays).map(date => [
-                  date,
-                  { marked: true, dotColor: '#2E7D32', selected: false }
-                ])
-              )}
-              theme={{
-                backgroundColor: '#ffffff',
-                calendarBackground: '#ffffff',
-                textSectionTitleColor: '#393735',
-                selectedDayBackgroundColor: '#C9A961',
-                selectedDayTextColor: '#ffffff',
-                todayTextColor: '#C9A961',
-                dayTextColor: '#1A1A1A',
-                textDisabledColor: '#E0E0E0',
-                dotColor: '#2E7D32',
-                selectedDotColor: '#ffffff',
-                monthTextColor: '#393735',
-                textMonthFontWeight: '700',
-              }}
-              enableSwipeMonths={false}
-              hideArrows={true}
-            />
-
-            <TouchableOpacity
-              onPress={() => setShowCalendar(false)}
-              style={{ backgroundColor: '#393735', padding: 14, borderRadius: 12, marginTop: 16 }}
-            >
-              <Text style={{ color: '#FFF', textAlign: 'center', fontSize: 16, fontWeight: '600' }}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };

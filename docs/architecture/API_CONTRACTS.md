@@ -14,19 +14,21 @@ The Artis Sales App backend provides RESTful APIs via Cloud Functions for Fireba
 
 | Module | Endpoints | Purpose |
 |--------|-----------|---------|
-| `accounts.ts` | 7 endpoints | Account management (CRUD) |
-| `attendance.ts` | 3 endpoints | Check-in/out tracking |
-| `documents.ts` | 6 endpoints | Document management & offline caching |
-| `dsrReview.ts` | 3 endpoints | DSR approval workflow |
-| `expenses.ts` | 5 endpoints | Expense reporting & approval |
-| `managerStats.ts` | 4 endpoints | Team statistics & reports |
-| `profile.ts` | 2 endpoints | User profile updates |
-| `sheetsSales.ts` | 4 endpoints | Sheet sales tracking |
-| `targets.ts` | 5 endpoints | Target setting & tracking |
-| `users.ts` | 4 endpoints | User management |
-| `visits.ts` | 4 endpoints | Visit logging |
+| `accounts.ts` | 4 functions | Account management (CRUD) |
+| `attendance.ts` | 2 functions | Check-in/out tracking |
+| `documents.ts` | 4 functions | Document management & offline caching |
+| `dsrReview.ts` | 2 functions | DSR approval workflow |
+| `expenses.ts` | 7 functions | Expense reporting & approval |
+| `managerStats.ts` | 1 function | Team statistics & reports |
+| `profile.ts` | 1 function | User profile updates |
+| `sheetsSales.ts` | 4 functions | Sheet sales tracking |
+| `targets.ts` | 4 functions | Target setting & tracking |
+| `users.ts` | 4 functions | User management |
+| `visits.ts` | 4 functions | Visit logging |
 
-**Total**: 47 endpoints across 11 modules
+**Total**: 37 endpoints across 11 modules (verified by code inspection Oct 17, 2025)
+
+> **Note**: This documents actual exported functions in code, not planned endpoints.
 
 ---
 

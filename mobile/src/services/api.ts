@@ -15,6 +15,7 @@ import {
   LogSheetsSaleRequest,
   CreateUserByManagerRequest,
   ReviewDSRRequest,
+  GetPendingDSRsRequest,
   GetUsersListRequest,
   GetUserStatsRequest,
   CreateAccountRequest,
@@ -155,7 +156,7 @@ export const api = {
     return callFunction('reviewDSR', data);
   },
 
-  getPendingDSRs: async (data: { date?: string }) => {
+  getPendingDSRs: async (data: GetPendingDSRsRequest) => {
     return callFunction('getPendingDSRs', data);
   },
 

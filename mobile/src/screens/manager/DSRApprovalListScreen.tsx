@@ -39,9 +39,14 @@ export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ na
   const loadDSRs = async () => {
     setLoading(true);
     try {
-      const response = await api.getPendingDSRs({});
+      console.log('[DSRApprovalList] Fetching pending DSRs...');
+      const response = await api.getPendingDSRs({ status: 'pending' });
+      console.log('[DSRApprovalList] Response:', JSON.stringify(response, null, 2));
       if (response.ok && response.dsrs) {
+        console.log(`[DSRApprovalList] Found ${response.dsrs.length} pending DSRs`);
         setDsrs(response.dsrs);
+      } else {
+        console.log('[DSRApprovalList] No DSRs in response or response not ok');
       }
     } catch (error: any) {
       console.error('[DSRApprovalList] Error loading DSRs:', error);

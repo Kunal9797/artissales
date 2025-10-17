@@ -21,7 +21,6 @@ interface DailySummary {
   checkInAt?: Timestamp;
   checkOutAt?: Timestamp;
   visitIds: string[];
-  leadIds: string[];
   sheetsSales: Map<CatalogType, number>;
   expenses: Map<string, number>;
 }
@@ -44,7 +43,6 @@ async function compileDailySummary(
     userId,
     date,
     visitIds: [],
-    leadIds: [],
     sheetsSales: new Map(),
     expenses: new Map(),
   };
@@ -150,12 +148,10 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     id: reportId,
     userId: summary.userId,
     date: summary.date,
-    checkInAt: summary.checkInAt,
-    checkOutAt: summary.checkOutAt,
+    checkInAt: summary.checkInAt || null,
+    checkOutAt: summary.checkOutAt || null,
     totalVisits: summary.visitIds.length,
     visitIds: summary.visitIds,
-    leadsContacted: 0,
-    leadIds: summary.leadIds,
     sheetsSales,
     totalSheetsSold,
     expenses,
@@ -182,8 +178,13 @@ export const triggerDSRCompiler = onRequest(async (request, response) => {
       try {
         const summary = await compileDailySummary(userId, date);
         await saveDSRReport(summary);
-      } catch (error) {
-        logger.error(`Failed to compile DSR for user ${userId}`, {error});
+      } catch (error: any) {
+        logger.error(`Failed to compile DSR for user ${userId}`, {
+          errorMessage: error?.message || String(error),
+          errorStack: error?.stack,
+          errorCode: error?.code,
+          errorName: error?.name,
+        });
       }
     }
 

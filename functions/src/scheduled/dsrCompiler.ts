@@ -24,7 +24,6 @@ interface DailySummary {
   checkInAt?: Timestamp;
   checkOutAt?: Timestamp;
   visitIds: string[];
-  leadIds: string[];
   sheetsSales: Map<CatalogType, number>; // catalog -> total sheets
   expenses: Map<string, number>; // category -> total amount
 }
@@ -53,7 +52,6 @@ async function compileDailySummary(
     userId,
     date,
     visitIds: [],
-    leadIds: [],
     sheetsSales: new Map(),
     expenses: new Map(),
   };
@@ -90,25 +88,7 @@ async function compileDailySummary(
 
   summary.visitIds = visitsSnapshot.docs.map((doc) => doc.id);
 
-  // 3. Get leads contacted (firstTouchAt = today)
-  // Note: This requires leads collection to exist and have firstTouchAt field
-  try {
-    const leadsSnapshot = await db
-      .collection("leads")
-      .where("ownerUserId", "==", userId)
-      .where("firstTouchAt", ">=", Timestamp.fromDate(startOfDay))
-      .where("firstTouchAt", "<=", Timestamp.fromDate(endOfDay))
-      .get();
-
-    summary.leadIds = leadsSnapshot.docs.map((doc) => doc.id);
-  } catch (error) {
-    logger.warn("Leads collection query failed (may not exist yet)", {
-      userId,
-      error,
-    });
-  }
-
-  // 4. Get sheets sales (by date string match)
+  // 3. Get sheets sales (by date string match)
   const sheetsSalesSnapshot = await db
     .collection("sheetsSales")
     .where("userId", "==", userId)
@@ -185,12 +165,10 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     id: reportId,
     userId: summary.userId,
     date: summary.date,
-    checkInAt: summary.checkInAt,
-    checkOutAt: summary.checkOutAt,
+    checkInAt: summary.checkInAt || null,
+    checkOutAt: summary.checkOutAt || null,
     totalVisits: summary.visitIds.length,
     visitIds: summary.visitIds,
-    leadsContacted: summary.leadIds.length,
-    leadIds: summary.leadIds,
     sheetsSales,
     totalSheetsSold,
     expenses,
@@ -204,11 +182,11 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
 
 /**
  * Scheduled function to compile daily sales reports
- * Runs at 11:00 PM IST every day
+ * Runs at 11:59 PM IST every day
  */
 export const compileDSRReports = onSchedule(
   {
-    schedule: "0 23 * * *", // 11:00 PM daily
+    schedule: "59 23 * * *", // 11:59 PM daily
     timeZone: "Asia/Kolkata",
   },
   async (event) => {
@@ -234,7 +212,6 @@ export const compileDSRReports = onSchedule(
             userId,
             date: today,
             visits: summary.visitIds.length,
-            leads: summary.leadIds.length,
             sheetsSold: Array.from(summary.sheetsSales.values()).reduce(
               (sum, n) => sum + n,
               0
@@ -246,8 +223,13 @@ export const compileDSRReports = onSchedule(
           });
 
           successCount++;
-        } catch (error) {
-          logger.error("Failed to compile DSR for user", {userId, error});
+        } catch (error: any) {
+          logger.error("Failed to compile DSR for user", {
+            userId,
+            errorMessage: error?.message || String(error),
+            errorStack: error?.stack,
+            errorCode: error?.code,
+          });
           errorCount++;
         }
       }

@@ -42,12 +42,14 @@ export const useDSR = (date?: string) => {
     const user = authInstance.currentUser;
 
     if (!user) {
+      console.log('[useDSR] No user logged in');
       setLoading(false);
       return;
     }
 
     const targetDate = date || new Date().toISOString().split('T')[0];
     const reportId = `${user.uid}_${targetDate}`;
+    console.log(`[useDSR] Listening for DSR: ${reportId}`);
 
     const db = getFirestore();
     const docRef = doc(db, 'dsrReports', reportId);
@@ -56,14 +58,16 @@ export const useDSR = (date?: string) => {
       docRef,
       (doc) => {
         if (doc.exists()) {
+          console.log('[useDSR] DSR found:', doc.data());
           setReport(doc.data() as DSRReport);
         } else {
+          console.log('[useDSR] No DSR document found for this date');
           setReport(null);
         }
         setLoading(false);
       },
       (error) => {
-        console.error('DSR fetch error:', error);
+        console.error('[useDSR] DSR fetch error:', error);
         setLoading(false);
       }
     );

@@ -91,6 +91,7 @@ class DocumentCacheService {
    * @param documentId Unique document ID
    * @param fileUrl Firebase Storage URL or web URL
    * @param fileName Original file name
+   * @param fileType File type from Firestore (e.g., 'pdf', 'jpeg', 'png')
    * @param onProgress Optional progress callback
    * @returns Local URI of downloaded file
    */
@@ -98,15 +99,16 @@ class DocumentCacheService {
     documentId: string,
     fileUrl: string,
     fileName: string,
+    fileType: string,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<string> {
     try {
       // Ensure cache directory exists
       await this.ensureCacheDirectory();
 
-      // Generate local file path
-      const fileExtension = this.getFileExtension(fileName);
-      const localFileName = `${documentId}.${fileExtension}`;
+      // Use the provided fileType directly, fallback to extraction from filename
+      const extension = fileType || this.getFileExtension(fileName);
+      const localFileName = extension ? `${documentId}.${extension}` : documentId;
       const file = new File(this.cacheDir, localFileName);
       const localUri = file.uri;
 
@@ -120,7 +122,9 @@ class DocumentCacheService {
 
       // Get file size from the downloaded file
       const fileSize = file.size || 0;
-      const mimeType = this.getMimeType(fileName);
+
+      // Use the provided fileType to determine MIME type
+      const mimeType = this.getMimeTypeFromExtension(extension);
 
       // Update cache metadata
       const metadata = await this.getCacheMetadata();
@@ -140,6 +144,22 @@ class DocumentCacheService {
       console.error('Error downloading document:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get MIME type from file extension directly
+   */
+  private getMimeTypeFromExtension(extension: string): string {
+    const ext = extension.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      pdf: 'application/pdf',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+    };
+    return mimeTypes[ext] || 'application/octet-stream';
   }
 
   /**
@@ -195,10 +215,49 @@ class DocumentCacheService {
         return null;
       }
 
+      // Fix MIME type if it's wrong (migration for old cached docs)
+      if (cachedDoc.mimeType === 'application/octet-stream') {
+        const extension = this.getFileExtension(cachedDoc.fileName);
+        const correctMimeType = this.getMimeTypeFromExtension(extension);
+        if (correctMimeType !== 'application/octet-stream') {
+          cachedDoc.mimeType = correctMimeType;
+          metadata[documentId] = cachedDoc;
+          await this.saveCacheMetadata(metadata);
+          console.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${correctMimeType}`);
+        }
+      }
+
       return cachedDoc;
     } catch (error) {
       console.error('Error getting cached document:', error);
       return null;
+    }
+  }
+
+  /**
+   * Fix MIME type for a cached document using the correct fileType
+   */
+  async fixMimeType(documentId: string, fileType: string): Promise<CachedDocument> {
+    try {
+      const metadata = await this.getCacheMetadata();
+      const cachedDoc = metadata[documentId];
+
+      if (!cachedDoc) {
+        throw new Error('Document not found in cache');
+      }
+
+      // Update MIME type using the correct file type
+      const correctMimeType = this.getMimeTypeFromExtension(fileType);
+      cachedDoc.mimeType = correctMimeType;
+      metadata[documentId] = cachedDoc;
+      await this.saveCacheMetadata(metadata);
+
+      console.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${fileType} -> ${correctMimeType}`);
+
+      return cachedDoc;
+    } catch (error) {
+      console.error('Error fixing MIME type:', error);
+      throw error;
     }
   }
 

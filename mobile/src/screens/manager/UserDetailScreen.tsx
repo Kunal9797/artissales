@@ -449,6 +449,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               <TouchableOpacity
                 style={[
                   styles.summaryMetric,
+                  activeTab === 'attendance' && styles.summaryMetricActive,
                   activeTab === 'attendance' && { backgroundColor: colors.accent },
                 ]}
                 onPress={() => setActiveTab('attendance')}
@@ -470,6 +471,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               <TouchableOpacity
                 style={[
                   styles.summaryMetric,
+                  activeTab === 'visits' && styles.summaryMetricActive,
                   activeTab === 'visits' && { backgroundColor: colors.info },
                 ]}
                 onPress={() => setActiveTab('visits')}
@@ -491,15 +493,17 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               <TouchableOpacity
                 style={[
                   styles.summaryMetric,
+                  activeTab === 'sales' && styles.summaryMetricActive,
                   activeTab === 'sales' && { backgroundColor: colors.success },
                 ]}
                 onPress={() => setActiveTab('sales')}
               >
                 <Text style={[
                   styles.summaryValue,
-                  { color: activeTab === 'sales' ? '#fff' : colors.success }
+                  { color: activeTab === 'sales' ? '#fff' : colors.success },
+                  { fontSize: stats.sheets.total > 9999 ? 16 : 18 }
                 ]}>
-                  {stats.sheets.total}
+                  {stats.sheets.total.toLocaleString('en-IN')}
                 </Text>
                 <Text style={[
                   styles.summaryLabel,
@@ -512,6 +516,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               <TouchableOpacity
                 style={[
                   styles.summaryMetric,
+                  activeTab === 'expenses' && styles.summaryMetricActive,
                   activeTab === 'expenses' && { backgroundColor: colors.warning },
                 ]}
                 onPress={() => setActiveTab('expenses')}
@@ -520,7 +525,12 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                   styles.summaryValue,
                   { color: activeTab === 'expenses' ? '#fff' : colors.warning }
                 ]}>
-                  ₹{(stats.expenses.total / 1000).toFixed(1)}k
+                  {stats.expenses.total === 0
+                    ? '₹0'
+                    : stats.expenses.total >= 1000
+                      ? `₹${(stats.expenses.total / 1000).toFixed(1)}k`
+                      : `₹${stats.expenses.total}`
+                  }
                 </Text>
                 <Text style={[
                   styles.summaryLabel,
@@ -1021,33 +1031,38 @@ const styles = StyleSheet.create({
   },
   summaryBar: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.xl,
-    padding: spacing.sm,
+    gap: 8,
     marginBottom: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
-    gap: spacing.sm,
   },
   summaryMetric: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.md,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  summaryMetricActive: {
+    borderWidth: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   summaryValue: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 3,
   },
   summaryLabel: {
-    fontSize: typography.fontSize.xs,
+    fontSize: 10,
+    fontWeight: '600',
     color: colors.text.secondary,
     textAlign: 'center',
-    fontWeight: typography.fontWeight.medium,
   },
   tabContent: {
     backgroundColor: colors.surface,

@@ -356,19 +356,22 @@ export const getUserStats = onRequest(async (request, response) => {
       return;
     }
 
+    // 2. Parse parameters
+    const {userId, startDate, endDate} = request.body;
+
+    // Allow users to view their own stats, or require National Head/Admin for others
     const managerRole = managerDoc.data()?.role;
-    if (managerRole !== "national_head" && managerRole !== "admin") {
+    const isViewingSelf = auth.uid === userId;
+
+    if (!isViewingSelf && managerRole !== "national_head" && managerRole !== "admin") {
       const error: ApiError = {
         ok: false,
-        error: "Only National Head or Admin can view user stats",
+        error: "Only National Head or Admin can view other users' stats",
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
       return;
     }
-
-    // 2. Parse parameters
-    const {userId, startDate, endDate} = request.body;
 
     if (!userId) {
       const error: ApiError = {
@@ -398,14 +401,34 @@ export const getUserStats = onRequest(async (request, response) => {
     const start = new Date(startDate + "T00:00:00Z");
     const end = new Date(endDate + "T23:59:59Z");
 
-    // 3. Get attendance records
-    const attendanceSnap = await db.collection("attendance")
-      .where("userId", "==", userId)
-      .where("timestamp", ">=", start)
-      .where("timestamp", "<=", end)
-      .orderBy("timestamp", "desc")
-      .get();
+    // 3-6. Run all queries in parallel for better performance
+    const [attendanceSnap, visitsSnap, sheetsSnap, expensesSnap] =
+      await Promise.all([
+        db.collection("attendance")
+          .where("userId", "==", userId)
+          .where("timestamp", ">=", start)
+          .where("timestamp", "<=", end)
+          .orderBy("timestamp", "desc")
+          .get(),
+        db.collection("visits")
+          .where("userId", "==", userId)
+          .where("timestamp", ">=", start)
+          .where("timestamp", "<=", end)
+          .orderBy("timestamp", "desc")
+          .get(),
+        db.collection("sheetsSales")
+          .where("userId", "==", userId)
+          .where("date", ">=", startDate)
+          .where("date", "<=", endDate)
+          .get(),
+        db.collection("expenses")
+          .where("userId", "==", userId)
+          .where("date", ">=", startDate)
+          .where("date", "<=", endDate)
+          .get(),
+      ]);
 
+    // Process attendance
     const attendance = attendanceSnap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -417,14 +440,7 @@ export const getUserStats = onRequest(async (request, response) => {
       };
     });
 
-    // 4. Get visits
-    const visitsSnap = await db.collection("visits")
-      .where("userId", "==", userId)
-      .where("timestamp", ">=", start)
-      .where("timestamp", "<=", end)
-      .orderBy("timestamp", "desc")
-      .get();
-
+    // Process visits
     const visits = visitsSnap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -441,15 +457,10 @@ export const getUserStats = onRequest(async (request, response) => {
       distributor: visits.filter((v) => v.accountType === "distributor").length,
       dealer: visits.filter((v) => v.accountType === "dealer").length,
       architect: visits.filter((v) => v.accountType === "architect").length,
+      contractor: visits.filter((v) => v.accountType === "contractor").length,
     };
 
-    // 5. Get sheets sales
-    const sheetsSnap = await db.collection("sheetsSales")
-      .where("userId", "==", userId)
-      .where("date", ">=", startDate)
-      .where("date", "<=", endDate)
-      .get();
-
+    // Process sheets sales
     let totalSheets = 0;
     const sheetsByCatalog: Record<string, number> = {
       "Fine Decor": 0,
@@ -466,12 +477,7 @@ export const getUserStats = onRequest(async (request, response) => {
       }
     });
 
-    // 6. Get expenses
-    const expensesSnap = await db.collection("expenses")
-      .where("userId", "==", userId)
-      .where("date", ">=", startDate)
-      .where("date", "<=", endDate)
-      .get();
+    // Process expenses (already fetched above)
 
     let totalExpenses = 0;
     const expensesByStatus = {
@@ -488,21 +494,46 @@ export const getUserStats = onRequest(async (request, response) => {
 
     expensesSnap.docs.forEach((doc) => {
       const data = doc.data();
-      const amount = data.amount || 0;
-      totalExpenses += amount;
 
-      // Count by status
-      const status = data.status || "pending";
-      if (expensesByStatus[status as keyof typeof expensesByStatus] !==
-        undefined) {
-        expensesByStatus[status as keyof typeof expensesByStatus]++;
-      }
+      // Handle both old format (amount/category fields) and new format (items array)
+      if (data.items && Array.isArray(data.items)) {
+        // New format: items array
+        data.items.forEach((item: any) => {
+          const amount = item.amount || 0;
+          totalExpenses += amount;
 
-      // Sum by category
-      const category = data.category || "other";
-      if (expensesByCategory[category as keyof typeof expensesByCategory] !==
-        undefined) {
-        expensesByCategory[category as keyof typeof expensesByCategory] += amount;
+          // Sum by category
+          const category = item.category || "other";
+          if (expensesByCategory[category as keyof typeof expensesByCategory] !==
+            undefined) {
+            expensesByCategory[category as keyof typeof expensesByCategory] += amount;
+          }
+        });
+
+        // Count by status (one count per expense report, not per item)
+        const status = data.status || "pending";
+        if (expensesByStatus[status as keyof typeof expensesByStatus] !==
+          undefined) {
+          expensesByStatus[status as keyof typeof expensesByStatus]++;
+        }
+      } else {
+        // Old format: single amount/category
+        const amount = data.amount || 0;
+        totalExpenses += amount;
+
+        // Count by status
+        const status = data.status || "pending";
+        if (expensesByStatus[status as keyof typeof expensesByStatus] !==
+          undefined) {
+          expensesByStatus[status as keyof typeof expensesByStatus]++;
+        }
+
+        // Sum by category
+        const category = data.category || "other";
+        if (expensesByCategory[category as keyof typeof expensesByCategory] !==
+          undefined) {
+          expensesByCategory[category as keyof typeof expensesByCategory] += amount;
+        }
       }
     });
 

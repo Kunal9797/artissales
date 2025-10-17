@@ -84,20 +84,23 @@ interface FABMenuProps {
 const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
   const menuItems = [
     {
-      icon: <BarChart2 size={24} color={featureColors.sheets.primary} />,
-      label: 'Log Sheet Sales',
-      screen: 'SheetsEntry',
-      color: featureColors.sheets,
-    },
-    {
-      icon: <CheckSquare size={24} color={featureColors.visits.primary} />,
+      icon: <CheckSquare size={28} color={featureColors.visits.primary} />,
       label: 'Log Visit',
+      subtitle: 'Track customer visits',
       screen: 'SelectAccount',
       color: featureColors.visits,
     },
     {
-      icon: <User size={24} color={featureColors.expenses.primary} />,
+      icon: <BarChart2 size={28} color={featureColors.sheets.primary} />,
+      label: 'Log Sheet Sales',
+      subtitle: 'Record laminate sales',
+      screen: 'SheetsEntry',
+      color: featureColors.sheets,
+    },
+    {
+      icon: <User size={28} color={featureColors.expenses.primary} />,
       label: 'Report Expense',
+      subtitle: 'Log daily expenses',
       screen: 'ExpenseEntry',
       color: featureColors.expenses,
     },
@@ -115,7 +118,7 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="slide"
       onRequestClose={onClose}
     >
       <TouchableOpacity
@@ -124,26 +127,37 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
         onPress={onClose}
       >
         <View style={styles.fabMenuContainer}>
+          {/* Modern Handle Bar */}
+          <View style={styles.handleBar} />
+
+          {/* Header */}
           <View style={styles.fabMenuHeader}>
-            <Text style={styles.fabMenuTitle}>Quick Log</Text>
-            <TouchableOpacity onPress={onClose} style={styles.fabMenuClose}>
-              <Text style={styles.fabMenuCloseText}>×</Text>
-            </TouchableOpacity>
+            <Text style={styles.fabMenuTitle}>Quick Actions</Text>
+            <Text style={styles.fabMenuSubtitle}>What would you like to log?</Text>
           </View>
 
-          {menuItems.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.fabMenuItem}
-              onPress={() => handleItemPress(item.screen)}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.fabMenuIconContainer, { backgroundColor: item.color.light }]}>
-                {item.icon}
-              </View>
-              <Text style={styles.fabMenuItemText}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {/* Menu Items */}
+          <View style={styles.fabMenuItems}>
+            {menuItems.map((item, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.fabMenuItem,
+                  index === menuItems.length - 1 && styles.fabMenuItemLast,
+                ]}
+                onPress={() => handleItemPress(item.screen)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.fabMenuIconContainer, { backgroundColor: item.color.light }]}>
+                  {item.icon}
+                </View>
+                <View style={styles.fabMenuTextContainer}>
+                  <Text style={styles.fabMenuItemLabel}>{item.label}</Text>
+                  <Text style={styles.fabMenuItemSubtitle}>{item.subtitle}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </TouchableOpacity>
     </Modal>
@@ -247,8 +261,7 @@ const styles = StyleSheet.create({
   // Tab Bar Styles - Extends to bottom with proper padding
   tabBar: {
     backgroundColor: colors.primary,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopWidth: 0,
     height: Platform.OS === 'ios' ? 95 : 85,
     paddingBottom: Platform.OS === 'ios' ? 38 : 30,
     paddingTop: 8,
@@ -256,7 +269,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderRadius: 0,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
@@ -302,65 +314,84 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // FAB Menu Styles
+  // FAB Menu Styles - Modern & Sleek
   fabMenuOverlay: {
     flex: 1,
-    backgroundColor: colors.overlay,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   fabMenuContainer: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: spacing.borderRadius.xl,
-    borderTopRightRadius: spacing.borderRadius.xl,
-    paddingBottom: Platform.OS === 'ios' ? 34 : spacing.lg,
-    maxHeight: '70%',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 8,
   },
   fabMenuHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
   fabMenuTitle: {
-    ...typography.styles.h3,
-    color: colors.text.primary,
-  },
-  fabMenuClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.border.light,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  fabMenuCloseText: {
     fontSize: 24,
-    color: colors.text.secondary,
-    lineHeight: 24,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 4,
+  },
+  fabMenuSubtitle: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '400',
+  },
+  fabMenuItems: {
+    paddingHorizontal: 16,
   },
   fabMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  fabMenuItemLast: {
+    marginBottom: 0,
   },
   fabMenuIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.borderRadius.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    marginRight: 16,
   },
-  fabMenuItemText: {
-    ...typography.styles.body,
-    color: colors.text.primary,
-    fontWeight: typography.fontWeight.semiBold,
+  fabMenuTextContainer: {
     flex: 1,
+  },
+  fabMenuItemLabel: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  fabMenuItemSubtitle: {
+    fontSize: 13,
+    color: '#666666',
+    fontWeight: '400',
   },
 });

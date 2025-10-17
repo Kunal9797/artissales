@@ -286,7 +286,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             borderWidth: 1,
             borderColor: '#E0E0E0',
           }}
-          onPress={() => navigation?.navigate('DocumentLibrary')}
+          onPress={() => navigation?.navigate('Documents')}
           activeOpacity={0.7}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

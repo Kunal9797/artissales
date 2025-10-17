@@ -291,12 +291,10 @@ export interface DSRReport {
   date: string; // YYYY-MM-DD
 
   // Auto-compiled stats
-  checkInAt?: Timestamp;
-  checkOutAt?: Timestamp;
+  checkInAt?: Timestamp | null;
+  checkOutAt?: Timestamp | null;
   totalVisits: number;
   visitIds: string[];
-  leadsContacted: number;
-  leadIds: string[];
 
   // Sheets sales summary
   sheetsSales: SheetsSalesSummary[]; // e.g., [{catalog: "Artis", totalSheets: 50}, ...]

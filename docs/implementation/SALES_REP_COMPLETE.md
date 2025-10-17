@@ -57,20 +57,30 @@ The sales rep dashboard redesign is **100% complete** with all modern features i
 #### 2. StatsScreen.tsx ✅
 **Features**:
 - Month selector (previous/next)
-- Target progress card
-- Visit progress card
-- Monthly KPI cards:
-  - Total visits
-  - Total sheets sold
-  - Total expenses
-  - Days worked
+- **4 Toggle Summary Buttons** (attendance, visits, sheets, expenses)
+  - Enhanced prominence with larger padding and text
+  - No text wrapping with `numberOfLines={1}`
+  - Active state with scale effect and enhanced shadows
+- **DetailedStatsView Component** with:
+  - Tabbed breakdowns (visits by type, sheets by catalog, expenses by category)
+  - Progress bars with target lines (red at 65%, max bar at 75%)
+  - Achievement percentages shown separately
+  - Red "TARGET" badges for prominence
+  - Permanent calendar for attendance tab
+- **Performance Optimized**:
+  - Parallel Firestore queries (4x faster)
+  - Loading time: ~4-5s (down from 17s)
+- **Smart Attendance Calculation**:
+  - Current month: counts days up to today only
+  - Past months: counts all days in month
 - Pull-to-refresh
 
 **Design**:
-- Modern header with month navigation
-- KpiCard components
+- Modern dark header (#393735) with month navigation
+- Prominent toggle buttons (22px values, weight 800, 2px borders)
+- DetailedStatsView with red target styling (#DC2626)
 - Feature colors for stats
-- Responsive layout
+- Clean, modern layout
 
 #### 3. DocumentsScreen.tsx ✅
 **Features**:
@@ -186,6 +196,57 @@ All log screens have been modernized with:
 - Only accessible via manager approval flow
 - Shows "Today So Far" stats
 - Not in TabNavigator (intentional)
+
+---
+
+## 🎨 Recent Enhancements (Oct 17, 2025)
+
+### Stats Screen Redesign ✅
+
+**Problem Solved**: Stats screen needed better visual hierarchy, target visibility, and performance optimization.
+
+**Changes Made**:
+
+1. **Toggle Button Enhancement**
+   - Increased padding: 10px → 16px vertical
+   - Larger value text: 18px → 22px, weight 800
+   - Thicker borders: 1px → 2px
+   - Enhanced shadows: elevation 3 → 5 for active state
+   - Added scale transform (1.02x) for active state
+   - Fixed text wrapping with `numberOfLines={1}`
+   - Result: More prominent, tap-friendly toggles
+
+2. **Target Visibility**
+   - Added red "TARGET" badges to all breakdown sections
+   - Red color scheme (#DC2626) for all target elements
+   - Target line on progress bars at 65% position
+   - Achievement percentages shown separately (e.g., "160%")
+   - Progress bars capped at 75% (never full, shows unlimited potential)
+
+3. **Performance Optimization**
+   - Converted 4 sequential Firestore queries to parallel execution
+   - Loading time: 17s → ~4-5s (4x improvement)
+   - Added timing logs for monitoring
+   - Backend: `functions/src/api/users.ts` - getUserStats function
+
+4. **Data Accuracy Fixes**
+   - **Attendance**: Now counts only days up to today for current month
+   - **Expenses**: Fixed to handle both `items` array and single `amount` formats
+   - **Contractor Visits**: Added support for contractor account type in targets
+   - **NaN% Bug**: Fixed division by zero when current value is 0
+
+5. **Permanent Calendar**
+   - Added always-visible calendar to attendance tab
+   - Shows marked attendance days in green
+   - Displays month and days present count
+   - No need to toggle open/closed
+
+**Files Modified**:
+- `mobile/src/components/DetailedStatsView.tsx` - Toggle styling, progress bars, targets, calendar
+- `mobile/src/screens/StatsScreen.tsx` - Attendance calculation, contractor support
+- `functions/src/api/users.ts` - Parallel queries, expenses format, contractor type
+
+**User Feedback**: "ok cool working" ✅
 
 ---
 

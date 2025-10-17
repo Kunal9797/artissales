@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
-import { Search, X, MapPin, User, Plus, Edit2 } from 'lucide-react-native';
+import { Search, MapPin, User, Plus, Edit2 } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
-import { FilterChips } from '../../components/FilterChips';
 
 interface SelectAccountScreenProps {
   navigation: any;
@@ -168,42 +168,180 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.title}>Select Account</Text>
-          <Text style={styles.subtitle}>Choose a dealer or distributor to visit</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => navigation.navigate('AddAccount', {
-            onAccountCreated: (accountId: string) => {
-              navigation.navigate('LogVisit', { accountId });
-            }
-          })}
-        >
-          <Plus size={24} color={colors.background} />
-        </TouchableOpacity>
-      </View>
+      {/* Header - Match Manager Design */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+              Select Account
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+              {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
+            </Text>
+          </View>
 
-      <View style={styles.searchContainer}>
-        <Search size={20} color={colors.text.secondary} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, city, or type..."
-          placeholderTextColor={colors.text.secondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <X size={20} color={colors.text.secondary} />
+          {/* Add Account Button - Sales reps can only create Dealer/Architect/Contractor */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#C9A961',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+            onPress={() => navigation.navigate('AddAccount', {
+              onAccountCreated: (accountId: string) => {
+                navigation.navigate('LogVisit', { accountId });
+              }
+            })}
+          >
+            <Plus size={18} color="#393735" />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add Account</Text>
           </TouchableOpacity>
-        )}
+        </View>
       </View>
 
-      {/* Filter Chips */}
-      <FilterChips selected={selectedType} onSelect={setSelectedType} />
+      {/* Search Bar - Match Manager Design */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#FFFFFF',
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: '#E0E0E0',
+        }}>
+          <Search size={20} color="#999999" />
+          <TextInput
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+              fontSize: 16,
+              color: '#1A1A1A',
+            }}
+            placeholder="Search accounts..."
+            placeholderTextColor="#999999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+      </View>
+
+      {/* Filter Pills - Sales Rep Order (Distributors at end) */}
+      <View style={{ paddingBottom: 12 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+        >
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+              backgroundColor: selectedType === 'all' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: selectedType === 'all' ? '#393735' : '#E0E0E0',
+            }}
+            onPress={() => setSelectedType('all')}
+          >
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: selectedType === 'all' ? '#FFFFFF' : '#666666',
+            }}>
+              All
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+              backgroundColor: selectedType === 'dealer' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: selectedType === 'dealer' ? '#393735' : '#E0E0E0',
+            }}
+            onPress={() => setSelectedType('dealer')}
+          >
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: selectedType === 'dealer' ? '#FFFFFF' : '#666666',
+            }}>
+              Dealers
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+              backgroundColor: selectedType === 'architect' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: selectedType === 'architect' ? '#393735' : '#E0E0E0',
+            }}
+            onPress={() => setSelectedType('architect')}
+          >
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: selectedType === 'architect' ? '#FFFFFF' : '#666666',
+            }}>
+              Architects
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+              backgroundColor: selectedType === 'contractor' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: selectedType === 'contractor' ? '#393735' : '#E0E0E0',
+            }}
+            onPress={() => setSelectedType('contractor')}
+          >
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: selectedType === 'contractor' ? '#FFFFFF' : '#666666',
+            }}>
+              Contractors
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 16,
+              backgroundColor: selectedType === 'distributor' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: selectedType === 'distributor' ? '#393735' : '#E0E0E0',
+            }}
+            onPress={() => setSelectedType('distributor')}
+          >
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '600',
+              color: selectedType === 'distributor' ? '#FFFFFF' : '#666666',
+            }}>
+              Distributors
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       {filteredAccounts.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -212,17 +350,12 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           </Text>
         </View>
       ) : (
-        <>
-          <Text style={styles.resultsCount}>
-            {filteredAccounts.length} account{filteredAccounts.length !== 1 ? 's' : ''}
-          </Text>
-          <FlatList
-            data={filteredAccounts}
-            renderItem={renderAccount}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContainer}
-          />
-        </>
+        <FlatList
+          data={filteredAccounts}
+          renderItem={renderAccount}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+        />
       )}
     </View>
   );
@@ -239,97 +372,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    padding: spacing.lg,
-    paddingTop: 60,
-    paddingBottom: spacing.xl,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: spacing.md,
-    ...shadows.md,
-  },
-  title: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: '#fff',
-  },
-  subtitle: {
-    fontSize: typography.fontSize.sm,
-    color: '#fff',
-    opacity: 0.9,
-    marginTop: spacing.xs,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    margin: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.lg,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-    ...shadows.sm,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
-  },
-  filterScrollView: {
-    marginBottom: spacing.lg,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-  },
-  filterBubble: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-  },
-  filterBubbleActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  filterText: {
-    fontSize: 14,
-    color: colors.text.primary,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
-  filterTextActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  resultsCount: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
   listContainer: {
     padding: spacing.lg,
-    paddingTop: spacing.sm,
   },
   accountCard: {
     backgroundColor: colors.surface,

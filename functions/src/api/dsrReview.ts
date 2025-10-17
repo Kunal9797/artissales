@@ -114,6 +114,48 @@ export const reviewDSR = onRequest(async (request, response) => {
       managerComments: comments || "",
     });
 
+    // 5. If approved, mark all expenses and sheets as approved/verified
+    if (status === "approved") {
+      const batch = db.batch();
+      const dsrDate = dsrData?.date;
+      const repUserId = dsrData?.userId;
+
+      if (dsrDate && repUserId) {
+        // Update expenses to 'approved'
+        const expensesSnapshot = await db
+          .collection("expenses")
+          .where("userId", "==", repUserId)
+          .where("date", "==", dsrDate)
+          .get();
+
+        expensesSnapshot.docs.forEach((doc) => {
+          batch.update(doc.ref, {
+            status: "approved",
+            reviewedBy: managerId,
+            reviewedAt: Timestamp.now(),
+          });
+        });
+
+        // Update sheets to 'verified = true'
+        const sheetsSnapshot = await db
+          .collection("sheetsSales")
+          .where("userId", "==", repUserId)
+          .where("date", "==", dsrDate)
+          .get();
+
+        sheetsSnapshot.docs.forEach((doc) => {
+          batch.update(doc.ref, {
+            verified: true,
+            verifiedBy: managerId,
+            verifiedAt: Timestamp.now(),
+          });
+        });
+
+        await batch.commit();
+        logger.info(`[reviewDSR] ✅ Approved ${expensesSnapshot.size} expenses and ${sheetsSnapshot.size} sheets for ${reportId}`);
+      }
+    }
+
     logger.info(`[reviewDSR] ✅ DSR ${reportId} reviewed by ${managerId}: ${status}`);
 
     // 5. Return success

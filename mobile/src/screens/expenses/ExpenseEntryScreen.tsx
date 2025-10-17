@@ -295,20 +295,30 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ChevronLeft size={24} color={colors.text.inverse} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <IndianRupee size={24} color={colors.text.inverse} />
-          <View>
-            <Text style={styles.headerTitle}>{isEditMode ? 'Edit Expenses' : 'Report Expenses'}</Text>
-            <Text style={styles.headerSubtitle}>{date}</Text>
+      {/* Header - Match New Design */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <IndianRupee size={24} color={featureColors.expenses.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+              {isEditMode ? 'Edit Expenses' : 'Report Expenses'}
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
+              {date}
+            </Text>
           </View>
         </View>
       </View>

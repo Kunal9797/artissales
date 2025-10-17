@@ -107,6 +107,52 @@ export const submitExpense = onRequest({cors: true}, async (request, response) =
       return;
     }
 
+    // Check if trying to edit/add data for a past date after 11:59 PM
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const nowIST = new Date(now.getTime() + istOffset);
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
+    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // If it's after 11:59 PM AND trying to submit for today or earlier
+    if (currentHour === 23 && currentMinute >= 59) {
+      if (body.date <= todayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot add/edit expenses for today after 11:59 PM. Day's reporting closed.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: body.date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
+    // If it's past midnight (00:00-05:59) trying to submit for yesterday or earlier
+    if (currentHour >= 0 && currentHour < 6) {
+      const yesterday = new Date(nowIST);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const yesterdayIST = yesterday.toISOString().split("T")[0];
+
+      if (body.date <= yesterdayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot add/edit expenses for past dates. Grace period until 6 AM only for previous day.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: body.date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
     // Validate items array
     if (!Array.isArray(body.items) || body.items.length === 0) {
       const error: ApiError = {
@@ -356,6 +402,52 @@ export const updateExpense = onRequest({cors: true}, async (request, response) =
       };
       response.status(400).json(error);
       return;
+    }
+
+    // Check if trying to edit/add data for a past date after 11:59 PM
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const nowIST = new Date(now.getTime() + istOffset);
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
+    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // If it's after 11:59 PM AND trying to edit for today or earlier
+    if (currentHour === 23 && currentMinute >= 59) {
+      if (date <= todayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot add/edit expenses for today after 11:59 PM. Day's reporting closed.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
+    // If it's past midnight (00:00-05:59) trying to edit for yesterday or earlier
+    if (currentHour >= 0 && currentHour < 6) {
+      const yesterday = new Date(nowIST);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const yesterdayIST = yesterday.toISOString().split("T")[0];
+
+      if (date <= yesterdayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot add/edit expenses for past dates. Grace period until 6 AM only for previous day.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
     }
 
     // Validate items array

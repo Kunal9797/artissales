@@ -67,6 +67,16 @@ export const ManagerTabNavigator: React.FC = () => {
           paddingBottom: 30,
           paddingTop: 12,
           height: 85,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
         },
         tabBarShowLabel: false, // Option B: No labels, just icons
       }}

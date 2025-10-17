@@ -11,13 +11,12 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import { Camera, MapPin, User, Building2, ChevronLeft } from 'lucide-react-native';
+import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { Account } from '../../hooks/useAccounts';
 import { CameraCapture } from '../../components/CameraCapture';
-import { Card } from '../../components/ui';
-import { colors, spacing, typography, shadows, featureColors } from '../../theme';
+import { colors, featureColors } from '../../theme';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -241,155 +240,277 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   return (
     <>
       <View style={styles.container}>
-        {/* Modern Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ChevronLeft size={24} color={colors.text.inverse} />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <MapPin size={24} color={colors.text.inverse} />
-            <Text style={styles.title}>{isEditMode ? 'Edit Visit' : 'Log Visit'}</Text>
+        {/* Header - Match New Design */}
+        <View style={{
+          backgroundColor: '#393735',
+          paddingHorizontal: 24,
+          paddingTop: 52,
+          paddingBottom: 16,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ChevronLeft size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <MapPin size={24} color={featureColors.visits.primary} />
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
+              {isEditMode ? 'Edit Visit' : 'Log Visit'}
+            </Text>
           </View>
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-          {/* Account Info Card */}
+          {/* Compact Account Info */}
           {visitAccount && (
-            <Card elevation="md" style={styles.accountCard}>
-              <View style={styles.accountHeader}>
-                <View style={[styles.iconCircle, { backgroundColor: featureColors.visits.light }]}>
-                  <Building2 size={20} color={featureColors.visits.primary} />
+            <View style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: '#E0E0E0',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                <View style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 6,
+                  backgroundColor: featureColors.visits.light,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}>
+                  <Building2 size={18} color={featureColors.visits.primary} />
                 </View>
-                <View style={styles.accountInfo}>
-                  <Text style={styles.accountName}>{visitAccount.name}</Text>
-                  <View style={[
-                    styles.typeBadge,
-                    visitAccount.type === 'distributor' ? styles.distributorBadge :
-                    visitAccount.type === 'architect' ? styles.architectBadge :
-                    styles.dealerBadge
-                  ]}>
-                    <Text style={styles.typeBadgeText}>{visitAccount.type.toUpperCase()}</Text>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', flex: 1 }}>
+                      {visitAccount.name}
+                    </Text>
+                    <View style={{
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      borderRadius: 4,
+                      backgroundColor: visitAccount.type === 'distributor' ? '#E3F2FD' :
+                                      visitAccount.type === 'architect' ? '#F3E5F5' : '#FFF3E0',
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666' }}>
+                        {visitAccount.type.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Info rows */}
+                  <View style={{ gap: 4 }}>
+                    {visitAccount.phone && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Phone size={12} color="#999999" />
+                        <Text style={{ fontSize: 12, color: '#666666' }}>{visitAccount.phone}</Text>
+                      </View>
+                    )}
+                    {(visitAccount.city || visitAccount.state) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <MapPin size={12} color="#999999" />
+                        <Text style={{ fontSize: 12, color: '#666666' }}>
+                          {visitAccount.city}{visitAccount.state ? `, ${visitAccount.state}` : ''}
+                        </Text>
+                      </View>
+                    )}
+                    {visitAccount.lastVisitAt && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Clock size={12} color="#999999" />
+                        <Text style={{ fontSize: 12, color: '#666666' }}>
+                          Last visit: {visitAccount.lastVisitAt.toLocaleDateString()}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               </View>
-              {visitAccount.contactPerson && (
-                <View style={styles.detailRow}>
-                  <User size={16} color={colors.text.secondary} />
-                  <Text style={styles.accountDetail}>{visitAccount.contactPerson}</Text>
-              </View>
-            )}
-            {(visitAccount.city || visitAccount.state) && (
-              <View style={styles.detailRow}>
-                <MapPin size={16} color={colors.text.secondary} />
-                <Text style={styles.accountDetail}>{visitAccount.city}, {visitAccount.state}</Text>
-              </View>
-            )}
-            </Card>
+            </View>
           )}
 
-          {/* Photo Section */}
-          <Card elevation="md" style={styles.section}>
-            <Text style={styles.sectionLabel}>Counter Photo *</Text>
-            <Text style={styles.helpText}>
-              Take a photo of the counter or storefront to verify your visit
+          {/* Compact Photo Section */}
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+          }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+              Counter Photo (Optional)
             </Text>
 
             {photoUri ? (
-              <View style={styles.photoContainer}>
-                <Image source={{ uri: photoUri }} style={styles.photoPreview} />
-                <View style={styles.photoActions}>
+              <View style={{ backgroundColor: '#F5F5F5', borderRadius: 8, overflow: 'hidden' }}>
+                <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, resizeMode: 'cover' }} />
+                <View style={{ flexDirection: 'row', padding: 8, gap: 8, backgroundColor: '#FFFFFF' }}>
                   <TouchableOpacity
-                    style={styles.retakeButton}
+                    style={{
+                      flex: 1,
+                      backgroundColor: featureColors.visits.primary,
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 6,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                    }}
                     onPress={() => setShowCamera(true)}
                   >
-                    <Camera size={16} color={colors.surface} />
-                    <Text style={styles.retakeButtonText}>Retake</Text>
+                    <Camera size={14} color="#FFFFFF" />
+                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Retake</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.removeButton}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#FFFFFF',
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      borderRadius: 6,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: '#E0E0E0',
+                    }}
                     onPress={handleRemovePhoto}
                   >
-                    <Text style={styles.removeButtonText}>Remove</Text>
+                    <Text style={{ color: '#666666', fontSize: 13, fontWeight: '600' }}>Remove</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
               <TouchableOpacity
-                style={styles.cameraButton}
+                style={{
+                  backgroundColor: featureColors.visits.light,
+                  padding: 16,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: featureColors.visits.primary,
+                  borderStyle: 'dashed',
+                  gap: 8,
+                }}
                 onPress={() => setShowCamera(true)}
               >
-                <Camera size={48} color={featureColors.visits.primary} />
-                <Text style={styles.cameraButtonText}>Take Photo</Text>
+                <Camera size={32} color={featureColors.visits.primary} />
+                <Text style={{ fontSize: 14, color: featureColors.visits.primary, fontWeight: '600' }}>
+                  Take Photo
+                </Text>
               </TouchableOpacity>
             )}
-          </Card>
+          </View>
 
-          {/* Visit Purpose */}
-          <Card elevation="md" style={styles.section}>
-            <Text style={styles.sectionLabel}>Visit Purpose *</Text>
-            <View style={styles.purposeGrid}>
+          {/* Compact Visit Purpose */}
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+          }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+              Visit Purpose *
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {VISIT_PURPOSES.map((item) => (
                 <TouchableOpacity
                   key={item.value}
-                  style={[
-                    styles.purposeButton,
-                    purpose === item.value && styles.purposeButtonSelected,
-                  ]}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 6,
+                    borderWidth: 1.5,
+                    borderColor: purpose === item.value ? featureColors.visits.primary : '#E0E0E0',
+                    backgroundColor: purpose === item.value ? featureColors.visits.primary : '#FFFFFF',
+                    minHeight: 36,
+                    justifyContent: 'center',
+                  }}
                   onPress={() => setPurpose(item.value)}
                 >
-                  <Text
-                    style={[
-                      styles.purposeButtonText,
-                      purpose === item.value && styles.purposeButtonTextSelected,
-                    ]}
-                  >
+                  <Text style={{
+                    fontSize: 13,
+                    color: purpose === item.value ? '#FFFFFF' : '#666666',
+                    fontWeight: purpose === item.value ? '600' : '500',
+                  }}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-          </Card>
+          </View>
 
-          {/* Notes */}
-          <Card elevation="md" style={styles.section}>
-            <Text style={styles.sectionLabel}>Notes (Optional)</Text>
+          {/* Compact Notes */}
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+          }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+              Notes (Optional)
+            </Text>
             <TextInput
-              style={styles.notesInput}
+              style={{
+                backgroundColor: '#F5F5F5',
+                borderRadius: 6,
+                padding: 10,
+                fontSize: 14,
+                color: '#1A1A1A',
+                minHeight: 80,
+                textAlignVertical: 'top',
+              }}
               placeholder="Add any notes about this visit..."
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor="#999999"
               value={notes}
               onChangeText={setNotes}
               multiline
-              numberOfLines={4}
-              textAlignVertical="top"
+              numberOfLines={3}
             />
-          </Card>
+          </View>
 
           {/* Upload Progress */}
           {uploading && (
-            <Card elevation="sm" style={styles.uploadingCard}>
+            <View style={{
+              backgroundColor: featureColors.visits.light,
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}>
               <ActivityIndicator size="small" color={featureColors.visits.primary} />
-              <Text style={styles.uploadingText}>Uploading photo...</Text>
-            </Card>
+              <Text style={{ fontSize: 14, color: featureColors.visits.primary, fontWeight: '500' }}>
+                Uploading photo...
+              </Text>
+            </View>
           )}
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[
-              styles.submitButton,
-              (!purpose || submitting) && styles.submitButtonDisabled,
-            ]}
+            style={{
+              backgroundColor: (!purpose || submitting) ? '#E0E0E0' : featureColors.visits.primary,
+              borderRadius: 8,
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginBottom: isEditMode ? 12 : 0,
+            }}
             onPress={handleSubmit}
             disabled={!purpose || submitting}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color={colors.surface} />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
                 {isEditMode ? 'Update Visit' : 'Log Visit'}
               </Text>
             )}
@@ -398,14 +519,19 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           {/* Delete Button (Edit Mode Only) */}
           {isEditMode && (
             <TouchableOpacity
-              style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+              style={{
+                backgroundColor: deleting ? '#FFCDD2' : '#FF3B30',
+                borderRadius: 8,
+                paddingVertical: 14,
+                alignItems: 'center',
+              }}
               onPress={handleDelete}
               disabled={deleting}
             >
               {deleting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.deleteButtonText}>Delete Visit</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Delete Visit</Text>
               )}
             </TouchableOpacity>
           )}
@@ -432,262 +558,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  // Modern Header
-  header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, // Status bar space
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  title: {
-    fontSize: 19,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.inverse,
-    letterSpacing: 0.3,
-  },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    padding: spacing.screenPadding,
-    paddingBottom: spacing.xl * 2,
-  },
-  // Account Card
-  accountCard: {
-    marginBottom: spacing.md,
-  },
-  accountHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  iconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  accountName: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
-  },
-  typeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.borderRadius.sm,
-    alignSelf: 'flex-start',
-    marginBottom: spacing.sm,
-  },
-  distributorBadge: {
-    backgroundColor: '#E3F2FD',
-  },
-  dealerBadge: {
-    backgroundColor: '#FFF3E0',
-  },
-  architectBadge: {
-    backgroundColor: '#F3E5F5',
-  },
-  typeBadgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.secondary,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
-  },
-  accountDetail: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  // Sections
-  section: {
-    marginBottom: spacing.md,
-  },
-  sectionLabel: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  helpText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    marginBottom: spacing.md,
-    lineHeight: 18,
-  },
-  // Photo Section
-  cameraButton: {
-    backgroundColor: featureColors.visits.light,
-    padding: spacing.xl,
-    borderRadius: spacing.borderRadius.lg,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: featureColors.visits.primary,
-    borderStyle: 'dashed',
-    gap: spacing.sm,
-  },
-  cameraButtonText: {
-    fontSize: typography.fontSize.base,
-    color: featureColors.visits.primary,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  photoContainer: {
-    backgroundColor: colors.background,
-    borderRadius: spacing.borderRadius.md,
-    overflow: 'hidden',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 250,
-    resizeMode: 'cover',
-    backgroundColor: colors.background,
-  },
-  photoActions: {
-    flexDirection: 'row',
-    padding: spacing.sm,
-    gap: spacing.sm,
-    backgroundColor: colors.surface,
-  },
-  retakeButton: {
-    flex: 1,
-    backgroundColor: featureColors.visits.primary,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-  },
-  retakeButtonText: {
-    color: colors.surface,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  removeButton: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  removeButtonText: {
-    color: colors.text.secondary,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  // Purpose Selection
-  purposeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  purposeButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: spacing.borderRadius.md,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-    backgroundColor: colors.surface,
-    minHeight: 44, // Better touch target
-  },
-  purposeButtonSelected: {
-    backgroundColor: featureColors.visits.primary,
-    borderColor: featureColors.visits.primary,
-  },
-  purposeButtonText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    fontWeight: typography.fontWeight.medium,
-  },
-  purposeButtonTextSelected: {
-    color: colors.surface,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  // Notes Input
-  notesInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
-    minHeight: 100,
-  },
-  // Upload Progress
-  uploadingCard: {
-    backgroundColor: featureColors.visits.light,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  uploadingText: {
-    fontSize: typography.fontSize.sm,
-    color: featureColors.visits.primary,
-    fontWeight: typography.fontWeight.medium,
-  },
-  // Submit Button
-  submitButton: {
-    backgroundColor: featureColors.visits.primary,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.lg,
-    alignItems: 'center',
-    minHeight: 48, // Better touch target
-    ...shadows.sm,
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.border.default,
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
-  },
-  deleteButton: {
-    backgroundColor: colors.error,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.lg,
-    alignItems: 'center',
-    marginTop: spacing.md,
-    minHeight: 48,
-    ...shadows.sm,
-  },
-  deleteButtonDisabled: {
-    opacity: 0.6,
-  },
-  deleteButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
+    padding: 16,
+    paddingBottom: 24,
   },
 });

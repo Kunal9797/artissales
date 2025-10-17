@@ -54,6 +54,9 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
   // Today's entries
   const [todayEntries, setTodayEntries] = useState<TodayEntry[]>([]);
 
+  // Notes for manager
+  const [managerNotes, setManagerNotes] = useState('');
+
   // Fetch targets
   useEffect(() => {
     const fetchTargets = async () => {
@@ -103,11 +106,8 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
     }
   }, [isEditMode, editActivityId, user?.uid]);
 
-  // Get catalog buttons (from targets or all 4)
+  // Always show all 4 catalog options
   const getCatalogButtons = (): CatalogType[] => {
-    if (targetProgress && targetProgress.length > 0) {
-      return targetProgress.map(p => p.catalog as CatalogType);
-    }
     return ['Fine Decor', 'Artvio', 'Woodrica', 'Artis'];
   };
 
@@ -123,13 +123,10 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
       return;
     }
 
-    setSubmitting(true);
-
-    try {
-      const today = new Date().toISOString().split('T')[0];
-
-      if (isEditMode && editActivityId) {
-        // Update existing entry
+    if (isEditMode && editActivityId) {
+      // Edit mode: Save immediately to backend
+      setSubmitting(true);
+      try {
         await api.updateSheetsSale({
           id: editActivityId,
           catalog: selectedCatalog,
@@ -139,47 +136,31 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         Alert.alert('Success', 'Sheet sale updated successfully', [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
+      } catch (error: any) {
+        console.error('Error updating sheet sale:', error);
+        Alert.alert('Error', error.message || 'Failed to update sheet sale');
+      } finally {
+        setSubmitting(false);
+      }
+    } else {
+      // Add mode: Just add to local state (don't save to backend yet)
+      const existingIndex = todayEntries.findIndex(e => e.catalog === selectedCatalog);
+      if (existingIndex >= 0) {
+        // Update existing entry by adding to it
+        const updated = [...todayEntries];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          sheetsCount: updated[existingIndex].sheetsCount + count,
+        };
+        setTodayEntries(updated);
       } else {
-        // Create new entry
-        await api.logSheetsSale({
-          date: today,
-          catalog: selectedCatalog,
-          sheetsCount: count,
-        });
-
-        // Add to today's list (merge if catalog already exists)
-        const existingIndex = todayEntries.findIndex(e => e.catalog === selectedCatalog);
-        if (existingIndex >= 0) {
-          // Update existing entry by adding to it
-          const updated = [...todayEntries];
-          updated[existingIndex] = {
-            ...updated[existingIndex],
-            sheetsCount: updated[existingIndex].sheetsCount + count,
-          };
-          setTodayEntries(updated);
-        } else {
-          // Add new entry
-          setTodayEntries([...todayEntries, { catalog: selectedCatalog, sheetsCount: count }]);
-        }
-
-        // Reset form
-        setSelectedCatalog(null);
-        setSheetsInput('');
-
-        // Refresh targets
-        const month = new Date().toISOString().substring(0, 7);
-        const response = await api.getTarget({ userId: user!.uid, month });
-        if (response.progress) {
-          setTargetProgress(response.progress);
-        }
+        // Add new entry
+        setTodayEntries([...todayEntries, { catalog: selectedCatalog, sheetsCount: count }]);
       }
 
-      // No alert for new entries - silent success
-    } catch (error: any) {
-      console.error('Error saving sheets:', error);
-      Alert.alert('Error', error.message || 'Failed to save sheets');
-    } finally {
-      setSubmitting(false);
+      // Reset form
+      setSelectedCatalog(null);
+      setSheetsInput('');
     }
   };
 
@@ -217,30 +198,40 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
 
   return (
     <View style={styles.container}>
-      {/* Modern Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <ChevronLeft size={24} color={colors.text.inverse} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <FileText size={24} color={colors.text.inverse} />
-          <View>
-            <Text style={styles.title}>{isEditMode ? 'Edit Sheet Sale' : 'Log Sheet Sales'}</Text>
-            <Text style={styles.subtitle}>{new Date().toLocaleDateString()}</Text>
+      {/* Header - Match New Design */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <ChevronLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <FileText size={24} color={featureColors.sheets.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+              {isEditMode ? 'Edit Sheet Sale' : 'Log Sheet Sales'}
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
+              {new Date().toLocaleDateString()}
+            </Text>
           </View>
         </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[
-          styles.content,
-          todayEntries.length > 0 && styles.contentWithFooter
-        ]}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: todayEntries.length > 0 ? 16 : 24,
+        }}
       >
         {/* Compact Target Progress */}
         {user?.uid && !loadingTargets && targetProgress && (
@@ -251,25 +242,42 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           />
         )}
 
-        {/* Quick Add Section */}
-        <View style={styles.quickAddCard}>
+        {/* Compact Entry Form */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: '#E0E0E0',
+        }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+            Select Catalog
+          </Text>
+
           {/* Catalog Buttons */}
-          <View style={styles.catalogButtons}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
             {catalogButtons.map((catalog) => (
               <TouchableOpacity
                 key={catalog}
-                style={[
-                  styles.catalogButton,
-                  selectedCatalog === catalog && styles.catalogButtonSelected,
-                ]}
+                style={{
+                  flex: 1,
+                  minWidth: '48%',
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 6,
+                  borderWidth: 1.5,
+                  borderColor: selectedCatalog === catalog ? featureColors.sheets.primary : '#E0E0E0',
+                  backgroundColor: selectedCatalog === catalog ? featureColors.sheets.primary : '#FFFFFF',
+                  alignItems: 'center',
+                }}
                 onPress={() => setSelectedCatalog(catalog)}
               >
-                <Text
-                  style={[
-                    styles.catalogButtonText,
-                    selectedCatalog === catalog && styles.catalogButtonTextSelected,
-                  ]}
-                >
+                <Text style={{
+                  fontSize: 13,
+                  fontWeight: selectedCatalog === catalog ? '600' : '500',
+                  color: selectedCatalog === catalog ? '#FFFFFF' : '#666666',
+                }}>
                   {catalog}
                 </Text>
               </TouchableOpacity>
@@ -277,24 +285,42 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           </View>
 
           {/* Sheets Input + Add Button */}
-          <View style={styles.inputRow}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             <TextInput
-              style={styles.sheetsInput}
+              style={{
+                flex: 1,
+                backgroundColor: '#F5F5F5',
+                borderWidth: 1,
+                borderColor: '#E0E0E0',
+                borderRadius: 6,
+                padding: 12,
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#1A1A1A',
+              }}
               placeholder="Number of sheets"
+              placeholderTextColor="#999999"
               value={sheetsInput}
               onChangeText={setSheetsInput}
               keyboardType="numeric"
               editable={!submitting}
             />
             <TouchableOpacity
-              style={[styles.addButton, submitting && styles.addButtonDisabled]}
+              style={{
+                width: 48,
+                height: 48,
+                backgroundColor: submitting ? '#E0E0E0' : featureColors.sheets.primary,
+                borderRadius: 6,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
               onPress={handleQuickAdd}
               disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Plus size={20} color="#fff" strokeWidth={2.5} />
+                <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
               )}
             </TouchableOpacity>
           </View>
@@ -302,17 +328,54 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           {/* Delete Button (Edit Mode Only) */}
           {isEditMode && (
             <TouchableOpacity
-              style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
+              style={{
+                backgroundColor: deleting ? '#FFCDD2' : '#FF3B30',
+                borderRadius: 6,
+                paddingVertical: 12,
+                alignItems: 'center',
+                marginTop: 12,
+              }}
               onPress={handleDelete}
               disabled={deleting}
             >
               {deleting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.deleteButtonText}>Delete Entry</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>Delete Entry</Text>
               )}
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Optional Notes for Manager */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 8,
+          padding: 12,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: '#E0E0E0',
+        }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+            Notes for Manager (Optional)
+          </Text>
+          <TextInput
+            style={{
+              backgroundColor: '#F5F5F5',
+              borderRadius: 6,
+              padding: 10,
+              fontSize: 14,
+              color: '#1A1A1A',
+              minHeight: 70,
+              textAlignVertical: 'top',
+            }}
+            placeholder="Add any notes for your manager..."
+            placeholderTextColor="#999999"
+            value={managerNotes}
+            onChangeText={setManagerNotes}
+            multiline
+            numberOfLines={3}
+          />
         </View>
       </ScrollView>
 
@@ -335,10 +398,27 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
 
           <TouchableOpacity
             style={styles.submitButton}
-            onPress={() => {
-              Alert.alert('Success', 'Sales submitted for approval', [
-                { text: 'OK', onPress: () => navigation.goBack() }
-              ]);
+            onPress={async () => {
+              try {
+                const today = new Date().toISOString().split('T')[0];
+
+                // Save all entries to backend
+                for (const entry of todayEntries) {
+                  await api.logSheetsSale({
+                    date: today,
+                    catalog: entry.catalog,
+                    sheetsCount: entry.sheetsCount,
+                    notes: managerNotes || undefined,
+                  });
+                }
+
+                Alert.alert('Success', 'Sales submitted for approval', [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
+              } catch (error: any) {
+                console.error('Error submitting sales:', error);
+                Alert.alert('Error', error.message || 'Failed to submit sales');
+              }
             }}
           >
             <Text style={styles.submitButtonText}>Send for Approval</Text>
@@ -354,129 +434,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  // Modern Header
-  header: {
-    backgroundColor: colors.primary,
-    paddingTop: 52, // Status bar space
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
-  },
-  title: {
-    fontSize: 19,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.inverse,
-    letterSpacing: 0.3,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.text.inverse,
-    opacity: 0.8,
-  },
   scrollView: {
     flex: 1,
   },
-  content: {
-    padding: spacing.md,
-  },
-  contentWithFooter: {
-    paddingBottom: spacing.md, // Extra space for sticky footer
-  },
   targetCard: {
-    marginBottom: spacing.md,
-  },
-  quickAddCard: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    marginBottom: spacing.md,
-  },
-  catalogButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  catalogButton: {
-    flex: 1,
-    minWidth: '48%',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: spacing.borderRadius.md,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-  },
-  catalogButtonSelected: {
-    backgroundColor: featureColors.sheets.primary,
-    borderColor: featureColors.sheets.primary,
-  },
-  catalogButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  catalogButtonTextSelected: {
-    color: colors.surface,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  sheetsInput: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    backgroundColor: featureColors.sheets.primary,
-    borderRadius: spacing.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
-  },
-  addButtonDisabled: {
-    backgroundColor: colors.border.default,
-    opacity: 0.6,
-  },
-  deleteButton: {
-    backgroundColor: colors.error,
-    borderRadius: spacing.borderRadius.md,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  deleteButtonDisabled: {
-    opacity: 0.6,
-  },
-  deleteButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
+    marginBottom: 16,
   },
   stickyFooter: {
     backgroundColor: colors.background,

@@ -57,11 +57,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState<{
     isCheckedIn: boolean;
+    hasCheckedOut: boolean;
     checkInTime: string | null;
+    checkOutTime: string | null;
     location: string | null;
   }>({
     isCheckedIn: false,
+    hasCheckedOut: false,
     checkInTime: null,
+    checkOutTime: null,
     location: null,
   });
   const [todayStats, setTodayStats] = useState({
@@ -109,18 +113,35 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
         const latestAttendance = docs[0].data();
         const isCheckedIn = latestAttendance.type === 'check_in';
+        const hasCheckedOut = latestAttendance.type === 'check_out';
         const time = latestAttendance.timestamp?.toDate();
+
+        // Find check-in time if we have a check-out (to show worked duration)
+        let checkInTime = null;
+        if (hasCheckedOut) {
+          const checkInDoc = docs.find((d: any) => d.data().type === 'check_in');
+          if (checkInDoc) {
+            const checkInTimestamp = checkInDoc.data().timestamp?.toDate();
+            checkInTime = checkInTimestamp ? checkInTimestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null;
+          }
+        } else if (isCheckedIn) {
+          checkInTime = time ? time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null;
+        }
 
         setAttendanceStatus({
           isCheckedIn,
-          checkInTime: time ? time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null,
+          hasCheckedOut,
+          checkInTime,
+          checkOutTime: hasCheckedOut && time ? time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null,
           location: 'Location',
         });
       } else {
         // Reset to not checked in if no records found
         setAttendanceStatus({
           isCheckedIn: false,
+          hasCheckedOut: false,
           checkInTime: null,
+          checkOutTime: null,
           location: null,
         });
       }
@@ -418,6 +439,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* Attendance Status Card - Compact Design */}
         <Card elevation="md" style={styles.attendanceCard}>
           {attendanceStatus.isCheckedIn ? (
+            // State 1: Currently checked in - Show working duration and Check Out button
             <>
               <View style={styles.attendanceRow}>
                 <View style={styles.statusInfo}>
@@ -435,7 +457,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             </>
+          ) : attendanceStatus.hasCheckedOut ? (
+            // State 2: Already checked out - Show completion message with no button
+            <>
+              <View style={styles.attendanceRow}>
+                <View style={styles.statusInfo}>
+                  <Text style={styles.statusLabel}>Day Complete</Text>
+                  <Text style={styles.notCheckedInText}>
+                    Checked out at {attendanceStatus.checkOutTime}
+                  </Text>
+                  {attendanceStatus.checkInTime && (
+                    <Text style={styles.checkInText}>
+                      Started at {attendanceStatus.checkInTime}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.completedBadge}>
+                  <Text style={styles.completedBadgeText}>✓</Text>
+                </View>
+              </View>
+            </>
           ) : (
+            // State 3: Not checked in yet - Show Check In button
             <>
               <View style={styles.attendanceRow}>
                 <View style={styles.statusInfo}>
@@ -810,6 +853,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.surface,
+  },
+  // Completed badge (for checked out state)
+  completedBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: featureColors.attendance.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completedBadgeText: {
+    fontSize: 24,
+    color: featureColors.attendance.primary,
   },
 
   // KPI Section

@@ -102,8 +102,54 @@ export const logSheetsSale = onRequest(async (request, response) => {
       return;
     }
 
+    // Check if trying to log data for a past date after 11:59 PM
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const nowIST = new Date(now.getTime() + istOffset);
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
+    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // If it's after 11:59 PM AND trying to log for today or earlier
+    if (currentHour === 23 && currentMinute >= 59) {
+      if (body.date <= todayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot log sheets sales for today after 11:59 PM. Day's reporting closed.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: body.date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
+    // If it's past midnight (00:00-05:59) trying to log for yesterday or earlier
+    if (currentHour >= 0 && currentHour < 6) {
+      const yesterday = new Date(nowIST);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const yesterdayIST = yesterday.toISOString().split("T")[0];
+
+      if (body.date <= yesterdayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot log sheets sales for past dates. Grace period until 6 AM only for previous day.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            attemptedDate: body.date,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
     const db = firestore();
-    const now = firestore.Timestamp.now();
+    const timestamp = firestore.Timestamp.now();
 
     // Create sheets sale record
     const saleRef = db.collection("sheetsSales").doc();
@@ -117,7 +163,7 @@ export const logSheetsSale = onRequest(async (request, response) => {
       distributorName: body.distributorName || null,
       notes: body.notes || null,
       verified: false, // Default to unverified (for future incentive calculation)
-      createdAt: now,
+      createdAt: timestamp,
     };
 
     await saleRef.set(saleData);
@@ -275,6 +321,53 @@ export const updateSheetsSale = onRequest(async (request, response) => {
       };
       response.status(403).json(error);
       return;
+    }
+
+    // Check if trying to edit data for a past date after 11:59 PM
+    const saleDate = saleData?.date; // YYYY-MM-DD
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const nowIST = new Date(now.getTime() + istOffset);
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
+    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
+
+    // If it's after 11:59 PM AND trying to edit for today or earlier
+    if (currentHour === 23 && currentMinute >= 59) {
+      if (saleDate <= todayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot edit sheets sales for today after 11:59 PM. Day's reporting closed.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            saleDate: saleDate,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
+    // If it's past midnight (00:00-05:59) trying to edit for yesterday or earlier
+    if (currentHour >= 0 && currentHour < 6) {
+      const yesterday = new Date(nowIST);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const yesterdayIST = yesterday.toISOString().split("T")[0];
+
+      if (saleDate <= yesterdayIST) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot edit sheets sales for past dates. Grace period until 6 AM only for previous day.",
+          code: "REPORTING_CLOSED",
+          details: {
+            currentTime: nowIST.toISOString(),
+            saleDate: saleDate,
+          },
+        };
+        response.status(400).json(error);
+        return;
+      }
     }
 
     // Update the sheet sale

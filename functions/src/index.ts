@@ -45,3 +45,7 @@ export {createUser} from "./utils/create-user";
 export {createNationalHeadUser} from "./utils/create-national-head";
 export {updateRoleByPhone} from "./utils/update-role-by-phone";
 export {triggerDSRCompiler} from "./utils/trigger-dsr";
+export {fixOct17Data} from "./utils/fix-oct17";
+export {checkPendingData} from "./utils/check-pending";
+export {fixAllPendingData} from "./utils/fix-all-pending";
+export {checkPendingDSRs} from "./utils/check-pending-dsrs";
