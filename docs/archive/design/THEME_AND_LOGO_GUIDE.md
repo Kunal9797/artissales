@@ -1,3 +1,10 @@
+# ARCHIVED - OUTDATED
+
+**Date Archived**: 2025-10-17
+**Reason**: References deleted asset files and old color codes. Superseded by [BRANDING_GUIDE.md](../design/BRANDING_GUIDE.md)
+
+---
+
 # Artis Sales App - Theme & Logo Implementation Guide
 
 ## 🎨 **Applied Theme: Corporate Blue + Yellower Gold**

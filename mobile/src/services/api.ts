@@ -171,6 +171,10 @@ export const api = {
     return callFunction('updateUser', data);
   },
 
+  getPendingExpenses: async (data: {}) => {
+    return callFunction('getPendingExpenses', data);
+  },
+
   // Account Management APIs
   createAccount: async (data: CreateAccountRequest) => {
     return callFunction('createAccount', data);
@@ -178,6 +182,10 @@ export const api = {
 
   getAccountsList: async (data: GetAccountsListRequest) => {
     return callFunction('getAccountsList', data);
+  },
+
+  getAccountDetails: async (data: { accountId: string }) => {
+    return callFunction('getAccountDetails', data);
   },
 
   updateAccount: async (data: UpdateAccountRequest) => {

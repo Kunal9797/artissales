@@ -262,10 +262,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             const role = userData?.role || 'rep';
             setUserName(userData?.name || 'User');
 
-            // Redirect managers to ManagerHomeScreen
-            if (role === 'national_head' || role === 'admin') {
-              navigation.replace('ManagerHome');
-            }
+            // Managers are routed via RootNavigator based on role
+            // No need to manually redirect here
           }
         } catch (error) {
           console.error('Error loading user data:', error);

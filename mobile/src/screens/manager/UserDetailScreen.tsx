@@ -339,61 +339,51 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header with user info */}
-      <View style={styles.header}>
-        <View style={styles.headerTopBar}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <ArrowLeft size={24} color={colors.text.inverse} />
-          </TouchableOpacity>
-          <View style={styles.headerRightButtons}>
-            <TouchableOpacity
-              style={styles.targetButton}
-              onPress={() => {
-                const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-                navigation.navigate('SetTarget', {
-                  userId: userId,
-                  userName: userData?.name,
-                  currentMonth,
-                });
-              }}
-            >
-              <TargetIcon size={20} color={colors.text.inverse} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={handleEditPress}
-            >
-              <Edit size={20} color={colors.text.inverse} />
-            </TouchableOpacity>
+      {/* Header - Dark style matching other tabs */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 20,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+              {userData?.name || 'User'}
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {formatRoleLabel(userData?.role || '')} • {userData?.territory}
+            </Text>
           </View>
-        </View>
 
-        <View style={styles.headerMain}>
-          <View style={styles.avatarContainer}>
-            <User size={28} color={colors.text.inverse} />
-          </View>
-          <View style={styles.headerInfo}>
-            <View style={styles.headerTopRow}>
-              <Text style={styles.userName}>{userData?.name}</Text>
-              <View style={[styles.roleBadge, { backgroundColor: getRoleBadgeColor(userData?.role || '') + '20' }]}>
-                <Text style={[styles.roleBadgeText, { color: getRoleBadgeColor(userData?.role || '') }]}>
-                  {formatRoleLabel(userData?.role || '')}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.headerBottomRow}>
-              <MapPin size={12} color={colors.text.inverse} />
-              <Text style={styles.userMetaText}>{userData?.territory}</Text>
-              <Text style={styles.metaSeparator}>•</Text>
-              <Phone size={12} color={colors.text.inverse} />
-              <Text style={styles.userMetaText}>{userData?.phone}</Text>
-            </View>
-          </View>
+          {/* Set Target Button - Aligned to top */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#C9A961',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 8,
+              marginTop: -4, // Align with title baseline
+            }}
+            onPress={() => {
+              const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+              navigation.navigate('SetTarget', {
+                userId: userId,
+                userName: userData?.name,
+                currentMonth,
+              });
+            }}
+          >
+            <TargetIcon size={18} color="#393735" />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Target</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {/* Old headerMain removed - user info now in dark header above */}
 
       <ScrollView
         style={styles.scrollView}
@@ -402,6 +392,28 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         }
       >
         <View style={styles.content}>
+          {/* Edit Details Button */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: 12,
+              backgroundColor: '#F8F8F8',
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#E0E0E0',
+              marginBottom: 16,
+            }}
+            onPress={handleEditPress}
+          >
+            <Edit size={18} color="#666666" />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#666666' }}>
+              Edit Phone & Territory
+            </Text>
+          </TouchableOpacity>
+
           {/* Date Range Selector */}
           <View style={styles.dateRangeContainer}>
             {(['today', 'week', 'month', 'custom'] as TimeRange[]).map((range) => (
@@ -897,10 +909,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   targetButton: {
-    padding: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.md,
   },
   editButton: {
-    padding: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.accent,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.borderRadius.md,
+  },
+  buttonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary,
   },
   headerMain: {
     flexDirection: 'row',

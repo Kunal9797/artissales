@@ -556,3 +556,64 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
     response.status(500).json(apiError);
   }
 });
+
+/**
+ * Get Account Details with Visit History
+ *
+ * POST /getAccountDetails
+ * Body: { accountId: string }
+ */
+export const getAccountDetails = onRequest(async (request, response) => {
+  try {
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {accountId} = request.body;
+    if (!accountId) {
+      const error: ApiError = {ok: false, error: "accountId is required", code: "MISSING_FIELD"};
+      response.status(400).json(error);
+      return;
+    }
+
+    const accountDoc = await db.collection("accounts").doc(accountId).get();
+    if (!accountDoc.exists) {
+      const error: ApiError = {ok: false, error: "Account not found", code: "ACCOUNT_NOT_FOUND"};
+      response.status(404).json(error);
+      return;
+    }
+
+    const visitsSnapshot = await db.collection("visits")
+      .where("accountId", "==", accountId)
+      .orderBy("timestamp", "desc")
+      .limit(50)
+      .get();
+
+    const visitsWithUserNames = await Promise.all(
+      visitsSnapshot.docs.map(async (doc: any) => {
+        const visitData = doc.data();
+        const userDoc = await db.collection("users").doc(visitData.userId).get();
+        return {
+          id: doc.id,
+          timestamp: visitData.timestamp?.toDate().toISOString() || null,
+          userId: visitData.userId,
+          userName: userDoc.exists ? userDoc.data()?.name : "Unknown",
+          purpose: visitData.purpose || "follow_up",
+          notes: visitData.notes || "",
+        };
+      })
+    );
+
+    response.status(200).json({
+      ok: true,
+      account: {id: accountDoc.id, ...accountDoc.data()},
+      visits: visitsWithUserNames,
+    });
+    logger.info(`[getAccountDetails] ✅ ${accountId}: ${visitsWithUserNames.length} visits`);
+  } catch (error: any) {
+    logger.error("[getAccountDetails] ❌", error);
+    response.status(500).json({ok: false, error: "Internal error", code: "INTERNAL_ERROR", details: error.message});
+  }
+});

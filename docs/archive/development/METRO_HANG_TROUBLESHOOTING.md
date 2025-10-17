@@ -1,3 +1,10 @@
+# ARCHIVED - DUPLICATE
+
+**Date Archived**: 2025-10-17
+**Reason**: Problem already solved in [METRO_TROUBLESHOOTING.md](../development/METRO_TROUBLESHOOTING.md) on Oct 9. This doc created Oct 15 for same issue.
+
+---
+
 # Metro Bundler Hang Troubleshooting - Oct 15, 2025
 
 ## Problem Summary

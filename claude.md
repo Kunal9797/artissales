@@ -676,6 +676,178 @@ if (userDoc.exists) {  // Note: exists is a property, not a method
 
 ---
 
-**Last Updated**: Oct 8, 2025
+## 📚 Documentation Structure & Standards
+
+All project documentation is centrally organized in `docs/` with **41 files** across **8 categories**.
+
+### 🗂️ Directory Overview
+
+```
+docs/
+├── README.md                   # Complete index of all docs
+├── DOCUMENTATION_MAP.md        # Quick "I want to..." navigation
+├── proposal.md                 # Original requirements
+├── MOBILE_SETUP_SUMMARY.md    # Setup instructions
+│
+├── design/          (9 files)  # UI/UX, branding, design system
+├── development/     (6 files)  # Setup, Firebase, troubleshooting
+├── implementation/  (6 files)  # Feature completion status
+├── planning/        (6 files)  # Architecture & feature plans
+├── releases/        (5 files)  # PR descriptions & changelogs
+├── testing/         (2 files)  # Test procedures & progress
+└── archive/         (2 files)  # Historical logs (e.g., PROGRESS.md)
+```
+
+---
+
+## 📝 Documentation Standards for New Features
+
+### When Building a New Feature - Follow This Pattern:
+
+#### 1. Planning Phase: Create Design Doc
+**Location:** `docs/planning/FEATURE_NAME_DESIGN.md`
+
+**Must include:**
+- Overview & user stories
+- Data model changes (collections, indexes, security rules)
+- API endpoints (if backend changes needed)
+- UI screens & navigation flows
+- Implementation phases with time estimates
+- Success criteria & risks
+
+#### 2. Implementation Phase: Track Progress
+**Location:** `docs/implementation/FEATURE_NAME_IMPLEMENTATION.md`
+
+**Must include:**
+- Checklist of tasks (backend, mobile, testing)
+- Files created/modified with descriptions
+- Known issues & blockers
+- Current status & next steps
+
+#### 3. Completion Phase: Document Results
+**Location:** `docs/implementation/FEATURE_NAME_COMPLETE.md`
+
+**Must include:**
+- What's complete (✅ checked list)
+- How to use (for developers & users)
+- APIs/functions deployed with URLs
+- Screens implemented with file paths
+- Testing completed checklist
+- Known limitations & future enhancements
+
+#### 4. Release Phase (if applicable)
+**Location:** `docs/releases/PR#_FEATURE_NAME.md`
+
+**Must include:**
+- PR summary & motivation
+- Files changed
+- Testing checklist
+- Deployment notes
+- Rollback plan
+
+---
+
+## 📂 Where to Put Different Doc Types
+
+| Category | Use For | Examples |
+|----------|---------|----------|
+| **design/** | Brand, DS, components, themes | `BRANDING_GUIDE.md`, `COMPONENT_CATALOG.md` |
+| **development/** | Setup, Firebase, troubleshooting, QA | `FIREBASE_USAGE.md`, `SDK54_VERSIONS.md` |
+| **implementation/** | Feature status, "what's done" | `SALES_REP_COMPLETE.md`, `MANAGER_DASHBOARD_COMPLETE.md` |
+| **planning/** | Architecture, feature designs | `NAVIGATION_PLAN.md`, `PAYMENT_DESIGN.md` |
+| **releases/** | PR descriptions, changelogs | `PR5_FLASHLIST_PERF.md` |
+| **testing/** | Test procedures, QA progress | `HOW_TO_TEST.md` |
+| **archive/** | Historical logs, outdated docs | `PROGRESS.md` (4,391 line timeline) |
+
+---
+
+## 🔄 Documentation Workflow Example
+
+**Building Payment Integration:**
+
+1. **Plan**: Create `docs/planning/PAYMENT_INTEGRATION_DESIGN.md`
+2. **Build**: Create `docs/implementation/PAYMENT_INTEGRATION_IMPLEMENTATION.md`, update as you code
+3. **Complete**: Create `docs/implementation/PAYMENT_INTEGRATION_COMPLETE.md`
+4. **Release**: Create `docs/releases/PR15_PAYMENT_INTEGRATION.md`
+5. **Index**: Add links to `docs/README.md`
+
+---
+
+## 🎯 Quick Reference for AI Agents
+
+### Starting a new feature?
+1. Check `docs/planning/` - Does similar feature exist?
+2. Create `docs/planning/YOUR_FEATURE_DESIGN.md`
+3. Create `docs/implementation/YOUR_FEATURE_IMPLEMENTATION.md`
+
+### While building?
+1. Update implementation doc with ✓ as you complete tasks
+2. Document decisions & list all files changed
+
+### When complete?
+1. Create `docs/implementation/YOUR_FEATURE_COMPLETE.md`
+2. Update `docs/README.md` to add your new docs
+
+### For branding work?
+→ **READ FIRST**: `docs/design/BRANDING_GUIDE.md`
+
+### For Firebase code?
+→ **⚠️ CRITICAL**: `docs/development/FIREBASE_USAGE.md` (modular API required)
+
+### Can't find something?
+→ `docs/DOCUMENTATION_MAP.md` has task-based navigation
+
+---
+
+## 📖 Key Documentation Files
+
+### Essential Starting Points:
+- **[docs/README.md](docs/README.md)** - Complete index of all 41 docs
+- **[docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md)** - "I want to..." navigation
+- **[docs/proposal.md](docs/proposal.md)** - Original requirements
+
+### Design & Branding:
+- **[docs/design/BRANDING_GUIDE.md](docs/design/BRANDING_GUIDE.md)** - Logo usage, colors, integration
+- **[docs/design/COMPONENT_CATALOG.md](docs/design/COMPONENT_CATALOG.md)** - Component APIs
+- **[docs/design/VISUAL_DIRECTION.md](docs/design/VISUAL_DIRECTION.md)** - Design Lab & tokens
+
+### Development:
+- **[docs/development/FIREBASE_USAGE.md](docs/development/FIREBASE_USAGE.md)** - ⚠️ MUST READ
+- **[docs/development/SDK54_VERSIONS.md](docs/development/SDK54_VERSIONS.md)** - Versions
+- **[docs/development/NEXT_STEPS.md](docs/development/NEXT_STEPS.md)** - Setup
+
+### Current Status:
+- **[docs/implementation/SALES_REP_COMPLETE.md](docs/implementation/SALES_REP_COMPLETE.md)**
+- **[docs/implementation/MANAGER_DASHBOARD_COMPLETE.md](docs/implementation/MANAGER_DASHBOARD_COMPLETE.md)**
+
+---
+
+## 💡 Documentation Best Practices
+
+1. **Be Specific**: "Manager Dashboard Home Tab" not "Dashboard"
+2. **Use Status Indicators**: ✅ ❌ 🔄 ⏳ help scanning
+3. **Include Dates**: Always add "Last Updated" at top
+4. **Link Liberally**: Reference related docs with markdown links
+5. **Show Examples**: Include code snippets, ASCII diagrams
+6. **Update Indexes**: Always update `docs/README.md` when adding docs
+7. **Archive Old Docs**: Move outdated docs to `docs/archive/`
+
+**Documentation is code.** Keep it clean, organized, and up-to-date!
+
+---
+
+## 📊 Why This Structure?
+
+**Historical Context:** Originally had ONE giant `PROGRESS.md` (4,391 lines!) tracking everything chronologically. Now split into specialized docs by purpose, feature, and category for better maintainability.
+
+**Benefits:**
+- ✅ Easy to find feature-specific info (no reading thousands of lines)
+- ✅ Multiple agents can work on different docs simultaneously
+- ✅ Clear "source of truth" for each feature
+- ✅ Better organization and discoverability
+
+---
+
+**Last Updated**: Oct 17, 2025
 **Owner**: Kunal Gupta (Artis Laminates)
-**AI Context Version**: 1.0
+**AI Context Version**: 1.2

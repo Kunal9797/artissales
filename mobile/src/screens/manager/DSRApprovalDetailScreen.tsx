@@ -47,7 +47,8 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
   navigation,
   route,
 }) => {
-  const { dsrId } = route.params;
+  const { reportId } = route.params; // Changed from dsrId to reportId
+  const dsrId = reportId; // Use reportId as dsrId for backward compatibility
   const [dsr, setDsr] = useState<DSRDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState('');
@@ -176,19 +177,34 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>{dsr.userName}</Text>
-        <Text style={styles.subtitle}>
-          {new Date(dsr.date).toLocaleDateString('en-US', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-          })}
-        </Text>
+      {/* Header - Dark style */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 20,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <TouchableOpacity
+            style={{ padding: 8, marginLeft: -8 }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ fontSize: 28, color: '#C9A961' }}>←</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+              {dsr.userName}
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {new Date(dsr.date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -259,53 +275,101 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
           )}
         </View>
 
-        {/* Comments Section */}
+        {/* Status & Comments Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Manager Comments</Text>
-          <TextInput
-            style={styles.commentsInput}
-            placeholder="Add your comments (optional for approval, required for revision)"
-            placeholderTextColor={colors.text.tertiary}
-            multiline
-            numberOfLines={4}
-            value={comments}
-            onChangeText={setComments}
-            editable={!submitting}
-          />
+          {/* Show current status if already reviewed */}
+          {dsr.status !== 'pending' && (
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+              padding: 16,
+              backgroundColor: dsr.status === 'approved' ? '#E8F5E9' : '#FFEBEE',
+              borderRadius: 8,
+              marginBottom: 16,
+            }}>
+              {dsr.status === 'approved' ? (
+                <CheckCircle size={20} color="#2E7D32" />
+              ) : (
+                <XCircle size={20} color="#EF5350" />
+              )}
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: dsr.status === 'approved' ? '#2E7D32' : '#EF5350',
+              }}>
+                {dsr.status === 'approved' ? 'Approved' : 'Revision Requested'}
+              </Text>
+            </View>
+          )}
+
+          {/* Show existing manager comments if any */}
+          {dsr.managerComments && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>Manager Comments</Text>
+              <View style={{
+                padding: 12,
+                backgroundColor: '#F8F8F8',
+                borderRadius: 8,
+                marginTop: 8,
+              }}>
+                <Text style={{ fontSize: 14, color: '#666666' }}>{dsr.managerComments}</Text>
+              </View>
+            </View>
+          )}
+
+          {/* Only show input and action buttons if status is pending */}
+          {dsr.status === 'pending' && (
+            <>
+              <Text style={styles.sectionTitle}>Manager Comments</Text>
+              <TextInput
+                style={styles.commentsInput}
+                placeholder="Add your comments (optional for approval, required for revision)"
+                placeholderTextColor={colors.text.tertiary}
+                multiline
+                numberOfLines={4}
+                value={comments}
+                onChangeText={setComments}
+                editable={!submitting}
+              />
+            </>
+          )}
         </View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.rejectButton]}
-            onPress={handleRequestRevision}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <XCircle size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>Request Revision</Text>
-              </>
-            )}
-          </TouchableOpacity>
+        {/* Action Buttons - Only show for pending DSRs */}
+        {dsr.status === 'pending' && (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={handleRequestRevision}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <XCircle size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Request Revision</Text>
+                </>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.approveButton]}
-            onPress={handleApprove}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <CheckCircle size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>Approve</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.approveButton]}
+              onPress={handleApprove}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <CheckCircle size={20} color="#fff" />
+                  <Text style={styles.actionButtonText}>Approve</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={{ height: spacing.xl }} />
       </ScrollView>

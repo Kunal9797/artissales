@@ -1,3 +1,10 @@
+# ARCHIVED - SUPERSEDED
+
+**Date Archived**: 2025-10-17
+**Reason**: Superseded by [COMPLETE_NAVIGATION_PLAN.md](../planning/COMPLETE_NAVIGATION_PLAN.md) (Oct 16, 1 day newer)
+
+---
+
 # Artis Sales App - Navigation Structure Plan
 
 **Date:** October 15, 2025

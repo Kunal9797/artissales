@@ -89,7 +89,14 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   // ✅ Performance: Memoized render function with useCallback
   const renderAccountCard = useCallback(
     ({ item }: { item: AccountListItem }) => (
-      <View style={styles.accountCard}>
+      <TouchableOpacity
+        style={styles.accountCard}
+        onPress={() => {
+          navigation.navigate('AccountDetail', {
+            accountId: item.id,
+          });
+        }}
+      >
         <View style={styles.accountCardContent}>
           <View style={[styles.accountIcon, { backgroundColor: `${getAccountTypeColor(item.type)}20` }]}>
             <Building2 size={24} color={getAccountTypeColor(item.type)} />
@@ -115,7 +122,8 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </View>
         <TouchableOpacity
           style={styles.editButton}
-          onPress={() => {
+          onPress={(e) => {
+            e.stopPropagation();
             navigation.navigate('EditAccount', {
               account: item,
               onAccountUpdated: () => loadAccounts(),
@@ -124,7 +132,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         >
           <Edit2 size={18} color={colors.info} />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
     ),
     [navigation]
   );
@@ -151,53 +159,95 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backButton}>← Back</Text>
-          </TouchableOpacity>
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+              Accounts
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+              {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
+            </Text>
+          </View>
+
+          {/* Add Account Button */}
           <TouchableOpacity
-            style={styles.addButton}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#C9A961',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
             onPress={() => navigation.navigate('AddAccount')}
           >
-            <Plus size={20} color="#fff" />
+            <Plus size={18} color="#393735" />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add Account</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.title}>Manage Accounts</Text>
-        <Text style={styles.subtitle}>
-          {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
-        </Text>
       </View>
 
-      {/* Search and Filters Section */}
-      <View style={styles.searchAndFiltersSection}>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Search size={20} color={colors.text.secondary} />
+      {/* Search Bar - Closer to header */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#FFFFFF',
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          borderWidth: 1,
+          borderColor: '#E0E0E0',
+        }}>
+          <Search size={20} color="#999999" />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name, city, or phone"
-            placeholderTextColor={colors.text.secondary}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+              fontSize: 16,
+              color: '#1A1A1A',
+            }}
+            placeholder="Search accounts..."
+            placeholderTextColor="#999999"
             value={searchTerm}
             onChangeText={setSearchTerm}
             autoCapitalize="none"
           />
         </View>
+      </View>
 
-        {/* Filter Chips */}
+      {/* Filter Pills - Horizontally scrollable to keep single row */}
+      <View style={{ paddingBottom: 12 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={styles.filtersScroll}
-          contentContainerStyle={styles.filtersScrollContent}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
         >
           {filterChips.map((chip) => (
             <TouchableOpacity
               key={chip.value}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 16,
+                backgroundColor: chip.active ? '#393735' : '#FFFFFF',
+                borderWidth: 1,
+                borderColor: chip.active ? '#393735' : '#E0E0E0',
+              }}
               onPress={() => setSelectedType(chip.value as AccountType | 'all')}
-              style={[styles.filterChip, chip.active && styles.filterChipActive]}
             >
-              <Text style={[styles.filterChipText, chip.active && styles.filterChipTextActive]}>
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: chip.active ? '#FFFFFF' : '#666666',
+              }}>
                 {chip.label}
               </Text>
             </TouchableOpacity>

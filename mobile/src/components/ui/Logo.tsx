@@ -16,10 +16,10 @@ interface LogoProps {
 }
 
 const logoAssets = {
-  full: require('../../../assets/images/logo-dark-bg.png'),
-  'icon-dark': require('../../../assets/images/artis-logo-transparent-dark.png'),
-  'icon-light': require('../../../assets/images/artis-logo.png'),
-  'trans-artis': require('../../../assets/images/trans-artis.png'),
+  full: require('../../../assets/images/artislogo_blackbgrd.png'),
+  'icon-dark': require('../../../assets/images/artislogo_blackbgrd.png'),
+  'icon-light': require('../../../assets/images/artislogo_whitebgrd.png'),
+  'trans-artis': require('../../../assets/images/artislogo_whitebgrd.png'),
 };
 
 const sizeMap = {

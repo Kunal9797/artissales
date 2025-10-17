@@ -178,12 +178,18 @@ export const getPendingDSRs = onRequest(async (request, response) => {
       return;
     }
 
-    // 2. Query pending DSRs
-    let query = db.collection("dsrReports")
-      .where("status", "==", "pending");
+    // 2. Query DSRs with optional status filter
+    const {date, status} = request.body;
+
+    let query: any = db.collection("dsrReports");
+
+    // Filter by status if provided (pending, approved, rejected)
+    // If no status provided or status='all', fetch all DSRs
+    if (status && status !== "all") {
+      query = query.where("status", "==", status);
+    }
 
     // Optional date filter
-    const {date} = request.body;
     if (date) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
         const error: ApiError = {
@@ -201,7 +207,7 @@ export const getPendingDSRs = onRequest(async (request, response) => {
 
     // Get user names for each DSR
     const dsrsWithUserNames = await Promise.all(
-      dsrsSnapshot.docs.map(async (doc) => {
+      dsrsSnapshot.docs.map(async (doc: any) => {
         const data = doc.data();
         const userDoc = await db.collection("users").doc(data.userId).get();
         const userName = userDoc.exists ? userDoc.data()?.name : "Unknown";

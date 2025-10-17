@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot } from '@react-native-firebase/firestore';
@@ -164,10 +165,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <UserIcon size={24} color={colors.text.inverse} />
-          <Text style={styles.headerTitle}>My Profile</Text>
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {/* Artis Logo - Branding (black bg version shows light peacock) */}
+            <Image
+              source={require('../../../assets/images/artislogo_blackbgrd.png')}
+              style={{ width: 48, height: 48 }}
+              resizeMode="contain"
+            />
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+              Profile
+            </Text>
+          </View>
+
+          {/* Logout Button */}
+          <TouchableOpacity
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: '#C9A961',
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderRadius: 8,
+            }}
+            onPress={handleSignOut}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Logout</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -281,14 +312,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           </View>
         </Card>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-        >
-          <LogOut size={20} color={colors.error} />
-          <Text style={styles.signOutButtonText}>Sign Out</Text>
-        </TouchableOpacity>
+        {/* Sign Out button moved to header */}
       </ScrollView>
     </View>
   );

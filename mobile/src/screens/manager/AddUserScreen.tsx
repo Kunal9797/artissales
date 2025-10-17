@@ -202,13 +202,30 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Add New User</Text>
-        <Text style={styles.subtitle}>Create a new sales team member</Text>
+      {/* Header - Dark style */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 20,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={{ padding: 8, marginLeft: -8 }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ fontSize: 28, color: '#C9A961' }}>←</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+              Add New User
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+              Create a new sales team member
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>

@@ -219,14 +219,29 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color={colors.text.inverse} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Set Target</Text>
-          <Text style={styles.headerSubtitle}>{userName}</Text>
+      {/* Header - Dark style */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 20,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={{ padding: 8, marginLeft: -8 }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ fontSize: 28, color: '#C9A961' }}>←</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+              Set Target
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+              {userName}
+            </Text>
+          </View>
         </View>
       </View>
 

@@ -1,3 +1,10 @@
+# ARCHIVED - AMBIGUOUS STATUS
+
+**Date Archived**: 2025-10-17
+**Reason**: Says 'Ready to Implement' but [MANAGER_DASHBOARD_COMPLETE.md](../implementation/MANAGER_DASHBOARD_COMPLETE.md) from same day (Oct 16) shows implementation complete. Likely obsolete planning doc.
+
+---
+
 # Manager Dashboard Implementation Plan
 
 **Date**: October 16, 2025

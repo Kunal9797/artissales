@@ -1,0 +1,40 @@
+ARTIS LOGO - QUICK BRIEF FOR AI AGENTS
+=======================================
+
+TWO LOGO FILES (Transparent PNGs):
+  • mobile/assets/images/artislogo_whitebgrd.png
+  • mobile/assets/images/artislogo_blackbgrd.png
+
+VISUAL DESCRIPTION:
+  Both logos feature:
+  - Triangular "A" shape (dark charcoal #393735 OR white, depending on version)
+  - White peacock feather motif inside with elegant curved flourish
+  - Gold/tan decorative leaf accent at bottom
+  
+  artislogo_whitebgrd.png = Dark triangle + white feather (for LIGHT backgrounds)
+  artislogo_blackbgrd.png = White triangle + white feather (for DARK backgrounds)
+
+BRAND PERSONALITY:
+  • Premium, sophisticated, elegant
+  • Laminates/interior design industry
+  • Peacock feather = craftsmanship & beauty
+  • Professional and trustworthy
+
+KEY USAGE RULES:
+  ✓ Keep subtle (accent, not dominant)
+  ✓ Use appropriate version for background
+  ✓ Maintain proportions (don't stretch)
+  ✓ Reserve full logo for key moments (login/splash)
+  ✓ Use gold leaf alone as compact brand marker
+  
+  ✗ Don't overuse (not on every component)
+  ✗ Don't modify colors or distort
+  ✗ Don't make too large (except login)
+
+COMMON SIZES:
+  Header icon: 28x28px
+  Empty states: 48x48px
+  Login screen: 320x320px
+  Background watermark: 400x400px @ 4% opacity
+
+FULL DOCS: docs/design/BRANDING_GUIDE.md

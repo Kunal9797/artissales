@@ -17,17 +17,15 @@ import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
-// TODO: Temporarily commented out until we fix StyleSheet.create issues
-// import { AddUserScreen } from '../screens/manager/AddUserScreen';
-// import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen';
-// import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen';
-// import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
-// import { UserListScreen } from '../screens/manager/UserListScreen';
-// import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
-// import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
-// import { AddAccountScreen } from '../screens/AddAccountScreen';
-// import { EditAccountScreen } from '../screens/EditAccountScreen';
-// import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
+// Incrementally re-enabling manager stack screens as we test them
+import { AddUserScreen } from '../screens/manager/AddUserScreen';
+import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
+import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
+import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
+// import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen'; // Not needed - using ReviewHomeScreen
+import { AddAccountScreen } from '../screens/AddAccountScreen';
+import { EditAccountScreen } from '../screens/EditAccountScreen';
+import { AccountDetailScreen } from '../screens/manager/AccountDetailScreen';
 // import { TeamTargetsScreen } from '../screens/manager/TeamTargetsScreen';
 import { DocumentLibraryScreen } from '../screens/DocumentLibraryScreen';
 import { UploadDocumentScreen } from '../screens/UploadDocumentScreen';
@@ -51,6 +49,7 @@ export type RootStackParamList = {
   UserList: undefined;
   UserDetail: { userId: string };
   AccountsList: undefined;
+  AccountDetail: { accountId: string };
   AddAccount: { preSelectedType?: string; onAccountCreated?: (accountId: string) => void };
   EditAccount: { account: any; onAccountUpdated?: () => void };
   SetTarget: { userId: string; userName: string; currentMonth: string };
@@ -91,13 +90,13 @@ export const RootNavigator: React.FC = () => {
       {user ? (
         // User is authenticated - Route to appropriate TabNavigator based on role
         <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {/* Route managers to ManagerTabNavigator, reps to TabNavigator */}
           {isManager ? (
             <Stack.Screen name="Home" component={ManagerTabNavigator} />
           ) : (
             <Stack.Screen name="Home" component={TabNavigator} />
           )}
-          {/* TODO: Temporarily commented out manager screens until StyleSheet.create issues are fixed */}
-          {/* <Stack.Screen name="ManagerHome" component={ManagerHomeScreen} /> */}
+          {/* Sales rep screens (always available) */}
           <Stack.Screen name="Attendance" component={AttendanceScreen} />
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
           <Stack.Screen name="LogVisit" component={LogVisitScreen} />
@@ -107,15 +106,21 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
           <Stack.Screen name="DesignLab" component={DesignLabScreen} />
-          {/* <Stack.Screen name="AddUser" component={AddUserScreen} /> */}
-          {/* <Stack.Screen name="DSRApprovalList" component={DSRApprovalListScreen} /> */}
-          {/* <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} /> */}
-          {/* <Stack.Screen name="UserList" component={UserListScreen} /> */}
-          {/* <Stack.Screen name="UserDetail" component={UserDetailScreen} /> */}
-          {/* <Stack.Screen name="AccountsList" component={AccountsListScreen} /> */}
-          {/* <Stack.Screen name="AddAccount" component={AddAccountScreen} /> */}
-          {/* <Stack.Screen name="EditAccount" component={EditAccountScreen} /> */}
-          {/* <Stack.Screen name="SetTarget" component={SetTargetScreen} /> */}
+
+          {/* Manager stack screens - Team Management */}
+          <Stack.Screen name="AddUser" component={AddUserScreen} />
+          <Stack.Screen name="UserDetail" component={UserDetailScreen} />
+          <Stack.Screen name="SetTarget" component={SetTargetScreen} />
+
+          {/* Manager stack screens - Account Management */}
+          <Stack.Screen name="AccountDetail" component={AccountDetailScreen} />
+          <Stack.Screen name="AddAccount" component={AddAccountScreen} />
+          <Stack.Screen name="EditAccount" component={EditAccountScreen} />
+
+          {/* Manager stack screens - Review/Approvals */}
+          <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
+
+          {/* TODO: Re-enable these as we build/test them */}
           {/* <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} /> */}
           <Stack.Screen name="DocumentLibrary" component={DocumentLibraryScreen} />
           <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />
