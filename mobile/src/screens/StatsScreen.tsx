@@ -19,6 +19,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
+import { Calendar as CalendarComponent } from 'react-native-calendars';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
@@ -66,6 +67,10 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     unverifiedSheets: 0,
   });
   const [loadingPending, setLoadingPending] = useState(false);
+
+  // State for attendance calendar modal
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [attendanceDays, setAttendanceDays] = useState<Set<string>>(new Set());
 
   // Fetch pending items count
   const fetchPendingCounts = useCallback(async () => {
@@ -138,6 +143,8 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       const firestore = getFirestore();
       const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
 
+      const attendanceDaysSet = new Set<string>();
+
       // Get first and last day of selected month
       const year = selectedDate.getFullYear();
       const month = selectedDate.getMonth();
@@ -188,13 +195,14 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       );
       const attendanceSnapshot = await getDocs(attendanceQuery);
 
-      // Count unique days worked
+      // Count unique days worked and store for calendar
       const uniqueDays = new Set<string>();
       attendanceSnapshot.forEach((doc: any) => {
         const timestamp = doc.data().timestamp?.toDate();
         if (timestamp) {
           const dateStr = timestamp.toISOString().substring(0, 10);
           uniqueDays.add(dateStr);
+          attendanceDaysSet.add(dateStr);
         }
       });
 
@@ -204,6 +212,8 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         totalExpenses: expensesSnapshot.size,
         daysWorked: uniqueDays.size,
       });
+
+      setAttendanceDays(attendanceDaysSet);
     } catch (error) {
       console.error('Error fetching monthly stats:', error);
     } finally {
@@ -282,11 +292,52 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
           />
         )}
 
-        {/* Pending Approvals Section */}
+        {/* Monthly Summary - Moved before Pending */}
+        <Text style={styles.sectionTitle}>This Month's Summary</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <>
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiRow}>
+                <KpiCard
+                  title="Total Visits"
+                  value={monthlyStats.totalVisits.toString()}
+                  icon={<MapPin size={16} color={featureColors.visits.primary} />}
+                />
+                <KpiCard
+                  title="Total Sheets"
+                  value={monthlyStats.totalSheets.toString()}
+                  icon={<FileText size={16} color={featureColors.sheets.primary} />}
+                />
+              </View>
+              <View style={styles.kpiRow}>
+                <KpiCard
+                  title="Total Expenses"
+                  value={monthlyStats.totalExpenses.toString()}
+                  icon={<IndianRupee size={16} color={featureColors.expenses.primary} />}
+                />
+                <View style={{ flex: 1 }}>
+                  <TouchableOpacity onPress={() => setShowCalendar(true)} activeOpacity={0.8}>
+                    <KpiCard
+                      title="Days Worked"
+                      value={monthlyStats.daysWorked.toString()}
+                      icon={<Calendar size={16} color={featureColors.attendance.primary} />}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* Pending Approvals Section - Moved after summary, more compact */}
         {(pendingCounts.pendingExpenses > 0 || pendingCounts.unverifiedSheets > 0) && (
           <>
             <Text style={styles.sectionTitle}>Pending Approvals</Text>
-            <Card elevation="md" style={styles.pendingCard}>
+            <View style={{ gap: 8 }}>
               {pendingCounts.pendingExpenses > 0 && (
                 <View style={styles.pendingItem}>
                   <View style={[styles.pendingIconContainer, { backgroundColor: featureColors.expenses.light }]}>
@@ -318,62 +369,64 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
                   </View>
                 </View>
               )}
-            </Card>
-          </>
-        )}
-
-        {/* Monthly Summary */}
-        <Text style={styles.sectionTitle}>This Month's Summary</Text>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : (
-          <>
-            <View style={styles.kpiGrid}>
-              <View style={styles.kpiRow}>
-                <KpiCard
-                  title="Total Visits"
-                  value={monthlyStats.totalVisits.toString()}
-                  icon={<MapPin size={16} color={featureColors.visits.primary} />}
-                />
-                <KpiCard
-                  title="Total Sheets"
-                  value={monthlyStats.totalSheets.toString()}
-                  icon={<FileText size={16} color={featureColors.sheets.primary} />}
-                />
-              </View>
-              <View style={styles.kpiRow}>
-                <KpiCard
-                  title="Total Expenses"
-                  value={monthlyStats.totalExpenses.toString()}
-                  icon={<IndianRupee size={16} color={featureColors.expenses.primary} />}
-                />
-                <KpiCard
-                  title="Days Worked"
-                  value={monthlyStats.daysWorked.toString()}
-                  icon={<Calendar size={16} color={featureColors.attendance.primary} />}
-                />
-              </View>
             </View>
-
-            {/* Performance Insight Card */}
-            {monthlyStats.daysWorked > 0 && (
-              <Card elevation="md" style={styles.insightCard}>
-                <View style={styles.insightHeader}>
-                  <TrendingUp size={20} color={featureColors.visits.primary} />
-                  <Text style={styles.insightTitle}>Performance Insight</Text>
-                </View>
-                <Text style={styles.insightText}>
-                  You're averaging {Math.round(monthlyStats.totalVisits / monthlyStats.daysWorked)} visits per day.
-                  Keep up the great work!
-                </Text>
-              </Card>
-            )}
           </>
         )}
 
       </ScrollView>
+
+      {/* Attendance Calendar Modal */}
+      <Modal visible={showCalendar} transparent animationType="slide" onRequestClose={() => setShowCalendar(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700' }}>
+                Attendance - {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </Text>
+              <TouchableOpacity onPress={() => setShowCalendar(false)}>
+                <Text style={{ fontSize: 28, color: '#666' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+              {monthlyStats.daysWorked} days present • Green = present
+            </Text>
+
+            <CalendarComponent
+              current={selectedDate.toISOString().substring(0, 10)}
+              markedDates={Object.fromEntries(
+                Array.from(attendanceDays).map(date => [
+                  date,
+                  { marked: true, dotColor: '#2E7D32', selected: false }
+                ])
+              )}
+              theme={{
+                backgroundColor: '#ffffff',
+                calendarBackground: '#ffffff',
+                textSectionTitleColor: '#393735',
+                selectedDayBackgroundColor: '#C9A961',
+                selectedDayTextColor: '#ffffff',
+                todayTextColor: '#C9A961',
+                dayTextColor: '#1A1A1A',
+                textDisabledColor: '#E0E0E0',
+                dotColor: '#2E7D32',
+                selectedDotColor: '#ffffff',
+                monthTextColor: '#393735',
+                textMonthFontWeight: '700',
+              }}
+              enableSwipeMonths={false}
+              hideArrows={true}
+            />
+
+            <TouchableOpacity
+              onPress={() => setShowCalendar(false)}
+              style={{ backgroundColor: '#393735', padding: 14, borderRadius: 12, marginTop: 16 }}
+            >
+              <Text style={{ color: '#FFF', textAlign: 'center', fontSize: 16, fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
