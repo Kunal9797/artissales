@@ -61,17 +61,13 @@ export const VisitProgressCard: React.FC<VisitProgressCardProps> = ({
     );
   }
 
-  // No targets - show "Log Visit" prompt
+  // No targets - show "No target set" message
   if (!visitProgress || visitProgress.length === 0) {
     return (
-      <TouchableOpacity
-        style={[styles.emptyCard, style]}
-        onPress={onLogPress}
-        activeOpacity={0.7}
-      >
-        <Users size={24} color={featureColors.visits.primary} strokeWidth={2.5} />
-        <Text style={styles.emptyText}>Log Visit</Text>
-      </TouchableOpacity>
+      <View style={[styles.emptyCard, style]}>
+        <Users size={24} color="#E0E0E0" strokeWidth={2.5} />
+        <Text style={styles.emptyText}>No visit target set for this month</Text>
+      </View>
     );
   }
 

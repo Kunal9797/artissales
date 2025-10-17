@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Bell, Users, CheckCircle, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, FileText, BookOpen } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
@@ -111,24 +111,43 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
         paddingBottom: 16,
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        position: 'relative',
       }}>
-        {(() => {
-          const greeting = getGreeting();
-          const GreetingIcon = greeting.Icon;
-          return (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <GreetingIcon size={20} color="#C9A961" />
-                <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-                  {greeting.text}, {userName}
+        {/* Artis Logo - Translucent background (behind text) */}
+        <View style={{
+          position: 'absolute',
+          right: 16,
+          top: 40,
+          opacity: 0.15,
+          zIndex: 0,
+        }}>
+          <Image
+            source={require('../../../assets/images/artislogo_blackbgrd.png')}
+            style={{ width: 80, height: 80 }}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Greeting content - overlays logo */}
+        <View style={{ zIndex: 1 }}>
+          {(() => {
+            const greeting = getGreeting();
+            const GreetingIcon = greeting.Icon;
+            return (
+              <>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <GreetingIcon size={20} color="#C9A961" />
+                  <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
+                    {greeting.text}, {userName.charAt(0).toUpperCase() + userName.slice(1)}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+                  {getRoleDisplay(userRole)} • Team of {teamStats.total}
                 </Text>
-              </View>
-              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-                {getRoleDisplay(userRole)} • Team of {teamStats.total}
-              </Text>
-            </>
-          );
-        })()}
+              </>
+            );
+          })()}
+        </View>
       </View>
 
       <ScrollView

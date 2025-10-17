@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
@@ -220,20 +221,31 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header with Month Picker */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Calendar size={24} color={colors.text.inverse} />
-          <Text style={styles.headerTitle}>Monthly Performance</Text>
-        </View>
-        <View style={styles.monthPicker}>
-          <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthNavButton}>
-            <ChevronLeft size={20} color={colors.text.inverse} />
-          </TouchableOpacity>
-          <Text style={styles.monthText}>{formattedMonth}</Text>
-          <TouchableOpacity onPress={goToNextMonth} style={styles.monthNavButton}>
-            <ChevronRight size={20} color={colors.text.inverse} />
-          </TouchableOpacity>
+      {/* Dark Header - Compact */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Calendar size={20} color="#C9A961" />
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>Performance</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity onPress={goToPreviousMonth} style={{ padding: 4 }}>
+              <ChevronLeft size={20} color="#C9A961" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', minWidth: 60, textAlign: 'center' }}>
+              {selectedDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+            </Text>
+            <TouchableOpacity onPress={goToNextMonth} style={{ padding: 4 }}>
+              <ChevronRight size={20} color="#C9A961" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 

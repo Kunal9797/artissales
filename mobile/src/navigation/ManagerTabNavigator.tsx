@@ -3,10 +3,42 @@
  * Built incrementally to avoid module initialization issues
  */
 
-import React from 'react';
-import { View, Text } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Users, Building2, CheckCircle, User as UserIcon } from 'lucide-react-native';
+
+// Animated Icon Wrapper with subtle scale on focus
+const AnimatedTabIcon: React.FC<{
+  Icon: any;
+  color: string;
+  focused: boolean;
+  size?: number;
+  strokeWidth?: number;
+  fill?: string;
+}> = ({ Icon, color, focused, size = 28, strokeWidth, fill }) => {
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.08 : 0.88, // Noticeable but not excessive: active 1.08, inactive 0.88
+      useNativeDriver: true,
+      tension: 80,
+      friction: 7,
+    }).start();
+  }, [focused]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Icon
+        size={size}
+        color={color}
+        strokeWidth={focused ? 2.5 : 2}
+        fill={fill || 'none'}
+      />
+    </Animated.View>
+  );
+};
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
 import { ReviewHomeScreen } from '../screens/manager/ReviewHomeScreen';
@@ -29,13 +61,14 @@ export const ManagerTabNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#C9A961',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased from 0.5 to 0.75 to reduce overlap darkening
         tabBarStyle: {
           backgroundColor: '#393735',
           paddingBottom: 30,
-          paddingTop: 8,
+          paddingTop: 12,
           height: 85,
         },
+        tabBarShowLabel: false, // Option B: No labels, just icons
       }}
     >
       <Tab.Screen
@@ -43,7 +76,9 @@ export const ManagerTabNavigator: React.FC = () => {
         component={ManagerHomeScreen}
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <Home size={24} color={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon Icon={Home} color={color} focused={focused} />
+          ),
         }}
       />
 
@@ -52,7 +87,9 @@ export const ManagerTabNavigator: React.FC = () => {
         component={TeamScreen}
         options={{
           title: 'Team',
-          tabBarIcon: ({ color }) => <Users size={24} color={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon Icon={Users} color={color} focused={focused} />
+          ),
         }}
       />
 
@@ -61,7 +98,9 @@ export const ManagerTabNavigator: React.FC = () => {
         component={AccountsListScreen}
         options={{
           title: 'Accounts',
-          tabBarIcon: ({ color }) => <Building2 size={24} color={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon Icon={Building2} color={color} focused={focused} fill="none" />
+          ),
         }}
       />
 
@@ -70,7 +109,9 @@ export const ManagerTabNavigator: React.FC = () => {
         component={ReviewHomeScreen}
         options={{
           title: 'Review',
-          tabBarIcon: ({ color }) => <CheckCircle size={24} color={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon Icon={CheckCircle} color={color} focused={focused} />
+          ),
         }}
       />
 
@@ -79,7 +120,9 @@ export const ManagerTabNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           title: 'Me',
-          tabBarIcon: ({ color }) => <UserIcon size={24} color={color} strokeWidth={2.5} />,
+          tabBarIcon: ({ color, focused }) => (
+            <AnimatedTabIcon Icon={UserIcon} color={color} focused={focused} />
+          ),
         }}
       />
     </Tab.Navigator>

@@ -18,6 +18,10 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Image,
+  Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
@@ -25,6 +29,7 @@ import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../components/ui';
 import { KpiCard } from '../patterns/KpiCard';
 import { colors, spacing, typography, featureColors } from '../theme';
+import { api } from '../services/api';
 import {
   MapPin,
   IndianRupee,
@@ -48,6 +53,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const user = authInstance.currentUser;
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState<{
     isCheckedIn: boolean;
     checkInTime: string | null;
@@ -352,14 +359,45 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Minimal Greeting Bar */}
-      <View style={styles.greetingBar}>
-        <View style={styles.greetingContent}>
-          {greeting.icon === 'sunrise' && <Sunrise size={20} color={colors.text.inverse} />}
-          {greeting.icon === 'sun' && <Sun size={20} color={colors.text.inverse} />}
-          {greeting.icon === 'moon' && <Moon size={20} color={colors.text.inverse} />}
-          <Text style={styles.greetingText}>
-            {greeting.text}, {userName || 'User'}
+      {/* Dark Header with Greeting - Matching Manager Style */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        position: 'relative',
+      }}>
+        {/* Artis Logo - Translucent background (behind text) */}
+        <View style={{
+          position: 'absolute',
+          right: 16,
+          top: 40,
+          opacity: 0.15,
+          zIndex: 0,
+        }}>
+          <Image
+            source={require('../../assets/images/artislogo_blackbgrd.png')}
+            style={{ width: 80, height: 80 }}
+            resizeMode="contain"
+          />
+        </View>
+
+        {/* Greeting content - overlays logo */}
+        <View style={{ zIndex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {greeting.icon === 'sunrise' && <Sunrise size={20} color="#C9A961" />}
+            {greeting.icon === 'sun' && <Sun size={20} color="#C9A961" />}
+            {greeting.icon === 'moon' && <Moon size={20} color="#C9A961" />}
+            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
+              {greeting.text}, {userName ? userName.charAt(0).toUpperCase() + userName.slice(1) : 'User'}!
+            </Text>
+          </View>
+          <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+            {attendanceStatus.isCheckedIn
+              ? `Checked in at ${attendanceStatus.checkInTime}`
+              : 'Not checked in yet'}
           </Text>
         </View>
       </View>
@@ -391,7 +429,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </View>
                 <TouchableOpacity
                   style={styles.checkOutButton}
-                  onPress={() => navigation.navigate('Attendance')}
+                  onPress={() => setShowAttendanceModal(true)}
                 >
                   <Text style={styles.checkOutButtonText}>Check Out</Text>
                 </TouchableOpacity>
@@ -406,7 +444,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </View>
                 <TouchableOpacity
                   style={styles.checkInButton}
-                  onPress={() => navigation.navigate('Attendance')}
+                  onPress={() => setShowAttendanceModal(true)}
                 >
                   <Text style={styles.checkInButtonText}>Check In</Text>
                 </TouchableOpacity>
@@ -564,6 +602,116 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         )}
 
       </ScrollView>
+
+      {/* Attendance Check-In/Out Modal */}
+      <Modal
+        visible={showAttendanceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAttendanceModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            padding: 24,
+            paddingBottom: 40,
+          }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 }}>
+              {attendanceStatus.isCheckedIn ? 'Check Out' : 'Check In'}
+            </Text>
+            <Text style={{ fontSize: 14, color: '#666666', marginBottom: 24 }}>
+              {attendanceStatus.isCheckedIn
+                ? `You've been working for ${getWorkingDuration() || 'today'}`
+                : 'Start your work day'}
+            </Text>
+
+            <View style={{ backgroundColor: '#F8F8F8', padding: 16, borderRadius: 12, marginBottom: 24 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <MapPin size={18} color="#666666" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>Location</Text>
+              </View>
+              <Text style={{ fontSize: 14, color: '#666666' }}>
+                {attendanceStatus.location || 'Getting location...'}
+              </Text>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+                <Clock size={18} color="#666666" />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>Time</Text>
+              </View>
+              <Text style={{ fontSize: 14, color: '#666666' }}>
+                {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#F8F8F8', alignItems: 'center' }}
+                onPress={() => setShowAttendanceModal(false)}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#666666' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: attendanceStatus.isCheckedIn ? '#EF5350' : '#2E7D32',
+                  alignItems: 'center',
+                }}
+                onPress={async () => {
+                  try {
+                    setAttendanceLoading(true);
+
+                    // Get location
+                    const { requestForegroundPermissionsAsync, getCurrentPositionAsync } = await import('expo-location');
+                    const { status } = await requestForegroundPermissionsAsync();
+
+                    if (status !== 'granted') {
+                      Alert.alert('Permission Denied', 'Location permission is required');
+                      setAttendanceLoading(false);
+                      return;
+                    }
+
+                    const location = await getCurrentPositionAsync({ accuracy: 5 });
+
+                    // Call API (backend expects lat/lon not latitude/longitude)
+                    const response = attendanceStatus.isCheckedIn
+                      ? await api.checkOut({
+                          lat: location.coords.latitude,
+                          lon: location.coords.longitude,
+                          accuracyM: Math.round(location.coords.accuracy || 0),
+                        })
+                      : await api.checkIn({
+                          lat: location.coords.latitude,
+                          lon: location.coords.longitude,
+                          accuracyM: Math.round(location.coords.accuracy || 0),
+                        });
+
+                    if (response.ok) {
+                      Alert.alert('Success', attendanceStatus.isCheckedIn ? 'Checked out successfully' : 'Checked in successfully');
+                      fetchAttendance();
+                    }
+
+                    setShowAttendanceModal(false);
+                  } catch (error: any) {
+                    Alert.alert('Error', error.message || 'Failed to process attendance');
+                  } finally {
+                    setAttendanceLoading(false);
+                  }
+                }}
+                disabled={attendanceLoading}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                  {attendanceStatus.isCheckedIn ? 'Check Out' : 'Check In'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

@@ -203,17 +203,20 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Folder size={24} color={colors.text.inverse} />
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle}>Documents</Text>
-            <Text style={styles.headerSubtitle}>
-              {offlineDocuments.length} available offline
-            </Text>
-          </View>
+      {/* Dark Header - Standardized Style */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 24,
+        paddingTop: 52,
+        paddingBottom: 16,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Folder size={20} color="#C9A961" />
+          <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>Documents</Text>
         </View>
+        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+          {documents.length} documents • {offlineDocuments.length} offline
+        </Text>
       </View>
 
       <ScrollView

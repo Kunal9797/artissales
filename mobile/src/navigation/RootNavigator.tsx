@@ -8,7 +8,7 @@ import { TabNavigator } from './TabNavigator';
 import { ManagerTabNavigator } from './ManagerTabNavigator';
 import { LoginScreen } from '../screens/LoginScreen';
 import { OTPScreen } from '../screens/OTPScreen';
-import { AttendanceScreen } from '../screens/attendance/AttendanceScreen';
+// import { AttendanceScreen } from '../screens/attendance/AttendanceScreen'; // REMOVED - Now handled by modal in HomeScreen
 import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
 import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
 import { ExpenseEntryScreen } from '../screens/expenses/ExpenseEntryScreen';
@@ -97,7 +97,6 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen name="Home" component={TabNavigator} />
           )}
           {/* Sales rep screens (always available) */}
-          <Stack.Screen name="Attendance" component={AttendanceScreen} />
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
           <Stack.Screen name="LogVisit" component={LogVisitScreen} />
           <Stack.Screen name="ExpenseEntry" component={ExpenseEntryScreen} />

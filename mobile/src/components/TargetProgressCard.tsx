@@ -58,18 +58,13 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
     return null; // Don't show error, fail silently
   }
 
-  // No targets - show "Log Sheet Sales" prompt
+  // No targets - show "No target set" message
   if (!progress || progress.length === 0) {
     return (
-      <TouchableOpacity
-        style={[styles.emptyCard, style]}
-        onPress={onLogPress}
-        activeOpacity={onLogPress ? 0.7 : 1}
-        disabled={!onLogPress}
-      >
-        <Target size={24} color={featureColors.sheets.primary} strokeWidth={2.5} />
-        <Text style={styles.emptyText}>Log Sheet Sales</Text>
-      </TouchableOpacity>
+      <View style={[styles.emptyCard, style]}>
+        <Target size={24} color="#E0E0E0" strokeWidth={2.5} />
+        <Text style={styles.emptyText}>No target set for this month</Text>
+      </View>
     );
   }
 

@@ -11,11 +11,36 @@
  * Different tabs for reps vs managers (role-based)
  */
 
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BarChart2, Plus, Folder, User, CheckSquare } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
+
+// Animated Icon Wrapper - Same as manager tabs
+const AnimatedTabIcon: React.FC<{
+  Icon: any;
+  color: string;
+  focused: boolean;
+  size?: number;
+}> = ({ Icon, color, focused, size = 28 }) => {
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.08 : 0.88,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 7,
+    }).start();
+  }, [focused]);
+
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Icon size={size} color={color} strokeWidth={focused ? 2.5 : 2} />
+    </Animated.View>
+  );
+};
 import { HomeScreen } from '../screens/HomeScreen_v2';
 import { StatsScreen } from '../screens/StatsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
@@ -138,11 +163,12 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
+          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased for clarity
           tabBarStyle: styles.tabBar,
           tabBarLabelStyle: styles.tabBarLabel,
           tabBarItemStyle: styles.tabBarItem,
           tabBarIconStyle: { marginTop: 4 },
+          tabBarShowLabel: true, // Keep labels for sales rep (helpful for navigation)
         }}
       >
         <Tab.Screen
@@ -150,8 +176,8 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           component={HomeScreen}
           options={{
             title: 'Home',
-            tabBarIcon: ({ color }) => (
-              <Home size={24} color={color} strokeWidth={2.5} />
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon Icon={Home} color={color} focused={focused} />
             ),
           }}
         />
@@ -161,8 +187,8 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           component={StatsScreen}
           options={{
             title: 'Stats',
-            tabBarIcon: ({ color }) => (
-              <BarChart2 size={24} color={color} strokeWidth={2.5} />
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon Icon={BarChart2} color={color} focused={focused} />
             ),
           }}
         />
@@ -189,8 +215,8 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           component={DocumentsScreen}
           options={{
             title: 'Docs',
-            tabBarIcon: ({ color }) => (
-              <Folder size={24} color={color} strokeWidth={2.5} />
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon Icon={Folder} color={color} focused={focused} />
             ),
           }}
         />
@@ -200,8 +226,8 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           component={ProfileScreen}
           options={{
             title: 'Me',
-            tabBarIcon: ({ color }) => (
-              <User size={24} color={color} strokeWidth={2.5} />
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon Icon={User} color={color} focused={focused} />
             ),
           }}
         />
