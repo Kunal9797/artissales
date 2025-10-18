@@ -12,6 +12,7 @@ import {
 } from "../utils/validation";
 import {requireAuth} from "../utils/auth";
 import {User, UserRole, ApiError} from "../types";
+import {setUserRoleClaim} from "../utils/customClaims";
 
 const db = getFirestore();
 
@@ -193,6 +194,15 @@ export const createUserByManager = onRequest(async (request, response) => {
     };
 
     await newUserRef.set(newUser);
+
+    // Set custom claims for JWT (improves RLS performance - P0 fix)
+    try {
+      await setUserRoleClaim(userId, role);
+      logger.info("[createUserByManager] Custom claims set", {userId, role});
+    } catch (claimsError) {
+      logger.error("[createUserByManager] Failed to set custom claims", {userId, claimsError});
+      // Don't fail the request - claims can be set later via migration
+    }
 
     logger.info("[createUserByManager] ✅ User created successfully:",
       userId, normalizedPhone, role, primaryDistributorId);

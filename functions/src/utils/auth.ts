@@ -35,11 +35,13 @@ export async function verifyAuthToken(
       email: decodedToken.email,
     };
   } catch (error) {
+    // SECURITY: Log errors internally but don't expose details to client
+    logger.error("Token verification failed", {error});
     return {
       ok: false,
       error: "Invalid or expired token",
       code: "AUTH_INVALID",
-      details: error,
+      // Details removed - logged server-side only for security
     };
   }
 }

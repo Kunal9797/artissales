@@ -49,3 +49,4 @@ export {fixOct17Data} from "./utils/fix-oct17";
 export {checkPendingData} from "./utils/check-pending";
 export {fixAllPendingData} from "./utils/fix-all-pending";
 export {checkPendingDSRs} from "./utils/check-pending-dsrs";
+export {migrateToCustomClaims} from "./utils/migrate-custom-claims";
