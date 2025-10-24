@@ -65,7 +65,7 @@ export const ManagerTabNavigator: React.FC = () => {
         tabBarStyle: {
           backgroundColor: '#393735',
           paddingBottom: 30,
-          paddingTop: 12,
+          paddingTop: 8, // Reduced from 12 to move icons up
           height: 85,
           position: 'absolute',
           bottom: 0,
@@ -78,7 +78,12 @@ export const ManagerTabNavigator: React.FC = () => {
           shadowOpacity: 0.3,
           shadowRadius: 4,
         },
-        tabBarShowLabel: false, // Option B: No labels, just icons
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 2,
+        },
+        tabBarShowLabel: true, // Changed from false to true - show labels for manager
       }}
     >
       <Tab.Screen

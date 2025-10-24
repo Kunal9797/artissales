@@ -28,7 +28,14 @@ import {
   DeleteDocumentRequest,
 } from '../types';
 
-const API_BASE_URL = 'https://us-central1-artis-sales-dev.cloudfunctions.net';
+// Use environment variable for API base URL
+// Set via .env file (see .env.example)
+// Falls back to dev environment if not set, or prod in production builds
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (__DEV__
+    ? 'https://us-central1-artis-sales-dev.cloudfunctions.net'
+    : 'https://us-central1-artis-sales.cloudfunctions.net');
 
 class ApiError extends Error {
   constructor(
@@ -48,6 +55,7 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
   }
 
   const url = `${API_BASE_URL}/${endpoint}`;
+  console.log(`[API] Calling ${endpoint} at ${url}`);
 
   try {
     const response = await fetch(url, {
@@ -59,10 +67,18 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
       body: JSON.stringify(data),
     });
 
-    const responseData = await response.json();
+    console.log(`[API] Response status: ${response.status}`);
+    console.log(`[API] Response headers:`, response.headers);
+
+    const responseText = await response.text();
+    console.log(`[API] Response text (first 200 chars):`, responseText.substring(0, 200));
+
+    const responseData = JSON.parse(responseText);
 
     if (!response.ok) {
-      console.error(`[API] ${endpoint} error:`, JSON.stringify(responseData));
+      // Redact PII before logging
+      const sanitized = redactPII(responseData);
+      console.error(`[API] ${endpoint} error:`, JSON.stringify(sanitized));
       throw new ApiError(
         responseData.error || 'API request failed',
         response.status,
@@ -77,6 +93,34 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
     console.error(`[API] Error message: ${error.message}`);
     throw error;
   }
+}
+
+/**
+ * Redact PII fields from objects before logging
+ * SECURITY: Prevents phone numbers, emails, addresses from appearing in logs
+ */
+function redactPII(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+
+  const copy = JSON.parse(JSON.stringify(obj));
+  const piiFields = ['phone', 'email', 'address', 'birthdate', 'contactPerson'];
+
+  const redactRecursive = (o: any) => {
+    if (Array.isArray(o)) {
+      o.forEach(item => redactRecursive(item));
+    } else if (o && typeof o === 'object') {
+      Object.keys(o).forEach(key => {
+        if (piiFields.includes(key)) {
+          o[key] = '[REDACTED]';
+        } else if (typeof o[key] === 'object') {
+          redactRecursive(o[key]);
+        }
+      });
+    }
+  };
+
+  redactRecursive(copy);
+  return copy;
 }
 
 export const api = {

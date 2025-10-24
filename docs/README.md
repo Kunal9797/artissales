@@ -1,6 +1,6 @@
 # Artis Field Sales App - Documentation
 
-**Last Updated**: October 17, 2025
+**Last Updated**: October 21, 2025
 
 This directory contains all project documentation organized by category. All mobile app docs have been unified here for easy access.
 
@@ -11,9 +11,11 @@ This directory contains all project documentation organized by category. All mob
 ```
 docs/
 ├── README.md                          # This file - documentation index
+├── STATUS.md                          # Current project status
 ├── proposal.md                        # Original project proposal
 ├── MOBILE_SETUP_SUMMARY.md           # Mobile app setup guide
 ├── HANDOFF_PROMPT.md                 # Agent handoff instructions
+├── PLAY_STORE_CHECKLIST.md           # Google Play Store submission checklist
 │
 ├── design/                           # Design & UX documentation
 │   ├── BRANDING_GUIDE.md            # Logo assets and brand guidelines

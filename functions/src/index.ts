@@ -50,3 +50,4 @@ export {checkPendingData} from "./utils/check-pending";
 export {fixAllPendingData} from "./utils/fix-all-pending";
 export {checkPendingDSRs} from "./utils/check-pending-dsrs";
 export {migrateToCustomClaims} from "./utils/migrate-custom-claims";
+export {syncStorageDocuments} from "./utils/sync-storage-documents";

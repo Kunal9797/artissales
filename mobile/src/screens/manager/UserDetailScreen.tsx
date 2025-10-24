@@ -32,6 +32,7 @@ import { Calendar, DateData } from 'react-native-calendars';
 import { colors, spacing, typography } from '../../theme';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { api } from '../../services/api';
+import { DetailedStatsView } from '../../components/DetailedStatsView';
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -92,7 +93,6 @@ interface UserStats {
 }
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
-type TabType = 'attendance' | 'visits' | 'sales' | 'expenses';
 
 export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   navigation,
@@ -102,7 +102,6 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [userData, setUserData] = useState<UserData | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('month'); // Default: This Month
-  const [activeTab, setActiveTab] = useState<TabType>('attendance'); // Default: Attendance
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,9 +112,11 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [editPhone, setEditPhone] = useState('');
   const [editTerritory, setEditTerritory] = useState('');
   const [saving, setSaving] = useState(false);
+  const [targets, setTargets] = useState<any>({});
 
   useEffect(() => {
     loadData();
+    fetchTargets();
   }, [userId, timeRange, customStartDate, customEndDate]);
 
   const loadData = async () => {
@@ -133,6 +134,55 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Fetch targets for the selected month
+  const fetchTargets = async () => {
+    try {
+      // Get current month from timeRange
+      const today = new Date();
+      const selectedMonth = timeRange === 'custom' && customStartDate
+        ? new Date(customStartDate)
+        : today;
+
+      const month = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      console.log('[UserDetail] Fetching targets for:', { userId, month });
+      const response = await api.getTarget({ userId, month });
+
+      if (response.ok && response.target) {
+        const newTargets: any = {};
+
+        // Pass category-level targets directly
+        if (response.target.targetsByAccountType) {
+          newTargets.visitsByType = {
+            distributor: response.target.targetsByAccountType.distributor,
+            dealer: response.target.targetsByAccountType.dealer,
+            architect: response.target.targetsByAccountType.architect,
+            contractor: response.target.targetsByAccountType.contractor,
+          };
+        }
+
+        if (response.target.targetsByCatalog) {
+          newTargets.sheetsByCatalog = {
+            'Fine Decor': response.target.targetsByCatalog['Fine Decor'],
+            'Artvio': response.target.targetsByCatalog['Artvio'],
+            'Woodrica': response.target.targetsByCatalog['Woodrica'],
+            'Artis': response.target.targetsByCatalog['Artis'],
+          };
+        }
+
+        console.log('[UserDetail] Setting targets:', newTargets);
+        setTargets(newTargets);
+      } else {
+        console.log('[UserDetail] No target found for this month');
+        setTargets({});
+      }
+    } catch (error) {
+      console.error('[UserDetail] Error fetching targets:', error);
+      // Targets are optional, so don't show error to user
+      setTargets({});
     }
   };
 
@@ -248,16 +298,6 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
     const absent = total - present;
 
     return { present, absent, total };
-  };
-
-  // Render progress bar
-  const renderProgressBar = (value: number, total: number, color: string) => {
-    const percentage = total > 0 ? (value / total) * 100 : 0;
-    return (
-      <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBarFill, { width: `${percentage}%`, backgroundColor: color }]} />
-      </View>
-    );
   };
 
   // Handle edit user details
@@ -443,248 +483,40 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
             ))}
           </View>
 
-          {/* Clickable Summary Metrics (Act as Tabs) */}
+          {/* Detailed Stats View - Same component as StatsScreen */}
           {stats && (
-            <View style={styles.summaryBar}>
-              <TouchableOpacity
-                style={[
-                  styles.summaryMetric,
-                  activeTab === 'attendance' && styles.summaryMetricActive,
-                  activeTab === 'attendance' && { backgroundColor: colors.accent },
-                ]}
-                onPress={() => setActiveTab('attendance')}
-              >
-                <Text style={[
-                  styles.summaryValue,
-                  { color: activeTab === 'attendance' ? '#fff' : colors.accent }
-                ]}>
-                  {attendancePercentage}%
-                </Text>
-                <Text style={[
-                  styles.summaryLabel,
-                  activeTab === 'attendance' && { color: '#fff', opacity: 0.9 }
-                ]}>
-                  Attendance
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.summaryMetric,
-                  activeTab === 'visits' && styles.summaryMetricActive,
-                  activeTab === 'visits' && { backgroundColor: colors.info },
-                ]}
-                onPress={() => setActiveTab('visits')}
-              >
-                <Text style={[
-                  styles.summaryValue,
-                  { color: activeTab === 'visits' ? '#fff' : colors.info }
-                ]}>
-                  {stats.visits.total}
-                </Text>
-                <Text style={[
-                  styles.summaryLabel,
-                  activeTab === 'visits' && { color: '#fff', opacity: 0.9 }
-                ]}>
-                  Visits
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.summaryMetric,
-                  activeTab === 'sales' && styles.summaryMetricActive,
-                  activeTab === 'sales' && { backgroundColor: colors.success },
-                ]}
-                onPress={() => setActiveTab('sales')}
-              >
-                <Text style={[
-                  styles.summaryValue,
-                  { color: activeTab === 'sales' ? '#fff' : colors.success },
-                  { fontSize: stats.sheets.total > 9999 ? 16 : 18 }
-                ]}>
-                  {stats.sheets.total.toLocaleString('en-IN')}
-                </Text>
-                <Text style={[
-                  styles.summaryLabel,
-                  activeTab === 'sales' && { color: '#fff', opacity: 0.9 }
-                ]}>
-                  Sheets
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.summaryMetric,
-                  activeTab === 'expenses' && styles.summaryMetricActive,
-                  activeTab === 'expenses' && { backgroundColor: colors.warning },
-                ]}
-                onPress={() => setActiveTab('expenses')}
-              >
-                <Text style={[
-                  styles.summaryValue,
-                  { color: activeTab === 'expenses' ? '#fff' : colors.warning }
-                ]}>
-                  {stats.expenses.total === 0
-                    ? '₹0'
-                    : stats.expenses.total >= 1000
-                      ? `₹${(stats.expenses.total / 1000).toFixed(1)}k`
-                      : `₹${stats.expenses.total}`
-                  }
-                </Text>
-                <Text style={[
-                  styles.summaryLabel,
-                  activeTab === 'expenses' && { color: '#fff', opacity: 0.9 }
-                ]}>
-                  Expenses
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Tab Content */}
-          {stats && (
-            <View style={styles.tabContent}>
-              {/* Attendance Tab */}
-              {activeTab === 'attendance' && (
-                <View>
-                  <Text style={styles.tabContentTitle}>ATTENDANCE BREAKDOWN</Text>
-                  <View style={styles.progressSection}>
-                    {renderProgressBar(attendanceDays.present, attendanceDays.total, colors.accent)}
-                    <Text style={styles.progressPercentage}>{attendancePercentage}%</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Present:</Text>
-                    <Text style={styles.detailValue}>{attendanceDays.present} days</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Absent:</Text>
-                    <Text style={styles.detailValue}>{attendanceDays.absent} days</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>On Leave:</Text>
-                    <Text style={styles.detailValue}>0 days</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Visits Tab */}
-              {activeTab === 'visits' && (
-                <View>
-                  <Text style={styles.tabContentTitle}>VISITS BREAKDOWN</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Total Visits:</Text>
-                    <Text style={[styles.detailValue, styles.detailValueLarge]}>{stats.visits.total}</Text>
-                  </View>
-                  <View style={styles.categorySection}>
-                    <View style={styles.categoryRow}>
-                      <View style={styles.categoryLeft}>
-                        <View style={[styles.categoryDot, { backgroundColor: colors.info }]} />
-                        <Text style={styles.categoryLabel}>Distributor</Text>
-                      </View>
-                      <Text style={styles.categoryValue}>{stats.visits.byType.distributor}</Text>
-                    </View>
-                    {renderProgressBar(stats.visits.byType.distributor, stats.visits.total, colors.info)}
-
-                    <View style={styles.categoryRow}>
-                      <View style={styles.categoryLeft}>
-                        <View style={[styles.categoryDot, { backgroundColor: colors.success }]} />
-                        <Text style={styles.categoryLabel}>Dealer</Text>
-                      </View>
-                      <Text style={styles.categoryValue}>{stats.visits.byType.dealer}</Text>
-                    </View>
-                    {renderProgressBar(stats.visits.byType.dealer, stats.visits.total, colors.success)}
-
-                    <View style={styles.categoryRow}>
-                      <View style={styles.categoryLeft}>
-                        <View style={[styles.categoryDot, { backgroundColor: colors.accent }]} />
-                        <Text style={styles.categoryLabel}>Architect</Text>
-                      </View>
-                      <Text style={styles.categoryValue}>{stats.visits.byType.architect}</Text>
-                    </View>
-                    {renderProgressBar(stats.visits.byType.architect, stats.visits.total, colors.accent)}
-                  </View>
-                </View>
-              )}
-
-              {/* Sales Tab */}
-              {activeTab === 'sales' && (
-                <View>
-                  <Text style={styles.tabContentTitle}>SALES BREAKDOWN</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Total Sheets:</Text>
-                    <Text style={[styles.detailValue, styles.detailValueLarge]}>{stats.sheets.total}</Text>
-                  </View>
-                  <View style={styles.categorySection}>
-                    {Object.entries(stats.sheets.byCatalog).map(([catalog, count], index) => {
-                      const colorMap = [colors.success, colors.info, colors.accent, colors.warning];
-                      const color = colorMap[index % colorMap.length];
-                      return (
-                        <View key={catalog}>
-                          <View style={styles.categoryRow}>
-                            <View style={styles.categoryLeft}>
-                              <View style={[styles.categoryDot, { backgroundColor: color }]} />
-                              <Text style={styles.categoryLabel}>{catalog}</Text>
-                            </View>
-                            <Text style={styles.categoryValue}>{count}</Text>
-                          </View>
-                          {renderProgressBar(count, stats.sheets.total, color)}
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {/* Expenses Tab */}
-              {activeTab === 'expenses' && (
-                <View>
-                  <Text style={styles.tabContentTitle}>EXPENSES BREAKDOWN</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Total Expenses:</Text>
-                    <Text style={[styles.detailValue, styles.detailValueLarge]}>
-                      ₹{stats.expenses.total.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-                  <View style={styles.categorySection}>
-                    {Object.entries(stats.expenses.byCategory).map(([category, amount], index) => {
-                      const colorMap = [colors.warning, colors.info, colors.accent, colors.text.secondary];
-                      const color = colorMap[index % colorMap.length];
-                      const percentage = stats.expenses.total > 0
-                        ? ((amount / stats.expenses.total) * 100).toFixed(0)
-                        : 0;
-                      return (
-                        <View key={category}>
-                          <View style={styles.categoryRow}>
-                            <View style={styles.categoryLeft}>
-                              <View style={[styles.categoryDot, { backgroundColor: color }]} />
-                              <Text style={styles.categoryLabel}>
-                                {category.charAt(0).toUpperCase() + category.slice(1)}
-                              </Text>
-                            </View>
-                            <Text style={styles.categoryValue}>₹{amount.toLocaleString('en-IN')} ({percentage}%)</Text>
-                          </View>
-                          {renderProgressBar(amount, stats.expenses.total, color)}
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-
-              {/* Empty state if no data */}
-              {stats.attendance.total === 0 &&
-                stats.visits.total === 0 &&
-                stats.sheets.total === 0 &&
-                stats.expenses.total === 0 && (
-                  <View style={styles.emptyStateContainer}>
-                    <CheckCircle size={48} color={colors.text.tertiary} />
-                    <Text style={styles.emptyStateText}>
-                      No data for selected date range
-                    </Text>
-                  </View>
-                )}
-            </View>
+            <DetailedStatsView
+              stats={stats}
+              attendanceDays={attendanceDays}
+              attendancePercentage={attendancePercentage}
+              attendanceMarkedDates={(() => {
+                // Create marked dates from attendance records
+                const markedDates: any = {};
+                stats.attendance.records
+                  .filter(r => r.type === 'check_in')
+                  .forEach(r => {
+                    const date = new Date(r.timestamp).toISOString().substring(0, 10);
+                    markedDates[date] = { marked: true, dotColor: '#2E7D32', selected: false };
+                  });
+                return markedDates;
+              })()}
+              selectedMonth={(() => {
+                // Calculate selected month from timeRange
+                const today = new Date();
+                switch (timeRange) {
+                  case 'today':
+                  case 'week':
+                  case 'month':
+                    return today;
+                  case 'custom':
+                    return customStartDate ? new Date(customStartDate) : today;
+                  default:
+                    return today;
+                }
+              })()}
+              targets={targets}
+              userId={userId}
+            />
           )}
         </View>
       </ScrollView>
@@ -1028,140 +860,6 @@ const styles = StyleSheet.create({
   dateRangePillTextActive: {
     color: colors.accent,
     fontWeight: typography.fontWeight.bold,
-  },
-  summaryBar: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: spacing.lg,
-  },
-  summaryMetric: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  summaryMetricActive: {
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 3,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.text.secondary,
-    textAlign: 'center',
-  },
-  tabContent: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tabContentTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.md,
-  },
-  progressSection: {
-    marginBottom: spacing.lg,
-  },
-  progressBarContainer: {
-    height: 8,
-    backgroundColor: colors.text.tertiary + '20',
-    borderRadius: spacing.borderRadius.full,
-    overflow: 'hidden',
-    marginBottom: spacing.sm,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: spacing.borderRadius.full,
-  },
-  progressPercentage: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.default,
-  },
-  detailLabel: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-  },
-  detailValue: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  detailValueLarge: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-  },
-  categorySection: {
-    marginTop: spacing.md,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
-  categoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  categoryDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: spacing.sm,
-  },
-  categoryLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  categoryValue: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  emptyStateContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl * 2,
-  },
-  emptyStateText: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.tertiary,
-    marginTop: spacing.md,
   },
   loadingContainer: {
     flex: 1,

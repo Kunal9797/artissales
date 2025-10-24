@@ -181,7 +181,7 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           tabBarStyle: styles.tabBar,
           tabBarLabelStyle: styles.tabBarLabel,
           tabBarItemStyle: styles.tabBarItem,
-          tabBarIconStyle: { marginTop: 4 },
+          tabBarIconStyle: { marginTop: 0 }, // Changed from 4 to 0 to move icons up
           tabBarShowLabel: true, // Keep labels for sales rep (helpful for navigation)
         }}
       >
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     height: Platform.OS === 'ios' ? 95 : 85,
     paddingBottom: Platform.OS === 'ios' ? 38 : 30,
-    paddingTop: 8,
+    paddingTop: 4, // Reduced from 8 to move icons up
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -278,10 +278,10 @@ const styles = StyleSheet.create({
   tabBarLabel: {
     fontSize: 12,
     fontWeight: typography.fontWeight.semiBold,
-    marginTop: 4,
+    marginTop: 2, // Reduced from 4 to tighten spacing
   },
   tabBarItem: {
-    paddingVertical: 6,
+    paddingVertical: 4, // Reduced from 6 to move content up
   },
 
   // Log Tab Button Styles - "Popping up" from nav bar

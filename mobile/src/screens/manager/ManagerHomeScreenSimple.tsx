@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
-import { Bell, Users, CheckCircle, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, FileText, BookOpen } from 'lucide-react-native';
+import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
@@ -21,7 +21,6 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     todayVisits: 0,
     todaySheets: 0,
   });
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -67,27 +66,9 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
           todayVisits: response.stats.visits?.total || 0,
           todaySheets: response.stats.sheets?.total || 0,
         });
-
-        // Extract top performers from team stats if available
-        if (response.stats.topPerformers && response.stats.topPerformers.length > 0) {
-          setTopPerformers(response.stats.topPerformers.slice(0, 3));
-        } else {
-          // Fallback to sample data if API doesn't provide it yet
-          setTopPerformers([
-            { name: 'Rajesh Kumar', visits: 45, sheets: 120 },
-            { name: 'Priya Singh', visits: 38, sheets: 95 },
-            { name: 'Amit Sharma', visits: 35, sheets: 88 },
-          ]);
-        }
       }
     } catch (error) {
       console.error('Error loading team stats:', error);
-      // Set sample data on error
-      setTopPerformers([
-        { name: 'Sample Rep 1', visits: 45, sheets: 120 },
-        { name: 'Sample Rep 2', visits: 38, sheets: 95 },
-        { name: 'Sample Rep 3', visits: 35, sheets: 88 },
-      ]);
     }
   };
 
@@ -227,51 +208,6 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             </View>
           </View>
         )}
-
-        {/* Top Performers */}
-        <View style={{ backgroundColor: '#F8F8F8', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <TrendingUp size={20} color="#C9A961" />
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-              Top Performers (This Month)
-            </Text>
-          </View>
-
-          {topPerformers.map((performer, index) => (
-            <View
-              key={index}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 12,
-                borderTopWidth: index > 0 ? 1 : 0,
-                borderTopColor: '#E0E0E0',
-              }}
-            >
-              <View style={{
-                width: 28,
-                height: 28,
-                borderRadius: 14,
-                backgroundColor: index === 0 ? '#FFD700' : index === 1 ? '#C0C0C0' : '#CD7F32',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
-                  {index + 1}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>
-                  {performer.name}
-                </Text>
-                <Text style={{ fontSize: 12, color: '#666666' }}>
-                  {performer.visits} visits • {performer.sheets} sheets
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
 
         {/* Documents - Compact Card */}
         <TouchableOpacity

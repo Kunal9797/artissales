@@ -4,8 +4,9 @@ service firebase.storage {
   match /b/{bucket}/o {
     // Documents folder - public read, manager write (via Cloud Function)
     match /documents/{documentId} {
-      // Allow public read access to all documents
-      allow read: if true;
+      // Only authenticated users can read documents
+      // SECURITY FIX: Changed from public read (if true) to require authentication
+      allow read: if request.auth != null;
 
       // Only allow writes from Cloud Functions (not directly from clients)
       // The Cloud Function will handle permission checks
