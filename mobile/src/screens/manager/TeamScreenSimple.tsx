@@ -8,6 +8,7 @@ import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl } fro
 import { User, Search, Phone, MapPin, CheckCircle, XCircle } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
+import { Skeleton } from '../../patterns';
 
 export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -254,21 +255,29 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       </View>
 
       {/* Team List */}
-      <FlatList
-        data={filteredUsers}
-        renderItem={renderUser}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={{ padding: 40, alignItems: 'center' }}>
-            <User size={48} color="#E0E0E0" />
-            <Text style={{ fontSize: 16, color: '#666666', marginTop: 16 }}>
-              {searchTerm ? 'No team members found' : 'No team members yet'}
-            </Text>
-          </View>
-        }
-      />
+      {loading && users.length === 0 ? (
+        <View style={{ padding: 16 }}>
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredUsers}
+          renderItem={renderUser}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <User size={48} color="#E0E0E0" />
+              <Text style={{ fontSize: 16, color: '#666666', marginTop: 16 }}>
+                {searchTerm ? 'No team members found' : 'No team members yet'}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };

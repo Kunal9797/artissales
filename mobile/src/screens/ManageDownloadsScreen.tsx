@@ -15,7 +15,7 @@ import { FileText, Image as ImageIcon, Trash2, HardDrive, Share2 } from 'lucide-
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import { colors, spacing, typography } from '../theme';
-import { EmptyState } from '../patterns';
+import { EmptyState, Skeleton } from '../patterns';
 import { documentCache, CachedDocument } from '../services/documentCache';
 
 type ManageDownloadsScreenProps = NativeStackScreenProps<any, 'ManageDownloads'>;
@@ -298,9 +298,10 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
 
       {/* Content */}
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading offline documents...</Text>
+        <View style={{ padding: spacing.screenPadding }}>
+          <Skeleton rows={2} />
+          <Skeleton rows={2} />
+          <Skeleton rows={2} />
         </View>
       ) : cachedDocs.length === 0 ? (
         <EmptyState

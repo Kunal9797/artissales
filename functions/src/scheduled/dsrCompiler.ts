@@ -157,6 +157,22 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     0
   );
 
+  // **FIX: Skip creating DSR if user had NO activity that day**
+  const hasActivity =
+    summary.checkInAt ||
+    summary.checkOutAt ||
+    summary.visitIds.length > 0 ||
+    totalSheetsSold > 0 ||
+    totalExpenses > 0;
+
+  if (!hasActivity) {
+    logger.info("Skipping DSR - no activity", {
+      userId: summary.userId,
+      date: summary.date,
+    });
+    return; // Don't create DSR
+  }
+
   // Smart approval: Auto-approve if no sheets or expenses, otherwise pending
   const requiresApproval = totalSheetsSold > 0 || totalExpenses > 0;
   const status = requiresApproval ? "pending" : "approved";

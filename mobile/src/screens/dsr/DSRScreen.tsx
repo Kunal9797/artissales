@@ -11,6 +11,7 @@ import { Clock, Building2, BarChart3, Wallet, Phone } from 'lucide-react-native'
 import { useDSR } from '../../hooks/useDSR';
 import { useTodayStats } from '../../hooks/useTodayStats';
 import { colors, spacing, typography, shadows } from '../../theme';
+import { Skeleton } from '../../patterns';
 
 interface DSRScreenProps {
   navigation: any;
@@ -55,10 +56,11 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>Loading today's report...</Text>
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.screenPadding }}>
+        <Skeleton card />
+        <Skeleton card />
+        <Skeleton card />
+      </ScrollView>
     );
   }
 

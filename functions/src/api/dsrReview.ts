@@ -178,6 +178,164 @@ export const reviewDSR = onRequest(async (request, response) => {
 });
 
 /**
+ * Get DSR Detail
+ * Returns detailed information for a specific DSR
+ *
+ * POST /getDSRDetail
+ * Body: {
+ *   reportId: string  // DSR document ID
+ * }
+ */
+export const getDSRDetail = onRequest(async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const userId = auth.uid;
+
+    // Get user's role
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found in system",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const userRole = userDoc.data()?.role;
+    const isManager = userRole === "national_head" || userRole === "admin" ||
+                      userRole === "area_manager" || userRole === "zonal_head";
+
+    // 2. Validate request body
+    const {reportId} = request.body;
+
+    if (!reportId || typeof reportId !== "string") {
+      const error: ApiError = {
+        ok: false,
+        error: "Report ID is required",
+        code: "REPORT_ID_REQUIRED",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // 3. Get DSR document
+    const dsrRef = db.collection("dsrReports").doc(reportId);
+    const dsrDoc = await dsrRef.get();
+
+    if (!dsrDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "DSR report not found",
+        code: "REPORT_NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    const dsrData = dsrDoc.data();
+
+    // 4. Check permissions - managers can view any DSR, reps can only view their own
+    if (!isManager && dsrData?.userId !== userId) {
+      const error: ApiError = {
+        ok: false,
+        error: "You do not have permission to view this DSR",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 5. Get user name
+    const repUserDoc = await db.collection("users").doc(dsrData!.userId).get();
+    const userName = repUserDoc.exists ? repUserDoc.data()?.name : "Unknown";
+
+    // 6. Get detailed sheets sales breakdown
+    const sheetsSalesSnapshot = await db
+      .collection("sheetsSales")
+      .where("userId", "==", dsrData!.userId)
+      .where("date", "==", dsrData!.date)
+      .get();
+
+    const sheetsSalesByCatalog: { [key: string]: number } = {};
+    sheetsSalesSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const catalog = data.catalog || "Unknown";
+      sheetsSalesByCatalog[catalog] = (sheetsSalesByCatalog[catalog] || 0) + (data.sheetsCount || 0);
+    });
+
+    const sheetsSales = Object.keys(sheetsSalesByCatalog).map((catalog) => ({
+      catalog,
+      totalSheets: sheetsSalesByCatalog[catalog],
+    }));
+
+    // 7. Get detailed expenses breakdown
+    const expensesSnapshot = await db
+      .collection("expenses")
+      .where("userId", "==", dsrData!.userId)
+      .where("date", "==", dsrData!.date)
+      .get();
+
+    const expensesByCategory: { [key: string]: number } = {};
+    expensesSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      // Each expense document has 'items' array with {category, amount, description}
+      if (data.items && Array.isArray(data.items)) {
+        data.items.forEach((item: any) => {
+          const category = item.category || "other";
+          expensesByCategory[category] = (expensesByCategory[category] || 0) + (item.amount || 0);
+        });
+      }
+    });
+
+    const expenses = Object.keys(expensesByCategory).map((category) => ({
+      category,
+      totalAmount: expensesByCategory[category],
+    }));
+
+    // 8. Return detailed DSR
+    response.status(200).json({
+      ok: true,
+      dsr: {
+        id: dsrDoc.id,
+        userId: dsrData!.userId,
+        userName,
+        date: dsrData!.date,
+        checkInAt: dsrData!.checkInAt?.toDate?.().toISOString() || null,
+        checkOutAt: dsrData!.checkOutAt?.toDate?.().toISOString() || null,
+        totalVisits: dsrData!.totalVisits || 0,
+        visitIds: dsrData!.visitIds || [],
+        sheetsSales,
+        totalSheetsSold: dsrData!.totalSheetsSold || 0,
+        expenses,
+        totalExpenses: dsrData!.totalExpenses || 0,
+        status: dsrData!.status || "pending",
+        managerComments: dsrData!.managerComments || "",
+        reviewedBy: dsrData!.reviewedBy || null,
+        reviewedAt: dsrData!.reviewedAt?.toDate().toISOString() || null,
+        generatedAt: dsrData!.generatedAt?.toDate().toISOString() || null,
+      },
+    });
+  } catch (error: any) {
+    logger.error("[getDSRDetail] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+/**
  * Get Pending DSRs
  * Returns list of all pending DSRs for manager review
  *

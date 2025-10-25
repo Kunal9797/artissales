@@ -204,6 +204,10 @@ export const api = {
     return callFunction('getPendingDSRs', data);
   },
 
+  getDSRDetail: async (data: { reportId: string }) => {
+    return callFunction('getDSRDetail', data);
+  },
+
   getUsersList: async (data: GetUsersListRequest) => {
     return callFunction('getUsersList', data);
   },
@@ -235,6 +239,10 @@ export const api = {
 
   updateAccount: async (data: UpdateAccountRequest) => {
     return callFunction('updateAccount', data);
+  },
+
+  deleteAccount: async (data: { accountId: string }) => {
+    return callFunction('deleteAccount', data);
   },
 
   // Helper: Get user by ID (from Firestore directly, not an API endpoint)

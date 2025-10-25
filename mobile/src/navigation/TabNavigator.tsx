@@ -16,6 +16,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, Animated } f
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BarChart2, Plus, Folder, User, CheckSquare } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Animated Icon Wrapper - Same as manager tabs
 const AnimatedTabIcon: React.FC<{
@@ -82,6 +83,8 @@ interface FABMenuProps {
 }
 
 const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
+  const insets = useSafeAreaInsets();
+
   const menuItems = [
     {
       icon: <CheckSquare size={28} color={featureColors.visits.primary} />,
@@ -126,7 +129,7 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={styles.fabMenuContainer}>
+        <View style={[styles.fabMenuContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           {/* Modern Handle Bar */}
           <View style={styles.handleBar} />
 
@@ -170,6 +173,7 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
  */
 export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   return (
     <>
@@ -178,7 +182,11 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           headerShown: false,
           tabBarActiveTintColor: colors.accent,
           tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased for clarity
-          tabBarStyle: styles.tabBar,
+          tabBarStyle: {
+            ...styles.tabBar,
+            paddingBottom: Math.max(insets.bottom, 8), // Dynamic safe area padding
+            height: (Platform.OS === 'ios' ? 75 : 65) + Math.max(insets.bottom, 8), // Adjust height
+          },
           tabBarLabelStyle: styles.tabBarLabel,
           tabBarItemStyle: styles.tabBarItem,
           tabBarIconStyle: { marginTop: 0 }, // Changed from 4 to 0 to move icons up

@@ -15,6 +15,7 @@ import { User, Search, ChevronRight, Filter } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { UserListItem } from '../../types';
+import { Skeleton } from '../../patterns';
 
 type UserListScreenProps = NativeStackScreenProps<any, 'UserList'>;
 
@@ -178,9 +179,10 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
 
       {/* User List */}
       {loading && filteredUsers.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading users...</Text>
+        <View style={styles.content}>
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
         </View>
       ) : filteredUsers.length === 0 ? (
         <View style={styles.emptyContainer}>

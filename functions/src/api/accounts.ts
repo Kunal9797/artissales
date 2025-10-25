@@ -617,3 +617,106 @@ export const getAccountDetails = onRequest(async (request, response) => {
     response.status(500).json({ok: false, error: "Internal error", code: "INTERNAL_ERROR", details: error.message});
   }
 });
+
+/**
+ * Delete Account (Soft Delete)
+ * Only National Heads and Admins can delete accounts
+ *
+ * POST /deleteAccount
+ * Body: { accountId: string }
+ *
+ * Permissions:
+ * - Admin: Can delete any account
+ * - National Head: Can delete any account
+ * - Others: Not allowed
+ */
+export const deleteAccount = onRequest({invoker: "public"}, async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const userId = auth.uid;
+
+    // Get caller's role
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const callerRole = userDoc.data()?.role;
+
+    // 2. Check permissions - Only admin and national_head can delete
+    if (callerRole !== "admin" && callerRole !== "national_head") {
+      const error: ApiError = {
+        ok: false,
+        error: "Only National Heads and Admins can delete accounts",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 3. Parse input
+    const {accountId} = request.body;
+
+    if (!accountId) {
+      const error: ApiError = {
+        ok: false,
+        error: "Missing required field: accountId",
+        code: "MISSING_FIELDS",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // 4. Get existing account
+    const accountRef = db.collection("accounts").doc(accountId);
+    const accountDoc = await accountRef.get();
+
+    if (!accountDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "Account not found",
+        code: "ACCOUNT_NOT_FOUND",
+      };
+      response.status(404).json(error);
+      return;
+    }
+
+    const accountData = accountDoc.data();
+
+    // 5. Soft delete - update status to "deleted"
+    await accountRef.update({
+      status: "deleted",
+      deletedAt: Timestamp.now(),
+      deletedByUserId: userId,
+      updatedAt: Timestamp.now(),
+    });
+
+    logger.info(`[deleteAccount] ✅ Account deleted:`, accountId, accountData?.name, "by", userId);
+
+    response.status(200).json({
+      ok: true,
+      message: "Account deleted successfully",
+    });
+  } catch (error: any) {
+    logger.error("[deleteAccount] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});

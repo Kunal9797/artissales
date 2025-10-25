@@ -1,0 +1,212 @@
+LOADING STATE IMPLEMENTATION DISTRIBUTION
+===========================================
+
+VISUAL OVERVIEW
+---------------
+
+   Skeleton     ActivityIndicator    No Loading State
+   (Optimal)    (Acceptable/Needs     (Missing)
+                Improvement)
+
+        1%            67%                30%
+       ███            ██████████████      ███████
+         |                 |                 |
+  AccountsList        12 Full-Screen      9 Screens
+                      8 Inline/Button
+
+
+DETAILED BREAKDOWN BY CATEGORY
+==============================
+
+1. MANAGER DASHBOARD SCREENS (11 screens)
+   ├─ ✅ AccountsListScreen          → Skeleton (3 rows, avatar)
+   ├─ ⚠️  UserListScreen             → Spinner (needs Skeleton)
+   ├─ ⚠️  UserDetailScreen           → Spinner (needs Skeleton)
+   ├─ ⚠️  AccountDetailScreen        → Spinner (needs Skeleton)
+   ├─ ⚠️  TeamTargetsScreen          → Spinner (needs Skeleton)
+   ├─ ⚠️  SetTargetScreen            → Spinner (needs Skeleton)
+   ├─ ⚠️  DSRApprovalListScreen      → Empty check only (needs Skeleton)
+   ├─ ⚠️  DSRApprovalDetailScreen    → Spinner + button spinners (needs refactor)
+   ├─ ⚠️  AddUserScreen              → Button spinner only
+   ├─ ⚠️  ManagerHomeScreen          → ? (not examined)
+   └─ ⚠️  ReviewHomeScreen           → ? (not examined)
+
+   SUBTOTAL: 1 correct ✅ | 10 need improvement ⚠️
+
+2. SALES REP SCREENS (10 screens)
+   ├─ ⚠️  HomeScreen_v2              → No conditional (data loads async)
+   ├─ ⚠️  StatsScreen                → Spinner (needs Skeleton)
+   ├─ ⚠️  DocumentsScreen            → Spinner (needs Skeleton)
+   ├─ ⚠️  ProfileScreen              → ? (not examined)
+   ├─ ⚠️  SelectAccountScreen        → ? (not examined)
+   ├─ ⚠️  LogVisitScreen             → ? (not examined)
+   ├─ ⚠️  CompactSheetsEntryScreen   → Button spinners only
+   ├─ ⚠️  ExpenseEntryScreen         → ? (not examined)
+   ├─ ⚠️  ManageDownloadsScreen      → Spinner (needs Skeleton)
+   └─ ⚠️  UploadDocumentScreen       → Button spinner only
+
+   SUBTOTAL: 0 correct | 10 need improvement ⚠️
+
+3. FORM/ACTION SCREENS (5 screens)
+   ├─ ⚠️  LoginScreen                → Button spinner only
+   ├─ ⚠️  OTPScreen                  → Button spinner only (likely)
+   ├─ ⚠️  AddAccountScreen           → Button spinner only
+   ├─ ⚠️  EditAccountScreen          → Button spinner only + needs initial load skeleton
+   └─ ⚠️  DSRScreen                  → ? (not examined)
+
+   SUBTOTAL: 0 correct | 5 need improvement ⚠️
+
+4. DEV/UTILITY SCREENS (4 screens)
+   ├─ ℹ️  KitchenSinkScreen          → Manual toggle (dev-only, ok)
+   ├─ ℹ️  DesignLabScreen            → Shows ActivityIndicator (dev-only, ok)
+   ├─ ℹ️  ManagerHomeScreenSimple    → ? (not examined)
+   └─ ℹ️  TeamScreenSimple           → ? (not examined)
+
+   SUBTOTAL: Dev screens - lower priority
+
+TOTAL SCREENS ANALYZED: 30
+├─ Using Skeleton correctly:      1  (3%)  ✅
+├─ Using Spinner (needs Skeleton):  20  (67%) ⚠️
+└─ No loading state:              9  (30%) ❌
+
+
+COMPONENTS (22 total)
+=====================
+
+   Status:
+   ✅ Proper Skeleton Usage       0
+   ⚠️ Custom Skeleton Pattern      1 (DetailedTargetProgressCard - duplicates code)
+   ⚠️ No Loading State            21
+
+   
+KEY OBSERVATIONS
+================
+
+1. MOST COMMON ANTI-PATTERN
+   {loading ? (
+     <ActivityIndicator size="large" />
+   ) : (
+     <ScrollView>...</ScrollView>
+   )}
+   
+   Found in: StatsScreen, DocumentsScreen, UserListScreen, AccountDetailScreen, etc.
+   
+   Problem: Spinner doesn't show content layout while loading
+   Solution: Replace with Skeleton component
+
+2. CODE DUPLICATION
+   DetailedTargetProgressCard.tsx (lines 44-69) contains custom inline skeleton:
+   
+   {loading ? (
+     <View style={...}>
+       <View style={{ width: 100, height: 14, backgroundColor: '#F0F0F0' }} />
+       // ... more manual styles
+     </View>
+   )}
+   
+   Problem: Reinvents what Skeleton.tsx already does
+   Solution: Import and use <Skeleton /> component
+
+3. MISSING STATES
+   Several screens load data but don't show any loading indicator:
+   - HomeScreen_v2: Shows empty state until data loads (no skeleton)
+   - SelectAccountScreen: Likely loads account list (no skeleton visible)
+   - LogVisitScreen: May load initial form data (no skeleton visible)
+   
+   Problem: User sees blank screen then sudden content appears
+   Solution: Add Skeleton as data loads
+
+4. BUTTON SPINNERS (Correct pattern)
+   CompactSheetsEntryScreen, UploadDocumentScreen, etc.
+   
+   {isSubmitting ? (
+     <ActivityIndicator size="small" color="#fff" />
+   ) : (
+     <Text>Save</Text>
+   )}
+   
+   This is CORRECT - use spinner for action buttons, not data loading
+
+5. THEME INTEGRATION
+   Skeleton.tsx uses theme colors (colors.border.default)
+   ✅ Good practice, respects design system
+
+
+PRIORITY RANKING
+================
+
+HIGH (1-2 hours, major impact):
+1. Convert StatsScreen spinner to Skeleton
+2. Convert DocumentsScreen spinner to Skeleton
+3. Convert UserListScreen spinner to Skeleton
+4. Convert AccountDetailScreen spinner to Skeleton
+5. Convert UserDetailScreen spinner to Skeleton
+6. Convert remaining manager dashboard spinners to Skeleton
+
+MEDIUM (2-3 hours, consistency):
+7. Add Skeleton to HomeScreen_v2
+8. Add Skeleton to DSRApprovalListScreen
+9. Add Skeleton to SelectAccountScreen
+10. Add Skeleton to ProfileScreen
+11. Add Skeleton to ExpenseEntryScreen
+12. Add Skeleton to EditAccountScreen
+
+LOW (15 minutes, code quality):
+13. Fix DetailedTargetProgressCard to use Skeleton component
+
+ENHANCEMENT (1-2 hours, developer experience):
+14. Add count prop to Skeleton
+15. Add height variants to Skeleton
+16. Add animated toggle to Skeleton
+17. Add color override to Skeleton
+
+
+IMPACT METRICS
+==============
+
+If all recommendations implemented:
+
+BEFORE:
+├─ Skeleton usage:        3% (1 screen)
+├─ Spinner usage:        67% (20 screens)
+├─ No loading state:     30% (9 screens)
+└─ Code duplication:      1 (DetailedTargetProgressCard)
+
+AFTER:
+├─ Skeleton usage:       73% (22 screens) ↑ 70
+├─ Spinner usage:        27% (8 screens - buttons only) ↓ 40
+├─ No loading state:      0% (0 screens) ↓ 30
+└─ Code duplication:      0 ✅
+
+UX IMPROVEMENTS:
+✓ Better perceived performance (skeletons vs spinners)
+✓ Professional appearance
+✓ Consistent across app
+✓ Reduced code duplication
+✓ Easier to maintain and update
+
+
+NEXT STEPS
+==========
+
+1. Start with 3 highest-priority screens (1 hour)
+   - Copy pattern from AccountsListScreen
+   - Replace ActivityIndicator with Skeleton rows
+   - Test and iterate
+
+2. Fix DetailedTargetProgressCard duplication (15 min)
+   - Replace inline skeleton with <Skeleton /> component
+   - Verify styling looks same
+
+3. Convert remaining spinner screens (1 hour)
+   - Follow same pattern
+   - Adjust rows/avatar props per screen
+
+4. Add missing states (1-2 hours)
+   - Add Skeleton to screens with no loading state
+   - Test on slow networks
+
+5. Enhance Skeleton component (1-2 hours)
+   - Add convenience props (count, height, animated, color)
+   - Update examples in KitchenSinkScreen
+

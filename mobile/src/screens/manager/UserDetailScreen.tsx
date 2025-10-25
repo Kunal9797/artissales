@@ -33,6 +33,7 @@ import { colors, spacing, typography } from '../../theme';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { api } from '../../services/api';
 import { DetailedStatsView } from '../../components/DetailedStatsView';
+import { Skeleton } from '../../patterns';
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -344,10 +345,11 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           </TouchableOpacity>
           <Text style={styles.headerTitle}>User Details</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading user details...</Text>
-        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton card />
+        </ScrollView>
       </View>
     );
   }

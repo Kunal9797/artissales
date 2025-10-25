@@ -19,7 +19,7 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
+import { Skeleton } from '../../patterns';
 
 interface DSRApprovalDetailScreenProps {
   navigation: any;
@@ -60,26 +60,18 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
 
   const loadDSR = async () => {
     try {
-      const db = getFirestore();
-      const dsrDocRef = doc(db, 'dsrReports', dsrId);
-      const dsrDoc = await getDoc(dsrDocRef);
+      console.log('[DSRDetail] Loading DSR:', dsrId);
+      const response = await api.getDSRDetail({ reportId: dsrId });
+      console.log('[DSRDetail] Response:', response);
 
-      if (dsrDoc.exists()) {
-        const data = dsrDoc.data();
-        // Get user name
-        const userDocRef = doc(db, 'users', data.userId);
-        const userDoc = await getDoc(userDocRef);
-        const userName = userDoc.exists() ? userDoc.data()?.name : 'Unknown';
-
-        setDsr({
-          id: dsrDoc.id,
-          ...data,
-          userName,
-        } as DSRDetail);
+      if (response.ok && response.dsr) {
+        setDsr(response.dsr);
+      } else {
+        Alert.alert('Error', 'DSR not found');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[DSRDetail] Error loading DSR:', error);
-      Alert.alert('Error', 'Failed to load DSR details');
+      Alert.alert('Error', error.message || 'Failed to load DSR details');
     } finally {
       setLoading(false);
     }
@@ -155,14 +147,34 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
 
   const formatTime = (timestamp: any) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    // Handle Firestore Timestamp objects, ISO strings, and Date objects
+    let date: Date;
+    if (timestamp.toDate) {
+      date = timestamp.toDate();
+    } else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    } else {
+      date = new Date(timestamp);
+    }
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) return 'N/A';
+
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>DSR Details</Text>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton rows={2} />
+        </ScrollView>
       </View>
     );
   }

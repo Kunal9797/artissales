@@ -7,10 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  TextInput,
 } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
-import { ClipboardList, ChevronRight, Calendar } from 'lucide-react-native';
+import { ClipboardList, ChevronRight, Calendar, Search } from 'lucide-react-native';
 import { api } from '../../services/api';
+import { Skeleton } from '../../patterns';
 
 interface DSRApprovalListScreenProps {
   navigation: any;
@@ -30,7 +32,8 @@ interface DSRItem {
 
 export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ navigation }) => {
   const [dsrs, setDsrs] = useState<DSRItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadDSRs();
@@ -69,6 +72,10 @@ export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ na
     });
   };
 
+  const filteredDSRs = dsrs.filter((dsr) =>
+    dsr.userName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -78,24 +85,46 @@ export const DSRApprovalListScreen: React.FC<DSRApprovalListScreenProps> = ({ na
         </TouchableOpacity>
         <Text style={styles.title}>DSR Approvals</Text>
         <Text style={styles.subtitle}>Review daily sales reports</Text>
+
+        {/* Search bar */}
+        <View style={styles.searchContainer}>
+          <Search size={20} color={colors.text.tertiary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by user name..."
+            placeholderTextColor={colors.text.tertiary}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+        </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={[colors.accent]} />
+          <RefreshControl refreshing={loading && dsrs.length > 0} onRefresh={onRefresh} colors={[colors.accent]} />
         }
       >
-        {dsrs.length === 0 && !loading && (
+        {loading && dsrs.length === 0 ? (
+          <>
+            <Skeleton card />
+            <Skeleton card />
+            <Skeleton card />
+          </>
+        ) : filteredDSRs.length === 0 ? (
           <View style={styles.emptyState}>
             <ClipboardList size={48} color={colors.text.tertiary} />
-            <Text style={styles.emptyStateText}>No pending DSRs</Text>
-            <Text style={styles.emptyStateSubtext}>All reports have been reviewed</Text>
+            <Text style={styles.emptyStateText}>
+              {searchTerm ? 'No matching DSRs found' : 'No pending DSRs'}
+            </Text>
+            <Text style={styles.emptyStateSubtext}>
+              {searchTerm ? 'Try a different search term' : 'All reports have been reviewed'}
+            </Text>
           </View>
-        )}
+        ) : null}
 
-        {dsrs.map((dsr) => (
+        {!loading && filteredDSRs.map((dsr) => (
           <TouchableOpacity
             key={dsr.id}
             style={styles.dsrCard}
@@ -161,6 +190,21 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.fontSize.sm,
     color: 'rgba(255,255,255,0.8)',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,

@@ -56,6 +56,9 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
   // Check if user can create distributors
   const canCreateDistributor = user?.role === 'national_head' || user?.role === 'admin';
 
+  // Check if user can delete accounts (only admin and national_head)
+  const canDeleteAccount = user?.role === 'national_head' || user?.role === 'admin';
+
   useEffect(() => {
     // Load distributors for linking
     loadDistributors();
@@ -160,6 +163,58 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDelete = () => {
+    if (!account?.id) {
+      Alert.alert('Error', 'Account ID is missing');
+      return;
+    }
+
+    // Show confirmation dialog
+    Alert.alert(
+      'Delete Account',
+      `Are you sure you want to delete "${account.name}"? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const response = await api.deleteAccount({ accountId: account.id });
+
+              if (response.ok) {
+                Alert.alert('Success', 'Account deleted successfully', [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      // Call the callback if provided
+                      if (onAccountUpdated) {
+                        onAccountUpdated();
+                      }
+                      // Navigate back
+                      navigation.goBack();
+                    },
+                  },
+                ]);
+              } else {
+                Alert.alert('Error', response.error || 'Failed to delete account');
+              }
+            } catch (error: any) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', error.message || 'Failed to delete account');
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -425,6 +480,21 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
           )}
         </TouchableOpacity>
 
+        {/* Delete Account Button (Only for National Head and Admin) */}
+        {canDeleteAccount && (
+          <TouchableOpacity
+            style={[styles.deleteButton, loading && styles.submitButtonDisabled]}
+            onPress={handleDelete}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.deleteButtonText}>Delete Account</Text>
+            )}
+          </TouchableOpacity>
+        )}
+
         <View style={{ height: spacing.xl }} />
       </ScrollView>
 
@@ -671,6 +741,20 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: '#fff',
+  },
+  deleteButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    borderWidth: 2,
+    borderColor: '#B91C1C',
+  },
+  deleteButtonText: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: '#fff',

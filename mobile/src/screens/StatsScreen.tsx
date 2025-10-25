@@ -15,7 +15,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -24,6 +23,7 @@ import { getFirestore } from '@react-native-firebase/firestore';
 import { DetailedStatsView } from '../components/DetailedStatsView';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { api } from '../services/api';
+import { Skeleton } from '../patterns';
 import {
   Calendar,
   FileText,
@@ -270,8 +270,10 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
 
         {/* Detailed Stats View */}
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
+          <View style={styles.content}>
+            <Skeleton card />
+            <Skeleton card />
+            <Skeleton card />
           </View>
         ) : detailedStats ? (
           <DetailedStatsView

@@ -17,6 +17,7 @@ import { api } from '../../services/api';
 import { LogOut, User as UserIcon, Mail, Phone, MapPin, Briefcase } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../../theme';
 import { Card, Badge } from '../../components/ui';
+import { Skeleton } from '../../patterns';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -155,9 +156,20 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <View style={styles.container}>
+        <View style={{
+          backgroundColor: '#393735',
+          paddingHorizontal: 24,
+          paddingTop: 52,
+          paddingBottom: 20,
+        }}>
+          <Skeleton rows={1} />
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.screenPadding }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton rows={2} />
+        </ScrollView>
       </View>
     );
   }

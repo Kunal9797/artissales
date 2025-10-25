@@ -49,7 +49,8 @@ docs/
 │   ├── MANAGER_DASHBOARD_PLAN.md
 │   ├── ACCOUNT_MANAGEMENT_DESIGN.md
 │   ├── VISIT_TARGET_DESIGNS.md
-│   └── DESIGN_REVAMP.md
+│   ├── DESIGN_REVAMP.md
+│   └── V1_PLUS_FUTURE_ENHANCEMENTS.md  # Post-V1 feature roadmap
 │
 ├── releases/                         # PR descriptions & changelogs
 │   ├── PR5_FLASHLIST_PERF.md        # FlashList migration PR
@@ -60,7 +61,8 @@ docs/
 │
 ├── testing/                          # Testing guides & progress
 │   ├── HOW_TO_TEST.md
-│   └── PHASE1_PROGRESS.md
+│   ├── PHASE1_PROGRESS.md
+│   └── V1_PRE_PRODUCTION_SCREEN_REVIEW.md  # Pre-production screen checklist
 │
 └── archive/                          # Old session files
     ├── CURRENT_SESSION.md
@@ -107,7 +109,7 @@ Current implementation status, progress tracking, and completed features.
 - **[ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md](implementation/ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md)** - Account progress
 - **[TABS_IMPLEMENTED.md](implementation/TABS_IMPLEMENTED.md)** - Tab navigation implementation
 
-### 📐 Planning (6 files)
+### 📐 Planning (7 files)
 Architecture decisions, feature planning, and design documentation.
 
 - **[NAVIGATION_PLAN.md](planning/NAVIGATION_PLAN.md)** - App navigation structure and patterns
@@ -116,6 +118,7 @@ Architecture decisions, feature planning, and design documentation.
 - **[ACCOUNT_MANAGEMENT_DESIGN.md](planning/ACCOUNT_MANAGEMENT_DESIGN.md)** - Account management design
 - **[VISIT_TARGET_DESIGNS.md](planning/VISIT_TARGET_DESIGNS.md)** - Visit and target tracking designs
 - **[DESIGN_REVAMP.md](planning/DESIGN_REVAMP.md)** - Overall design revamp plan
+- **[V1_PLUS_FUTURE_ENHANCEMENTS.md](planning/V1_PLUS_FUTURE_ENHANCEMENTS.md)** - Post-V1 feature roadmap (lead assignment, map view, etc.)
 
 ### 📦 Releases (5 files)
 Pull request descriptions, changelogs, and release notes.
@@ -126,11 +129,12 @@ Pull request descriptions, changelogs, and release notes.
 - **[PR6_DESCRIPTION.md](releases/PR6_DESCRIPTION.md)** - PR6 summary
 - **[PR_DESCRIPTION.md](releases/PR_DESCRIPTION.md)** - General PR template
 
-### 🧪 Testing (2 files)
+### 🧪 Testing (3 files)
 Testing procedures, QA checklists, and phase progress.
 
 - **[HOW_TO_TEST.md](testing/HOW_TO_TEST.md)** - Testing procedures and guides
 - **[PHASE1_PROGRESS.md](testing/PHASE1_PROGRESS.md)** - Phase 1 testing progress
+- **[V1_PRE_PRODUCTION_SCREEN_REVIEW.md](testing/V1_PRE_PRODUCTION_SCREEN_REVIEW.md)** - Pre-production checklist for all 29 screens
 
 ---
 

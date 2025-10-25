@@ -14,6 +14,7 @@ import { ArrowLeft, Target, ChevronRight, RefreshCw } from 'lucide-react-native'
 import { colors, spacing, typography } from '../../theme';
 import { api } from '../../services/api';
 import { UserTargetSummary } from '../../types';
+import { Skeleton } from '../../patterns';
 
 type TeamTargetsScreenProps = NativeStackScreenProps<any, 'TeamTargets'>;
 
@@ -184,9 +185,10 @@ export const TeamTargetsScreen: React.FC<TeamTargetsScreenProps> = ({ navigation
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Team Targets</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading team targets...</Text>
+        <View style={{ padding: spacing.lg }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton card />
         </View>
       </View>
     );

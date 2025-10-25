@@ -9,6 +9,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { RootStackParamList } from '../../navigation/RootNavigator';
+import { Skeleton } from '../../patterns';
+import { spacing } from '../../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AccountDetail'>;
 
@@ -87,9 +89,20 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#C9A961" />
-        <Text style={{ marginTop: 16, fontSize: 14, color: '#666666' }}>Loading account...</Text>
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <View style={{
+          backgroundColor: '#393735',
+          paddingHorizontal: 24,
+          paddingTop: 52,
+          paddingBottom: 16,
+        }}>
+          <Skeleton rows={1} />
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton rows={3} />
+        </ScrollView>
       </View>
     );
   }

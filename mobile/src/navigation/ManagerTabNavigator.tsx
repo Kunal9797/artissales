@@ -7,6 +7,7 @@ import React, { useRef, useEffect } from 'react';
 import { View, Text, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Users, Building2, CheckCircle, User as UserIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Animated Icon Wrapper with subtle scale on focus
 const AnimatedTabIcon: React.FC<{
@@ -56,6 +57,8 @@ const Placeholder: React.FC<{ title: string }> = ({ title }) => (
 );
 
 export const ManagerTabNavigator: React.FC = () => {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -64,9 +67,9 @@ export const ManagerTabNavigator: React.FC = () => {
         tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased from 0.5 to 0.75 to reduce overlap darkening
         tabBarStyle: {
           backgroundColor: '#393735',
-          paddingBottom: 30,
+          paddingBottom: Math.max(insets.bottom, 8), // Use safe area inset or minimum 8px
           paddingTop: 8, // Reduced from 12 to move icons up
-          height: 85,
+          height: 65 + Math.max(insets.bottom, 8), // Adjust height based on bottom inset
           position: 'absolute',
           bottom: 0,
           left: 0,

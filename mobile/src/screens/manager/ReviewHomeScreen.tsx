@@ -6,17 +6,20 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import { FileText, User as UserIcon, CheckCircle, XCircle, Clock, MapPin, TrendingUp, IndianRupee, FileBarChart } from 'lucide-react-native';
+import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, TextInput } from 'react-native';
+import { FileText, User as UserIcon, CheckCircle, XCircle, Clock, MapPin, TrendingUp, IndianRupee, FileBarChart, Search } from 'lucide-react-native';
 import { api } from '../../services/api';
+import { Skeleton } from '../../patterns';
 
 export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'all'>('pending');
   const [refreshing, setRefreshing] = useState(false);
   const [dsrs, setDsrs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const dsrResponse = await api.getPendingDSRs({ status: statusFilter === 'all' ? undefined : statusFilter });
 
@@ -55,6 +58,11 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
   const handleReportsPress = () => {
     Alert.alert('Performance Reports', 'Report generation coming soon');
   };
+
+  // Filter DSRs by search term
+  const filteredDSRs = dsrs.filter((dsr) =>
+    dsr.userName?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const renderDSRItem = ({ item }: { item: any }) => {
     const badge = getStatusBadge(item.status || 'pending');
@@ -185,13 +193,39 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
         </View>
       </View>
 
+      {/* Search Bar */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#F5F5F5',
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 10,
+        }}>
+          <Search size={20} color="#999999" />
+          <TextInput
+            style={{
+              flex: 1,
+              marginLeft: 8,
+              fontSize: 14,
+              color: '#1A1A1A',
+            }}
+            placeholder="Search by user name..."
+            placeholderTextColor="#999999"
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+        </View>
+      </View>
+
       {/* Status Filter Chips - No background for seamless look */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           {[
-            { value: 'pending', label: 'Pending', count: dsrs.filter(d => d.status === 'pending').length },
-            { value: 'approved', label: 'Approved', count: dsrs.filter(d => d.status === 'approved').length },
-            { value: 'all', label: 'All', count: dsrs.length },
+            { value: 'pending', label: 'Pending', count: filteredDSRs.filter(d => d.status === 'pending').length },
+            { value: 'approved', label: 'Approved', count: filteredDSRs.filter(d => d.status === 'approved').length },
+            { value: 'all', label: 'All', count: filteredDSRs.length },
           ].map((filter) => (
             <TouchableOpacity
               key={filter.value}
@@ -218,26 +252,36 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
       </View>
 
       {/* DSR List */}
-      <FlatList
-        data={dsrs}
-        renderItem={renderDSRItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={{ padding: 40, alignItems: 'center' }}>
-            <FileText size={48} color="#E0E0E0" />
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginTop: 16 }}>
-              No {statusFilter === 'all' ? '' : statusFilter} DSRs
-            </Text>
-            <Text style={{ fontSize: 14, color: '#666666', marginTop: 8, textAlign: 'center' }}>
-              {statusFilter === 'pending'
-                ? 'All DSRs have been reviewed'
-                : 'Pull down to refresh'}
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={{ padding: 16 }}>
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton card />
+          <Skeleton card />
+        </View>
+      ) : (
+        <FlatList
+          data={filteredDSRs}
+          renderItem={renderDSRItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            <View style={{ padding: 40, alignItems: 'center' }}>
+              <FileText size={48} color="#E0E0E0" />
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginTop: 16 }}>
+                {searchTerm ? 'No matching DSRs found' : `No ${statusFilter === 'all' ? '' : statusFilter} DSRs`}
+              </Text>
+              <Text style={{ fontSize: 14, color: '#666666', marginTop: 8, textAlign: 'center' }}>
+                {searchTerm
+                  ? 'Try a different search term'
+                  : (statusFilter === 'pending' ? 'All DSRs have been reviewed' : 'Pull down to refresh')
+                }
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 };

@@ -14,6 +14,7 @@ import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
+import { Skeleton } from '../../patterns';
 
 interface SelectAccountScreenProps {
   navigation: any;
@@ -151,9 +152,20 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading accounts...</Text>
+      <View style={styles.container}>
+        <View style={{
+          backgroundColor: '#393735',
+          paddingHorizontal: 24,
+          paddingTop: 52,
+          paddingBottom: 16,
+        }}>
+          <Skeleton rows={1} />
+        </View>
+        <View style={{ padding: spacing.lg }}>
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+          <Skeleton rows={3} avatar />
+        </View>
       </View>
     );
   }

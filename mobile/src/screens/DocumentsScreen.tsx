@@ -30,7 +30,7 @@ import { api } from '../services/api';
 import { documentCache, DownloadProgress } from '../services/documentCache';
 import { Document } from '../types';
 import { useAuth } from '../hooks/useAuth';
-import { EmptyState } from '../patterns';
+import { EmptyState, Skeleton } from '../patterns';
 import {
   FileText,
   Folder,
@@ -443,10 +443,12 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
         }
       >
         {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading documents...</Text>
-          </View>
+          <>
+            <Skeleton rows={2} />
+            <Skeleton rows={2} />
+            <Skeleton rows={2} />
+            <Skeleton rows={2} />
+          </>
         ) : filterMode === 'all' ? (
           // ALL VIEW
           documents.length === 0 ? (

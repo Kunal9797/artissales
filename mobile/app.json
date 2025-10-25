@@ -40,6 +40,16 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Artis Sales to use your location for attendance tracking and visit logging."
         }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "position": "absolute",
+          "visibility": "visible",
+          "behavior": "overlay-swipe",
+          "backgroundColor": "#393735",
+          "borderColor": "#393735"
+        }
       ]
     ]
   }
