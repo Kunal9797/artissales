@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -59,16 +60,13 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           const visitResponse = await api.getVisit({ id: editActivityId });
 
           if (visitResponse) {
-            // Fetch full account details to get city/state
+            // Fetch full account details using direct account lookup (PERFORMANCE FIX)
             if (visitResponse.accountId) {
               try {
-                const accountsResponse = await api.getAccountsList({});
-                const fullAccount = accountsResponse.accounts?.find(
-                  (acc: any) => acc.id === visitResponse.accountId
-                );
+                const accountResponse = await api.getAccountDetails({ accountId: visitResponse.accountId });
 
-                if (fullAccount) {
-                  setVisitAccount(fullAccount);
+                if (accountResponse.ok && accountResponse.account) {
+                  setVisitAccount(accountResponse.account);
                 } else {
                   // Fallback to partial data if account not found
                   setVisitAccount({
@@ -82,7 +80,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
                   } as Account);
                 }
               } catch (accountError) {
-                console.error('Error fetching account details:', accountError);
+                logger.error('Error fetching account details:', accountError);
                 // Use partial data from visit
                 setVisitAccount({
                   id: visitResponse.accountId,
@@ -103,7 +101,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             }
           }
         } catch (error) {
-          console.error('Error fetching visit data:', error);
+          logger.error('Error fetching visit data:', error);
           Alert.alert('Error', 'Failed to load visit data');
         } finally {
           setSubmitting(false);
@@ -145,31 +143,25 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
       return;
     }
 
-    // TEMPORARY: Make photo optional for testing
-    // if (!photoUri) {
-    //   Alert.alert('Error', 'Please take a photo of the counter');
-    //   return;
-    // }
+    if (!photoUri) {
+      Alert.alert('Error', 'Please take a photo of the counter');
+      return;
+    }
 
     setSubmitting(true);
 
     try {
-      let photoUrl = '';
-
-      // Upload photo if provided and it's a new local photo (not a URL)
-      if (photoUri && !photoUri.startsWith('http')) {
-        console.log('[LogVisit] Uploading photo...');
-        setUploading(true);
-        photoUrl = await uploadPhoto(photoUri, 'visits');
-        setUploading(false);
-        console.log('[LogVisit] Photo uploaded:', photoUrl);
-      } else if (photoUri) {
-        // Existing photo URL
-        photoUrl = photoUri;
-      }
-
       if (isEditMode && editActivityId) {
-        // Update existing visit
+        // EDIT MODE: Still synchronous (photo already uploaded)
+        let photoUrl = '';
+        if (photoUri && !photoUri.startsWith('http')) {
+          setUploading(true);
+          photoUrl = await uploadPhoto(photoUri, 'visits');
+          setUploading(false);
+        } else if (photoUri) {
+          photoUrl = photoUri;
+        }
+
         await api.updateVisit({
           id: editActivityId,
           purpose: purpose as any,
@@ -181,25 +173,54 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
       } else {
-        // Create new visit
-        await api.logVisit({
-          accountId: visitAccount.id,
-          purpose: purpose as any,
-          notes: notes.trim() || undefined,
-          photos: photoUri ? [photoUrl] : [],
-        });
+        // NEW VISIT: Optimistic update with background upload
+        const { uploadQueue } = await import('../../services/uploadQueue');
 
-        Alert.alert('Success', 'Visit logged successfully!', [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.navigate('Home');
+        if (photoUri && !photoUri.startsWith('http')) {
+          // Queue photo for background upload
+          logger.log('[LogVisit] 🚀 Optimistic: Queueing photo for background upload');
+
+          await uploadQueue.addToQueue({
+            type: 'visit',
+            photoUri,
+            folder: 'visits',
+            metadata: {
+              accountId: visitAccount.id,
+              purpose: purpose as any,
+              notes: notes.trim() || undefined,
             },
-          },
-        ]);
+          });
+
+          // Navigate away immediately - upload happens in background!
+          Alert.alert('Success', 'Visit logged! Photo uploading in background...', [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('Home');
+              },
+            },
+          ]);
+        } else {
+          // No photo or existing URL - submit immediately
+          await api.logVisit({
+            accountId: visitAccount.id,
+            purpose: purpose as any,
+            notes: notes.trim() || undefined,
+            photos: photoUri ? [photoUri] : [],
+          });
+
+          Alert.alert('Success', 'Visit logged successfully!', [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('Home');
+              },
+            },
+          ]);
+        }
       }
     } catch (error: any) {
-      console.error('Visit logging error:', error);
+      logger.error('Visit logging error:', error);
       Alert.alert('Error', error.message || 'Failed to log visit');
     } finally {
       setSubmitting(false);
@@ -226,7 +247,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
             } catch (error: any) {
-              console.error('Error deleting visit:', error);
+              logger.error('Error deleting visit:', error);
               Alert.alert('Error', error.message || 'Failed to delete visit');
             } finally {
               setDeleting(false);
@@ -323,7 +344,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Clock size={12} color="#999999" />
                         <Text style={{ fontSize: 12, color: '#666666' }}>
-                          Last visit: {visitAccount.lastVisitAt.toLocaleDateString()}
+                          Last visit: {typeof visitAccount.lastVisitAt === 'string'
+                            ? new Date(visitAccount.lastVisitAt).toLocaleDateString()
+                            : visitAccount.lastVisitAt.toDate?.()?.toLocaleDateString?.() || 'N/A'}
                         </Text>
                       </View>
                     )}
@@ -343,7 +366,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             borderColor: '#E0E0E0',
           }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-              Counter Photo (Optional)
+              Counter Photo <Text style={{ color: '#D32F2F' }}>*</Text>
             </Text>
 
             {photoUri ? (
@@ -563,6 +586,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 120, // Extra padding for floating nav bar + safe area
   },
 });

@@ -12,6 +12,7 @@ import { useDSR } from '../../hooks/useDSR';
 import { useTodayStats } from '../../hooks/useTodayStats';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { Skeleton } from '../../patterns';
+import { getCatalogDisplayName } from '../../types';
 
 interface DSRScreenProps {
   navigation: any;
@@ -153,7 +154,7 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
               <View style={styles.divider} />
               {Object.entries(stats.sheetsSales.byCatalog).map(([catalog, count]) => (
                 <View key={catalog} style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>{catalog}</Text>
+                  <Text style={styles.detailLabel}>{getCatalogDisplayName(catalog)}</Text>
                   <Text style={styles.detailValue}>{count} sheets</Text>
                 </View>
               ))}

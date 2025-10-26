@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -18,7 +19,7 @@ import { TargetsByCatalog, TargetsByAccountType } from '../../types';
 
 type SetTargetScreenProps = NativeStackScreenProps<any, 'SetTarget'>;
 
-const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis'];
+const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
 const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'contractor'];
 
 export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, route }) => {
@@ -59,7 +60,7 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
         setExistingTarget(null);
       }
     } catch (error: any) {
-      console.error('[SetTarget] Error loading target:', error);
+      logger.error('[SetTarget] Error loading target:', error);
       Alert.alert('Error', 'Failed to load existing target');
     } finally {
       setLoading(false);
@@ -164,7 +165,7 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
         );
       }
     } catch (error: any) {
-      console.error('[SetTarget] Error saving target:', error);
+      logger.error('[SetTarget] Error saving target:', error);
       Alert.alert('Error', error.message || 'Failed to save target');
     } finally {
       setSaving(false);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -62,7 +63,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         setError('Failed to load accounts');
       }
     } catch (err) {
-      console.error('Error loading accounts:', err);
+      logger.error('Error loading accounts:', err);
       setError('Network error. Please check your connection.');
     } finally {
       setLoading(false);
@@ -96,42 +97,52 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
             accountId: item.id,
           });
         }}
+        activeOpacity={0.7}
       >
-        <View style={styles.accountCardContent}>
-          <View style={[styles.accountIcon, { backgroundColor: `${getAccountTypeColor(item.type)}20` }]}>
-            <Building2 size={24} color={getAccountTypeColor(item.type)} />
-          </View>
-          <View style={styles.accountInfo}>
-            <Text style={styles.accountName}>{item.name}</Text>
-            <View style={styles.accountMeta}>
-              <MapPin size={12} color={colors.text.tertiary} />
-              <Text style={styles.accountMetaText}>
-                {item.city}, {item.state}
-              </Text>
-            </View>
-            <View style={styles.accountMeta}>
-              <Phone size={12} color={colors.text.tertiary} />
-              <Text style={styles.accountMetaText}>{item.phone || 'No phone'}</Text>
-            </View>
-          </View>
+        {/* Name + Edit */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={styles.accountName} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              navigation.navigate('EditAccount', {
+                account: item,
+                onAccountUpdated: () => loadAccounts(),
+              });
+            }}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 4,
+              backgroundColor: '#F5F5F5',
+            }}
+          >
+            <Edit2 size={14} color="#666666" />
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#666666' }}>Edit</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Badge + Meta inline */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <View style={[styles.accountTypeBadge, { backgroundColor: getAccountTypeColor(item.type) }]}>
             <Text style={styles.accountTypeBadgeText}>
               {getAccountTypeLabel(item.type)}
             </Text>
           </View>
+          <Text style={{ fontSize: 13, color: '#666666' }}>•</Text>
+          <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
+            {item.city}, {item.state.substring(0, 2).toUpperCase()}
+          </Text>
+          <Text style={{ fontSize: 13, color: '#666666' }}>•</Text>
+          <Text style={{ fontSize: 13, color: '#666666' }}>
+            {item.phone ? item.phone.substring(0, 13) + '...' : 'No phone'}
+          </Text>
         </View>
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            navigation.navigate('EditAccount', {
-              account: item,
-              onAccountUpdated: () => loadAccounts(),
-            });
-          }}
-        >
-          <Edit2 size={18} color={colors.info} />
-        </TouchableOpacity>
       </TouchableOpacity>
     ),
     [navigation]
@@ -390,69 +401,31 @@ const styles = StyleSheet.create({
     padding: spacing.screenPadding,
   },
   listContent: {
-    padding: spacing.screenPadding,
+    padding: 16,
+    paddingBottom: 100,
   },
   accountCard: {
-    backgroundColor: '#fff',
-    borderRadius: spacing.borderRadius.lg,
-    marginBottom: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
     borderWidth: 1,
-    borderColor: colors.border.default,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  accountCardContent: {
-    flex: 1,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  editButton: {
-    padding: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border.default,
-  },
-  accountCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  accountIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  accountInfo: {
-    flex: 1,
+    borderColor: '#E0E0E0',
   },
   accountName: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
-  },
-  accountMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs / 2,
-    marginTop: spacing.xs / 2,
-  },
-  accountMetaText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.secondary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    flex: 1,
   },
   accountTypeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-    borderRadius: spacing.borderRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
   accountTypeBadgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semiBold,
-    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

@@ -1,4 +1,5 @@
 /**
+import { logger } from '../../utils/logger';
  * Expense Entry Screen
  * Allows sales reps to log daily expenses with multiple items
  * (e.g., 100 for travel + 500 for hotel in one report)
@@ -96,7 +97,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
             }
           }
         } catch (error) {
-          console.error('Error fetching expense data:', error);
+          logger.error('Error fetching expense data:', error);
           Alert.alert('Error', 'Failed to load expense data');
         } finally {
           setSubmitting(false);
@@ -115,9 +116,9 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
       setUploadingReceipts(true);
       const downloadUrl = await uploadPhoto(uri, 'expenses');
       setReceiptPhotoUrls([...receiptPhotoUrls, downloadUrl]);
-      console.log('[Expense] Receipt uploaded:', downloadUrl);
+      logger.log('[Expense] Receipt uploaded:', downloadUrl);
     } catch (error) {
-      console.error('[Expense] Error uploading receipt:', error);
+      logger.error('[Expense] Error uploading receipt:', error);
       Alert.alert('Error', 'Failed to upload receipt photo. Please try again.');
       // Remove the local photo if upload failed
       setReceiptPhotos(receiptPhotos.filter(p => p !== uri));
@@ -213,7 +214,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
         };
 
-        console.log('[Expense] Updating expense report:', updateData);
+        logger.log('[Expense] Updating expense report:', updateData);
         await api.updateExpense(updateData);
 
         Alert.alert('Success', 'Expense report updated successfully', [
@@ -227,7 +228,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
         };
 
-        console.log('[Expense] Submitting expense report:', expenseData);
+        logger.log('[Expense] Submitting expense report:', expenseData);
 
         const response = await api.submitExpense(expenseData);
 
@@ -247,7 +248,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         }
       }
     } catch (error: any) {
-      console.error('[Expense] Submit error:', error);
+      logger.error('[Expense] Submit error:', error);
       Alert.alert('Error', error.message || 'Failed to submit expense');
     } finally {
       setSubmitting(false);
@@ -273,7 +274,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
             } catch (error: any) {
-              console.error('Error deleting expense:', error);
+              logger.error('Error deleting expense:', error);
               Alert.alert('Error', error.message || 'Failed to delete expense');
             } finally {
               setDeleting(false);
@@ -569,7 +570,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: spacing.xl * 2,
+    paddingBottom: 120, // Extra padding for floating nav bar + safe area
   },
   field: {
     marginBottom: spacing.md,

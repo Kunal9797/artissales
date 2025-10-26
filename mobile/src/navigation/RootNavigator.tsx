@@ -17,6 +17,7 @@ import { DSRScreen } from '../screens/dsr/DSRScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
+import { KitchenSinkScreen as AccountDesignKitchenSink } from '../screens/design/KitchenSinkScreen';
 // Incrementally re-enabling manager stack screens as we test them
 import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
@@ -42,6 +43,7 @@ export type RootStackParamList = {
   DSR: undefined;
   Profile: undefined;
   KitchenSink: undefined;
+  AccountDesignKitchenSink: undefined;
   DesignLab: undefined;
   AddUser: undefined;
   DSRApprovalList: undefined;
@@ -104,6 +106,7 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="DSR" component={DSRScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
+          <Stack.Screen name="AccountDesignKitchenSink" component={AccountDesignKitchenSink} />
           <Stack.Screen name="DesignLab" component={DesignLabScreen} />
 
           {/* Manager stack screens - Team Management */}

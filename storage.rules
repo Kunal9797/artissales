@@ -13,6 +13,20 @@ service firebase.storage {
       allow write: if false;
     }
 
+    // Visits photos - users can upload/read their own visit photos
+    match /visits/{userId}/{photoId} {
+      // Users can only read/write their own photos
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Expense photos - users can upload/read their own expense photos
+    match /expenses/{userId}/{photoId} {
+      // Users can only read/write their own photos
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Default: deny all access to other paths
     match /{allPaths=**} {
       allow read, write: if false;

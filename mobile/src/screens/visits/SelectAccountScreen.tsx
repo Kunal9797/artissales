@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { Search, MapPin, User, Plus, Edit2 } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
@@ -53,7 +54,26 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   }, [accounts, searchQuery, selectedType]);
 
   const handleSelectAccount = (account: Account) => {
-    navigation.navigate('LogVisit', { account });
+    // Sanitize account data - convert Dates/Timestamps to ISO strings for navigation
+    const sanitizedAccount = {
+      ...account,
+      lastVisitAt: account.lastVisitAt
+        ? (account.lastVisitAt instanceof Date
+          ? account.lastVisitAt.toISOString()
+          : account.lastVisitAt.toDate?.()?.toISOString?.() || null)
+        : null,
+      createdAt: account.createdAt
+        ? (account.createdAt instanceof Date
+          ? account.createdAt.toISOString()
+          : account.createdAt.toDate?.()?.toISOString?.() || null)
+        : null,
+      updatedAt: account.updatedAt
+        ? (account.updatedAt instanceof Date
+          ? account.updatedAt.toISOString()
+          : account.updatedAt.toDate?.()?.toISOString?.() || null)
+        : null,
+    };
+    navigation.navigate('LogVisit', { account: sanitizedAccount });
   };
 
   // Check if current user can edit this account
@@ -90,63 +110,71 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     });
   };
 
+  const getAccountTypeColor = (type: string): string => {
+    switch (type) {
+      case 'distributor':
+        return '#1976D2'; // Blue
+      case 'dealer':
+        return '#388E3C'; // Green
+      case 'architect':
+        return '#F57C00'; // Orange
+      case 'contractor':
+        return '#7B1FA2'; // Purple
+      default:
+        return '#666666';
+    }
+  };
+
+  const getAccountTypeLabel = (type: string): string => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
+
   const renderAccount = ({ item }: { item: Account }) => {
     const showEditButton = canEditAccount(item);
 
     return (
-      <View style={styles.accountCard}>
-        <TouchableOpacity
-          style={styles.accountCardContent}
-          onPress={() => handleSelectAccount(item)}
-        >
-          <View style={styles.accountInfo}>
-            <View style={styles.accountHeader}>
-              <Text style={styles.accountName}>{item.name}</Text>
-              <View
-                style={[
-                  styles.badge,
-                  item.type === 'distributor'
-                    ? styles.distributorBadge
-                    : item.type === 'architect'
-                    ? styles.architectBadge
-                    : styles.dealerBadge,
-                ]}
-              >
-                <Text style={styles.badgeText}>{item.type.toUpperCase()}</Text>
-              </View>
-            </View>
+      <TouchableOpacity
+        style={styles.accountCard}
+        onPress={() => handleSelectAccount(item)}
+        activeOpacity={0.7}
+      >
+        {/* Name + Edit (Row 1) */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={styles.accountName} numberOfLines={1}>
+            {item.name}
+          </Text>
+          {showEditButton && (
+            <TouchableOpacity
+              onPress={(e) => handleEditAccount(item, e)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 4,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 4,
+                backgroundColor: '#F5F5F5',
+              }}
+            >
+              <Edit2 size={14} color="#666666" />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#666666' }}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-            {item.contactPerson && (
-              <View style={styles.infoRow}>
-                <User size={16} color={colors.text.secondary} />
-                <Text style={styles.accountContact}>{item.contactPerson}</Text>
-              </View>
-            )}
-
-            <View style={styles.infoRow}>
-              <MapPin size={16} color={colors.text.secondary} />
-              <Text style={styles.accountLocation}>
-                {item.city}, {item.state} - {item.pincode}
-              </Text>
-            </View>
-
-            {item.lastVisitAt && (
-              <Text style={styles.lastVisit}>
-                Last visit: {item.lastVisitAt.toLocaleDateString()}
-              </Text>
-            )}
+        {/* Badge + Location inline (Row 2) */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: getAccountTypeColor(item.type) }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>
+              {getAccountTypeLabel(item.type)}
+            </Text>
           </View>
-        </TouchableOpacity>
-
-        {showEditButton && (
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={(e) => handleEditAccount(item, e)}
-          >
-            <Edit2 size={18} color={colors.info} />
-          </TouchableOpacity>
-        )}
-      </View>
+          <Text style={{ fontSize: 13, color: '#666666' }}>•</Text>
+          <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
+            {item.city}, {item.state.substring(0, 2).toUpperCase()}
+          </Text>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -362,10 +390,11 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           </Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredAccounts}
           renderItem={renderAccount}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={100}
           contentContainerStyle={styles.listContainer}
         />
       )}
@@ -386,6 +415,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: spacing.lg,
+    paddingBottom: 120, // Extra padding for floating nav bar + safe area
   },
   accountCard: {
     backgroundColor: colors.surface,
@@ -394,74 +424,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.default,
     ...shadows.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  accountCardContent: {
-    flex: 1,
     padding: spacing.lg,
   },
-  accountInfo: {
-    flex: 1,
-  },
-  editButton: {
-    padding: spacing.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border.default,
-    minHeight: 80,
-  },
-  accountHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
   accountName: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.primary,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
     flex: 1,
-    marginRight: spacing.sm,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  badge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: spacing.borderRadius.sm,
-  },
-  distributorBadge: {
-    backgroundColor: '#E3F2FD',
-  },
-  dealerBadge: {
-    backgroundColor: '#FFF3E0',
-  },
-  architectBadge: {
-    backgroundColor: '#F3E5F5',
-  },
-  badgeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.secondary,
-  },
-  accountContact: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  accountLocation: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  lastVisit: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs,
   },
   loadingText: {
     marginTop: spacing.md,

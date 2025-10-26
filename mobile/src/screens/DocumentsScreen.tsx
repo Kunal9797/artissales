@@ -1,4 +1,5 @@
 /**
+import { logger } from '../utils/logger';
  * DocumentsScreen - Unified Role-Adaptive Documents Library
  *
  * Features:
@@ -78,7 +79,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
         setDocuments(response.documents);
       }
     } catch (error) {
-      console.error('Error fetching documents:', error);
+      logger.error('Error fetching documents:', error);
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       const size = await documentCache.getTotalCacheSize();
       setTotalCacheSize(size);
     } catch (error) {
-      console.error('Error loading cached documents:', error);
+      logger.error('Error loading cached documents:', error);
     }
   }, []);
 
@@ -132,7 +133,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       await loadCachedDocuments();
       Alert.alert('Success', `${document.name} is now available offline`);
     } catch (error) {
-      console.error('Error downloading document:', error);
+      logger.error('Error downloading document:', error);
       Alert.alert('Download Failed', 'Could not download document. Please try again.');
     } finally {
       setDownloading(null);
@@ -146,21 +147,21 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
   const handleOpenDocument = async (document: Document) => {
     try {
-      console.log('[DocumentsScreen] Opening document:', document.name, document.id);
+      logger.log('[DocumentsScreen] Opening document:', document.name, document.id);
       let cachedDoc = await documentCache.getCachedDocument(document.id);
 
       if (cachedDoc) {
-        console.log('[DocumentsScreen] Document is cached, localUri:', cachedDoc.localUri);
+        logger.log('[DocumentsScreen] Document is cached, localUri:', cachedDoc.localUri);
 
         // Fix MIME type if it's wrong using the document's fileType from Firestore
         if (cachedDoc.mimeType === 'application/octet-stream' && document.fileType) {
-          console.log('[DocumentsScreen] Fixing MIME type using fileType:', document.fileType);
+          logger.log('[DocumentsScreen] Fixing MIME type using fileType:', document.fileType);
           cachedDoc = await documentCache.fixMimeType(document.id, document.fileType);
         }
 
         const contentUri = await documentCache.getContentUri(cachedDoc.localUri);
-        console.log('[DocumentsScreen] Content URI:', contentUri);
-        console.log('[DocumentsScreen] Using MIME type:', cachedDoc.mimeType);
+        logger.log('[DocumentsScreen] Content URI:', contentUri);
+        logger.log('[DocumentsScreen] Using MIME type:', cachedDoc.mimeType);
 
         if (Platform.OS === 'android') {
           await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
@@ -168,17 +169,17 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
             flags: 1,
             type: cachedDoc.mimeType,
           });
-          console.log('[DocumentsScreen] IntentLauncher succeeded');
+          logger.log('[DocumentsScreen] IntentLauncher succeeded');
         } else {
           await Linking.openURL(contentUri);
         }
       } else {
-        console.log('[DocumentsScreen] Document not cached, opening from web:', document.fileUrl);
+        logger.log('[DocumentsScreen] Document not cached, opening from web:', document.fileUrl);
         await Linking.openURL(document.fileUrl);
       }
     } catch (error: any) {
-      console.error('[DocumentsScreen] Error opening document:', error);
-      console.error('[DocumentsScreen] Error details:', JSON.stringify(error, null, 2));
+      logger.error('[DocumentsScreen] Error opening document:', error);
+      logger.error('[DocumentsScreen] Error details:', JSON.stringify(error, null, 2));
 
       if (error?.message?.includes('No Activity found') || error?.message?.includes('no handler')) {
         Alert.alert(
@@ -215,7 +216,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
         UTI: cachedDoc.mimeType === 'application/pdf' ? 'com.adobe.pdf' : undefined,
       });
     } catch (err: any) {
-      console.error('Error sharing document:', err);
+      logger.error('Error sharing document:', err);
       if (!err.message?.includes('cancelled')) {
         Alert.alert('Share Failed', 'Could not share document. Please try again.');
       }
@@ -237,7 +238,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
               await documentCache.deleteCachedDocument(document.id);
               await loadCachedDocuments();
             } catch (err) {
-              console.error('Error deleting cached document:', err);
+              logger.error('Error deleting cached document:', err);
               Alert.alert('Error', 'Failed to delete offline copy');
             } finally {
               setDeleting(null);
@@ -293,7 +294,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
               await loadCachedDocuments();
               Alert.alert('Success', 'All offline documents cleared');
             } catch (err) {
-              console.error('Error clearing cache:', err);
+              logger.error('Error clearing cache:', err);
               Alert.alert('Error', 'Failed to clear offline documents');
             }
           },

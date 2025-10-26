@@ -39,15 +39,24 @@ export {onLeadCreated} from "./triggers/onLeadCreated";
 export {onLeadSLABreach} from "./triggers/onLeadSLAExpired";
 export {onVisitCreated} from "./triggers/onVisitEnded";
 
-// Utilities (one-time use)
-export {seedAccounts, deleteAllAccounts} from "./utils/seed-data";
+// ============================================================================
+// ADMIN UTILITIES - Use with caution!
+// ============================================================================
+// DANGEROUS: Removed from production deployment
+// export {seedAccounts, deleteAllAccounts} from "./utils/seed-data";
+// export {fixOct17Data} from "./utils/fix-oct17";
+// export {fixAllPendingData} from "./utils/fix-all-pending";
+
+// Keep for admin emergency use (gated by role check in implementation)
 export {createUser} from "./utils/create-user";
 export {createNationalHeadUser} from "./utils/create-national-head";
 export {updateRoleByPhone} from "./utils/update-role-by-phone";
+
+// Keep for operational debugging
 export {triggerDSRCompiler} from "./utils/trigger-dsr";
-export {fixOct17Data} from "./utils/fix-oct17";
 export {checkPendingData} from "./utils/check-pending";
-export {fixAllPendingData} from "./utils/fix-all-pending";
 export {checkPendingDSRs} from "./utils/check-pending-dsrs";
+
+// Keep for one-time migration (can remove after migration complete)
 export {migrateToCustomClaims} from "./utils/migrate-custom-claims";
 export {syncStorageDocuments} from "./utils/sync-storage-documents";

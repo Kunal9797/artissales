@@ -4,10 +4,11 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { View, Text, Animated } from 'react-native';
+import { View, Text, Animated, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, Users, Building2, CheckCircle, User as UserIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Animated Icon Wrapper with subtle scale on focus
 const AnimatedTabIcon: React.FC<{
@@ -58,6 +59,14 @@ const Placeholder: React.FC<{ title: string }> = ({ title }) => (
 
 export const ManagerTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
+
+  // Set Android navigation bar color to match navbar
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync('#393735');
+      NavigationBar.setButtonStyleAsync('light'); // White buttons for dark background
+    }
+  }, []);
 
   return (
     <Tab.Navigator

@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 import { Paths, Directory, File } from 'expo-file-system';
 import { downloadAsync, getContentUriAsync } from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -45,7 +46,7 @@ class DocumentCacheService {
       const metadata = await AsyncStorage.getItem(CACHE_METADATA_KEY);
       return metadata ? JSON.parse(metadata) : {};
     } catch (error) {
-      console.error('Error reading cache metadata:', error);
+      logger.error('Error reading cache metadata:', error);
       return {};
     }
   }
@@ -57,7 +58,7 @@ class DocumentCacheService {
     try {
       await AsyncStorage.setItem(CACHE_METADATA_KEY, JSON.stringify(metadata));
     } catch (error) {
-      console.error('Error saving cache metadata:', error);
+      logger.error('Error saving cache metadata:', error);
       throw error;
     }
   }
@@ -141,7 +142,7 @@ class DocumentCacheService {
 
       return localUri;
     } catch (error) {
-      console.error('Error downloading document:', error);
+      logger.error('Error downloading document:', error);
       throw error;
     }
   }
@@ -187,7 +188,7 @@ class DocumentCacheService {
 
       return true;
     } catch (error) {
-      console.error('Error checking document cache:', error);
+      logger.error('Error checking document cache:', error);
       return false;
     }
   }
@@ -223,13 +224,13 @@ class DocumentCacheService {
           cachedDoc.mimeType = correctMimeType;
           metadata[documentId] = cachedDoc;
           await this.saveCacheMetadata(metadata);
-          console.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${correctMimeType}`);
+          logger.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${correctMimeType}`);
         }
       }
 
       return cachedDoc;
     } catch (error) {
-      console.error('Error getting cached document:', error);
+      logger.error('Error getting cached document:', error);
       return null;
     }
   }
@@ -252,11 +253,11 @@ class DocumentCacheService {
       metadata[documentId] = cachedDoc;
       await this.saveCacheMetadata(metadata);
 
-      console.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${fileType} -> ${correctMimeType}`);
+      logger.log(`[DocumentCache] Fixed MIME type for ${cachedDoc.fileName}: ${fileType} -> ${correctMimeType}`);
 
       return cachedDoc;
     } catch (error) {
-      console.error('Error fixing MIME type:', error);
+      logger.error('Error fixing MIME type:', error);
       throw error;
     }
   }
@@ -281,7 +282,7 @@ class DocumentCacheService {
         await this.saveCacheMetadata(metadata);
       }
     } catch (error) {
-      console.error('Error deleting cached document:', error);
+      logger.error('Error deleting cached document:', error);
       throw error;
     }
   }
@@ -312,7 +313,7 @@ class DocumentCacheService {
       // Sort by download date (newest first)
       return cachedDocs.sort((a, b) => b.downloadedAt - a.downloadedAt);
     } catch (error) {
-      console.error('Error listing cached documents:', error);
+      logger.error('Error listing cached documents:', error);
       return [];
     }
   }
@@ -325,7 +326,7 @@ class DocumentCacheService {
       const cachedDocs = await this.listCachedDocuments();
       return cachedDocs.reduce((total, doc) => total + doc.fileSize, 0);
     } catch (error) {
-      console.error('Error calculating cache size:', error);
+      logger.error('Error calculating cache size:', error);
       return 0;
     }
   }
@@ -346,7 +347,7 @@ class DocumentCacheService {
       // Recreate cache directory
       await this.ensureCacheDirectory();
     } catch (error) {
-      console.error('Error clearing cache:', error);
+      logger.error('Error clearing cache:', error);
       throw error;
     }
   }
@@ -365,7 +366,7 @@ class DocumentCacheService {
       // On iOS, use file URI directly
       return localUri;
     } catch (error) {
-      console.error('Error getting content URI:', error);
+      logger.error('Error getting content URI:', error);
       // Fallback to original URI
       return localUri;
     }

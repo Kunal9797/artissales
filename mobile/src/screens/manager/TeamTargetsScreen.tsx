@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -42,7 +43,7 @@ export const TeamTargetsScreen: React.FC<TeamTargetsScreenProps> = ({ navigation
         setTargets(response.targets);
       }
     } catch (error: any) {
-      console.error('[TeamTargets] Error loading targets:', error);
+      logger.error('[TeamTargets] Error loading targets:', error);
       Alert.alert('Error', 'Failed to load team targets');
     } finally {
       setLoading(false);

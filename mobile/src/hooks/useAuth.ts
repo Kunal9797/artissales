@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '../utils/logger';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, collection, doc, getDoc, setDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
@@ -18,8 +19,8 @@ export const useAuth = () => {
     const unsubscribe = onAuthStateChanged(authInstance, async (authUser) => {
       if (authUser) {
         try {
-          console.log('[Auth] User logged in:', authUser.uid);
-          console.log('[Auth] Phone number:', authUser.phoneNumber);
+          logger.log('[Auth] User logged in:', authUser.uid);
+          logger.log('[Auth] Phone number:', authUser.phoneNumber);
 
           // First, try to find user by Auth UID
           const userDocRef = doc(db, 'users', authUser.uid);
@@ -28,10 +29,10 @@ export const useAuth = () => {
           let userRole = 'rep'; // Default
 
           if (userDoc.exists()) {
-            console.log('[Auth] User document found by UID');
+            logger.log('[Auth] User document found by UID');
             userRole = userDoc.data()?.role || 'rep';
           } else {
-            console.log('[Auth] User document not found by UID, checking by phone...');
+            logger.log('[Auth] User document not found by UID, checking by phone...');
 
             // Try to find user by phone number (using modular API)
             const usersCollection = collection(db, 'users');
@@ -43,9 +44,9 @@ export const useAuth = () => {
               const existingUserDoc = usersSnapshot.docs[0];
               const existingUserData = existingUserDoc.data();
 
-              console.log('[Auth] Found existing user by phone:', existingUserDoc.id);
-              console.log('[Auth] User role:', existingUserData.role);
-              console.log('[Auth] Migrating to Auth UID:', authUser.uid);
+              logger.log('[Auth] Found existing user by phone:', existingUserDoc.id);
+              logger.log('[Auth] User role:', existingUserData.role);
+              logger.log('[Auth] Migrating to Auth UID:', authUser.uid);
 
               userRole = existingUserData.role || 'rep';
 
@@ -59,9 +60,9 @@ export const useAuth = () => {
               // Optionally delete the old document (or keep it for history)
               // await existingUserDoc.ref.delete();
 
-              console.log('[Auth] ✅ Migrated user document to Auth UID');
+              logger.log('[Auth] ✅ Migrated user document to Auth UID');
             } else {
-              console.log('[Auth] No existing user found, creating new rep...');
+              logger.log('[Auth] No existing user found, creating new rep...');
               // Create user document on first login
               await setDoc(userDocRef, {
                 id: authUser.uid,
@@ -73,7 +74,7 @@ export const useAuth = () => {
                 createdAt: Timestamp.now(),
                 updatedAt: Timestamp.now(),
               });
-              console.log('[Auth] ✅ Created new user document');
+              logger.log('[Auth] ✅ Created new user document');
             }
           }
 
@@ -83,10 +84,10 @@ export const useAuth = () => {
             role: userRole,
           };
 
-          console.log('[Auth] Setting user with role:', userRole);
+          logger.log('[Auth] Setting user with role:', userRole);
           setUser(userWithRole);
         } catch (error) {
-          console.error('[Auth] ❌ Error handling user document:', error);
+          logger.error('[Auth] ❌ Error handling user document:', error);
           setUser(authUser as UserWithRole);
         }
       } else {

@@ -1,4 +1,5 @@
 /**
+import { logger } from '../../utils/logger';
  * AccountDetailScreen - View account details and visit history
  * Built with inline styles to avoid StyleSheet.create issues
  */
@@ -50,12 +51,12 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         setAccount(response.account);
         setVisits(response.visits || []);
       } else {
-        console.error('API returned not ok:', response);
+        logger.error('API returned not ok:', response);
         setAccount(null);
         setVisits([]);
       }
     } catch (error) {
-      console.error('Error loading account details:', error);
+      logger.error('Error loading account details:', error);
       // On error, set null to show "Account not found" message
       setAccount(null);
       setVisits([]);

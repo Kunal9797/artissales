@@ -12,6 +12,7 @@ import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { colors, spacing, typography } from '../theme';
 import { Logo } from '../components/ui';
+import { logger } from '../utils/logger';
 
 interface Props {
   onCodeSent: (confirmation: FirebaseAuthTypes.ConfirmationResult) => void;
@@ -50,12 +51,12 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
     setLoading(true);
     try {
       const formattedPhone = formatPhoneNumber(phoneNumber);
-      console.log('[Auth] Attempting to send code to:', formattedPhone);
+      logger.log('[Auth] Attempting to send code to:', formattedPhone);
 
       const authInstance = getAuth();
       const confirmation = await signInWithPhoneNumber(authInstance, formattedPhone);
 
-      console.log('[Auth] Code sent successfully');
+      logger.log('[Auth] Code sent successfully');
       onCodeSent(confirmation);
     } catch (error: any) {
       console.error('[Auth] Phone auth error:', error);

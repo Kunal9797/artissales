@@ -1,11 +1,12 @@
 /**
+import { logger } from '../../utils/logger';
  * ManagerHomeScreen - Simple Version
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
-import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen } from 'lucide-react-native';
+import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen, Palette } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
@@ -68,7 +69,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
         });
       }
     } catch (error) {
-      console.error('Error loading team stats:', error);
+      logger.error('Error loading team stats:', error);
     }
   };
 
@@ -242,6 +243,45 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
               </Text>
               <Text style={{ fontSize: 13, color: '#666666' }}>
                 Catalogs, price lists & resources
+              </Text>
+            </View>
+          </View>
+          <ChevronRight size={20} color="#999999" />
+        </TouchableOpacity>
+
+        {/* Design Kitchen Sink - Compact Card */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#F8F8F8',
+            borderRadius: 8,
+            padding: 16,
+            marginBottom: 16,
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+          }}
+          onPress={() => navigation?.navigate('AccountDesignKitchenSink')}
+          activeOpacity={0.7}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <View style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#9C27B0',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Palette size={20} color="#FFFFFF" />
+            </View>
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
+                Design Kitchen Sink
+              </Text>
+              <Text style={{ fontSize: 13, color: '#666666' }}>
+                UI component testing playground
               </Text>
             </View>
           </View>

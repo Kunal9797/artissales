@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import { colors, spacing, typography } from '../../theme';
 import { User, Phone, MapPin, Shield, Building2, X, Plus } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { AccountListItem } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 
 interface AddUserScreenProps {
   navigation: any;
@@ -31,11 +33,29 @@ const ROLES: { value: UserRole; label: string }[] = [
 ];
 
 export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
+  const { user } = useAuth();
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('rep');
   const [territory, setTerritory] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Filter roles based on current user's role
+  const availableRoles = useMemo(() => {
+    if (user?.role === 'admin') {
+      // Admin can add anyone
+      return ROLES;
+    } else if (user?.role === 'national_head') {
+      // National head can only add zonal_head, area_manager, and rep
+      return ROLES.filter(r =>
+        r.value === 'zonal_head' ||
+        r.value === 'area_manager' ||
+        r.value === 'rep'
+      );
+    }
+    // Default: only rep
+    return ROLES.filter(r => r.value === 'rep');
+  }, [user?.role]);
 
   // Distributor picker states
   const [selectedDistributor, setSelectedDistributor] = useState<AccountListItem | null>(null);
@@ -61,7 +81,7 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         setDistributors(response.accounts);
       }
     } catch (error) {
-      console.error('Error loading distributors:', error);
+      logger.error('Error loading distributors:', error);
     } finally {
       setLoadingDistributors(false);
     }
@@ -190,7 +210,7 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         ]
       );
     } catch (error: any) {
-      console.error('[AddUserScreen] Error creating user:', error);
+      logger.error('[AddUserScreen] Error creating user:', error);
       Alert.alert(
         'Error',
         error.message || 'Failed to create user. Please try again.'
@@ -209,23 +229,12 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         paddingTop: 52,
         paddingBottom: 20,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <TouchableOpacity
-            style={{ padding: 8, marginLeft: -8 }}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={{ fontSize: 28, color: '#C9A961' }}>←</Text>
-          </TouchableOpacity>
-
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
-              Add New User
-            </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
-              Create a new sales team member
-            </Text>
-          </View>
-        </View>
+        <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+          Add New User
+        </Text>
+        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+          Create a new sales team member
+        </Text>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -272,7 +281,7 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Role *</Text>
           <View style={styles.roleGrid}>
-            {ROLES.map((role) => (
+            {availableRoles.map((role) => (
               <TouchableOpacity
                 key={role.value}
                 style={[

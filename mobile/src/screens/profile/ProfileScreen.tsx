@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -62,7 +63,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         setLoading(false);
       },
       (error) => {
-        console.error('Profile fetch error:', error);
+        logger.error('Profile fetch error:', error);
         setLoading(false);
       }
     );
@@ -114,7 +115,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
       Alert.alert('Success', 'Profile updated successfully!');
     } catch (error: any) {
-      console.error('Profile update error:', error);
+      logger.error('Profile update error:', error);
       Alert.alert('Error', error.message || 'Failed to update profile');
     } finally {
       setSaving(false);
@@ -144,7 +145,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               await signOut(authInstance);
               // Success - navigation will happen automatically via auth state listener
             } catch (error: any) {
-              console.error('Sign out error:', error);
+              logger.error('Sign out error:', error);
               // Don't show alert during navigation/unmount - just log it
               // The error is rare and user will see they're still logged in
             }
@@ -371,7 +372,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
-    paddingBottom: 100, // Extra padding for tab bar
+    paddingBottom: 120, // Extra padding for floating nav bar + safe area
   },
   // Profile Card
   profileCard: {

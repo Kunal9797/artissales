@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
   Alert,
   RefreshControl,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { User, Search, ChevronRight, Filter } from 'lucide-react-native';
 import { api } from '../../services/api';
@@ -58,7 +59,7 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
         setUsers(response.users);
       }
     } catch (error: any) {
-      console.error('[UserList] Error loading users:', error);
+      logger.error('[UserList] Error loading users:', error);
       Alert.alert('Error', 'Failed to load users');
     } finally {
       setLoading(false);
@@ -195,20 +196,15 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
           </Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredUsers}
           renderItem={renderUserCard}
           keyExtractor={keyExtractor}
+          estimatedItemSize={80}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={loadUsers} colors={[colors.accent]} />
           }
-          // ✅ Performance: Optimizations for large lists
-          windowSize={8} // Reduced from default 21 (render 8 items ahead/behind)
-          removeClippedSubviews={true} // Remove offscreen items from native view hierarchy
-          maxToRenderPerBatch={10} // Render 10 items per batch
-          updateCellsBatchingPeriod={50} // Batch updates every 50ms
-          initialNumToRender={15} // Render 15 items initially
         />
       )}
     </View>

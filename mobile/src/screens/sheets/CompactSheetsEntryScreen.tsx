@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -25,7 +26,7 @@ interface CompactSheetsEntryScreenProps {
   };
 }
 
-type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis';
+type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis 1MM';
 
 interface TodayEntry {
   catalog: CatalogType;
@@ -71,7 +72,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           setTargetProgress(response.progress);
         }
       } catch (err) {
-        console.error('Error loading targets:', err);
+        logger.error('Error loading targets:', err);
       } finally {
         setLoadingTargets(false);
       }
@@ -96,7 +97,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
             setSheetsInput(entry.sheetsCount.toString());
           }
         } catch (error) {
-          console.error('Error fetching sheet data:', error);
+          logger.error('Error fetching sheet data:', error);
           Alert.alert('Error', 'Failed to load sheet data');
         } finally {
           setSubmitting(false);
@@ -108,7 +109,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
 
   // Always show all 4 catalog options
   const getCatalogButtons = (): CatalogType[] => {
-    return ['Fine Decor', 'Artvio', 'Woodrica', 'Artis'];
+    return ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
   };
 
   const handleQuickAdd = async () => {
@@ -137,7 +138,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
       } catch (error: any) {
-        console.error('Error updating sheet sale:', error);
+        logger.error('Error updating sheet sale:', error);
         Alert.alert('Error', error.message || 'Failed to update sheet sale');
       } finally {
         setSubmitting(false);
@@ -183,7 +184,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
             } catch (error: any) {
-              console.error('Error deleting sheet sale:', error);
+              logger.error('Error deleting sheet sale:', error);
               Alert.alert('Error', error.message || 'Failed to delete entry');
             } finally {
               setDeleting(false);
@@ -230,7 +231,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         style={styles.scrollView}
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: todayEntries.length > 0 ? 16 : 24,
+          paddingBottom: 120, // Extra padding for floating nav bar + safe area
         }}
       >
         {/* Compact Target Progress */}
@@ -416,7 +417,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
                   { text: 'OK', onPress: () => navigation.goBack() }
                 ]);
               } catch (error: any) {
-                console.error('Error submitting sales:', error);
+                logger.error('Error submitting sales:', error);
                 Alert.alert('Error', error.message || 'Failed to submit sales');
               }
             }}

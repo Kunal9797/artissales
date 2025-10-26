@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -130,7 +131,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
       setUserData(response.user);
       setStats(response.stats);
     } catch (err) {
-      console.error('Error loading user details:', err);
+      logger.error('Error loading user details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load user details');
     } finally {
       setLoading(false);
@@ -149,7 +150,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
       const month = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
 
-      console.log('[UserDetail] Fetching targets for:', { userId, month });
+      logger.log('[UserDetail] Fetching targets for:', { userId, month });
       const response = await api.getTarget({ userId, month });
 
       if (response.ok && response.target) {
@@ -170,18 +171,18 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
             'Fine Decor': response.target.targetsByCatalog['Fine Decor'],
             'Artvio': response.target.targetsByCatalog['Artvio'],
             'Woodrica': response.target.targetsByCatalog['Woodrica'],
-            'Artis': response.target.targetsByCatalog['Artis'],
+            'Artis 1MM': response.target.targetsByCatalog['Artis 1MM'],
           };
         }
 
-        console.log('[UserDetail] Setting targets:', newTargets);
+        logger.log('[UserDetail] Setting targets:', newTargets);
         setTargets(newTargets);
       } else {
-        console.log('[UserDetail] No target found for this month');
+        logger.log('[UserDetail] No target found for this month');
         setTargets({});
       }
     } catch (error) {
-      console.error('[UserDetail] Error fetching targets:', error);
+      logger.error('[UserDetail] Error fetching targets:', error);
       // Targets are optional, so don't show error to user
       setTargets({});
     }
@@ -326,7 +327,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
       setShowEditModal(false);
       loadData(); // Reload data
     } catch (err) {
-      console.error('Error updating user:', err);
+      logger.error('Error updating user:', err);
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update user');
     } finally {
       setSaving(false);

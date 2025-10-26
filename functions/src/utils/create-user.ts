@@ -6,11 +6,30 @@
 import {onRequest} from "firebase-functions/v2/https";
 import {getFirestore, Timestamp} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
+import {requireAuth} from "./auth";
 
 const db = getFirestore();
 
 export const createUser = onRequest(async (request, response) => {
   try {
+    // SECURITY: Admin only - verify authentication and role
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    // Check if caller is admin
+    const callerDoc = await db.collection("users").doc(auth.uid).get();
+    if (!callerDoc.exists || callerDoc.data()?.role !== "admin") {
+      response.status(403).json({
+        ok: false,
+        error: "Admin role required",
+        code: "FORBIDDEN",
+      });
+      return;
+    }
+
     const {userId, phone, name, email, role} = request.body;
 
     if (!userId || !phone) {

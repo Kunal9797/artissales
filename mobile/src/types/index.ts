@@ -45,7 +45,7 @@ export interface SubmitExpenseRequest {
 
 export interface LogSheetsSaleRequest {
   date: string; // YYYY-MM-DD
-  catalog: 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis';
+  catalog: 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis 1MM';
   sheetsCount: number;
   distributorId?: string;
   distributorName?: string;
@@ -224,7 +224,7 @@ export interface GetUserStatsResponse {
         'Fine Decor': number;
         Artvio: number;
         Woodrica: number;
-        Artis: number;
+        'Artis 1MM': number;
       };
     };
     expenses: {
@@ -243,7 +243,7 @@ export interface TargetsByCatalog {
   'Fine Decor'?: number;
   'Artvio'?: number;
   'Woodrica'?: number;
-  'Artis'?: number;
+  'Artis 1MM'?: number;
 }
 
 export interface TargetsByAccountType {
@@ -386,7 +386,16 @@ export interface DeleteDocumentResponse {
 // INCENTIVE SCHEME TYPES
 // ============================================================================
 
-export type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis';
+export type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis 1MM';
+
+/**
+ * Display name mapper for catalogs
+ * Maps old database keys to new display names
+ */
+export function getCatalogDisplayName(catalog: string): string {
+  if (catalog === 'Artis') return 'Artis 1MM';
+  return catalog;
+}
 
 export interface IncentiveScheme {
   id: string;

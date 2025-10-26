@@ -1,11 +1,13 @@
 /**
  * Firebase Storage Service
  * Handles photo uploads to Firebase Storage
+ * Using modular Firebase API (v23+)
  */
 
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
+import { getStorage, ref, putFile, getDownloadURL, deleteObject } from '@react-native-firebase/storage';
 import { getAuth } from '@react-native-firebase/auth';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { logger } from '../utils/logger';
 
 /**
  * Compress image before uploading
@@ -23,7 +25,7 @@ async function compressImage(uri: string): Promise<string> {
     );
     return manipulatedImage.uri;
   } catch (error) {
-    console.error('Error compressing image:', error);
+    logger.error('[Storage] Error compressing image:', error);
     // Return original URI if compression fails
     return uri;
   }
@@ -48,33 +50,32 @@ export async function uploadPhoto(
       throw new Error('User not authenticated');
     }
 
-    console.log('[Storage] Compressing image...');
+    logger.debug('Storage', 'Compressing image...');
     const compressedUri = await compressImage(photoUri);
-    console.log('[Storage] Compression complete');
+    logger.debug('Storage', 'Compression complete');
 
     // Generate unique filename
     const timestamp = Date.now();
     const filename = `${timestamp}.jpg`;
     const storagePath = `${folder}/${user.uid}/${filename}`;
 
-    console.log('[Storage] Uploading to:', storagePath);
-
-    // Convert local URI to blob for upload
-    const response = await fetch(compressedUri);
-    const blob = await response.blob();
+    logger.debug('Storage', `Uploading to: ${storagePath}`);
 
     // Upload to Firebase Storage using modular API
-    const storageInstance = getStorage();
-    const storageRef = ref(storageInstance, storagePath);
-    await uploadBytes(storageRef, blob);
+    const storage = getStorage();
+    const storageRef = ref(storage, storagePath);
+
+    // putFile returns a Task - we need to wait for it to complete
+    const uploadTask = putFile(storageRef, compressedUri);
+    await uploadTask;
 
     // Get download URL
     const downloadUrl = await getDownloadURL(storageRef);
-    console.log('[Storage] Upload complete:', downloadUrl);
+    logger.debug('Storage', `Upload complete: ${downloadUrl}`);
 
     return downloadUrl;
   } catch (error) {
-    console.error('[Storage] Upload error:', error);
+    logger.error('[Storage] Upload error:', error);
     throw new Error('Failed to upload photo: ' + (error as Error).message);
   }
 }
@@ -99,12 +100,12 @@ export async function uploadPhotos(
  */
 export async function deletePhoto(downloadUrl: string): Promise<void> {
   try {
-    const storageInstance = getStorage();
-    const reference = ref(storageInstance, downloadUrl);
+    const storage = getStorage();
+    const reference = ref(storage, downloadUrl);
     await deleteObject(reference);
-    console.log('[Storage] Photo deleted:', downloadUrl);
+    logger.debug('Storage', `Photo deleted: ${downloadUrl}`);
   } catch (error) {
-    console.error('[Storage] Delete error:', error);
+    logger.error('[Storage] Delete error:', error);
     throw new Error('Failed to delete photo: ' + (error as Error).message);
   }
 }

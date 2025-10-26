@@ -17,6 +17,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BarChart2, Plus, Folder, User, CheckSquare } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as NavigationBar from 'expo-navigation-bar';
 
 // Animated Icon Wrapper - Same as manager tabs
 const AnimatedTabIcon: React.FC<{
@@ -174,6 +175,14 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
 export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
   const insets = useSafeAreaInsets();
+
+  // Set Android navigation bar color to match navbar
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(colors.primary); // #393735
+      NavigationBar.setButtonStyleAsync('light'); // White buttons for dark background
+    }
+  }, []);
 
   return (
     <>

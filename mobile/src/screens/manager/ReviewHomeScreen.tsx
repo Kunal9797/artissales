@@ -1,4 +1,5 @@
 /**
+import { logger } from '../../utils/logger';
  * ReviewHomeScreen - DSR Approval Dashboard
  *
  * Review and approve Daily Sales Reports (DSRs)
@@ -27,7 +28,7 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
         setDsrs(dsrResponse.dsrs || []);
       }
     } catch (error) {
-      console.error('Error loading DSRs:', error);
+      logger.error('Error loading DSRs:', error);
       setDsrs([]);
     } finally {
       setLoading(false);

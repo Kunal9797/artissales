@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -60,9 +61,9 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
 
   const loadDSR = async () => {
     try {
-      console.log('[DSRDetail] Loading DSR:', dsrId);
+      logger.log('[DSRDetail] Loading DSR:', dsrId);
       const response = await api.getDSRDetail({ reportId: dsrId });
-      console.log('[DSRDetail] Response:', response);
+      logger.log('[DSRDetail] Response:', response);
 
       if (response.ok && response.dsr) {
         setDsr(response.dsr);
@@ -70,7 +71,7 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
         Alert.alert('Error', 'DSR not found');
       }
     } catch (error: any) {
-      console.error('[DSRDetail] Error loading DSR:', error);
+      logger.error('[DSRDetail] Error loading DSR:', error);
       Alert.alert('Error', error.message || 'Failed to load DSR details');
     } finally {
       setLoading(false);

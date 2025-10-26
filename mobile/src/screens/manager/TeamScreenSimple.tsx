@@ -1,10 +1,12 @@
 /**
+import { logger } from '../../utils/logger';
  * TeamScreen - Simple Version
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { User, Search, Phone, MapPin, CheckCircle, XCircle } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
@@ -27,7 +29,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         setFilteredUsers(response.users);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
+      logger.error('Error loading users:', error);
     } finally {
       setLoading(false);
     }
@@ -77,82 +79,59 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     return roleMap[role] || role;
   };
 
+  const getRoleColor = (role: string): string => {
+    switch (role) {
+      case 'rep': return '#1976D2'; // Blue
+      case 'area_manager': return '#2E7D32'; // Green
+      case 'zonal_head': return '#F57C00'; // Orange
+      case 'national_head': return '#7B1FA2'; // Purple
+      case 'admin': return '#424242'; // Gray
+      default: return '#1A1A1A';
+    }
+  };
+
   const renderUser = ({ item }: { item: UserListItem }) => (
     <TouchableOpacity
       style={{
         backgroundColor: '#FFFFFF',
+        borderRadius: 12,
         padding: 16,
         marginBottom: 8,
-        borderRadius: 8,
         borderWidth: 1,
         borderColor: '#E0E0E0',
       }}
       onPress={() => navigation?.navigate('UserDetail', { userId: item.id })}
+      activeOpacity={0.7}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        {/* Avatar */}
+      {/* Name + Role Badge */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Text
+          style={{
+            fontSize: 16,
+            fontWeight: '700',
+            color: '#1A1A1A',
+            flex: 1,
+          }}
+          numberOfLines={1}
+        >
+          {item.name || 'Unnamed User'}
+        </Text>
         <View style={{
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: '#393735',
-          alignItems: 'center',
-          justifyContent: 'center',
+          paddingHorizontal: 8,
+          paddingVertical: 4,
+          borderRadius: 4,
+          backgroundColor: getRoleColor(item.role),
         }}>
-          <User size={24} color="#FFFFFF" />
-        </View>
-
-        {/* User Info */}
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 }}>
-            {item.name || 'Unnamed User'}
+          <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>
+            {getRoleDisplay(item.role)}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 14, color: '#666666' }}>
-              {getRoleDisplay(item.role)}
-            </Text>
-            <Text style={{ color: '#E0E0E0' }}>•</Text>
-            <Text style={{ fontSize: 14, color: '#666666' }}>
-              {item.territory}
-            </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <Phone size={12} color="#999999" />
-            <Text style={{ fontSize: 12, color: '#999999' }}>
-              {item.phone}
-            </Text>
-          </View>
         </View>
-
-        {/* Status Badge */}
-        {item.isActive ? (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            backgroundColor: '#E8F5E9',
-            borderRadius: 12,
-          }}>
-            <CheckCircle size={12} color="#2E7D32" />
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#2E7D32' }}>Active</Text>
-          </View>
-        ) : (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            backgroundColor: '#FFEBEE',
-            borderRadius: 12,
-          }}>
-            <XCircle size={12} color="#EF5350" />
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#EF5350' }}>Inactive</Text>
-          </View>
-        )}
       </View>
+
+      {/* Territory + Phone inline */}
+      <Text style={{ fontSize: 13, color: '#666666' }}>
+        {item.territory} • {item.phone}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -262,10 +241,11 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           <Skeleton rows={3} avatar />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={filteredUsers}
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
+          estimatedItemSize={80}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={

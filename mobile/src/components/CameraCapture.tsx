@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { Camera, CameraType } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { colors } from '../theme';
 
 interface CameraCaptureProps {
@@ -25,18 +25,10 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   onPhotoTaken,
   onCancel,
 }) => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const cameraRef = useRef<Camera>(null);
-
-  // Request camera permission
-  React.useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
-    })();
-  }, []);
+  const cameraRef = useRef<CameraView>(null);
 
   const handleCapture = async () => {
     if (!cameraRef.current) {
@@ -69,23 +61,29 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   };
 
   // Permission handling
-  if (hasPermission === null) {
+  if (!permission) {
     return (
       <View style={styles.container}>
         <ActivityIndicator size="large" color={colors.info} />
-        <Text style={styles.loadingText}>Requesting camera permission...</Text>
+        <Text style={styles.loadingText}>Loading camera...</Text>
       </View>
     );
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>No access to camera</Text>
+        <Text style={styles.errorText}>Camera permission required</Text>
         <Text style={styles.helpText}>
-          Please enable camera permissions in your device settings
+          Please grant camera permissions to take photos
         </Text>
-        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+        <TouchableOpacity style={styles.cancelButton} onPress={requestPermission}>
+          <Text style={styles.cancelButtonText}>Grant Permission</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.cancelButton, { marginTop: 10, backgroundColor: '#666' }]}
+          onPress={onCancel}
+        >
           <Text style={styles.cancelButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -112,36 +110,36 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({
   // Camera view
   return (
     <View style={styles.container}>
-      <Camera
+      <CameraView
         ref={cameraRef}
         style={styles.camera}
-        type={CameraType.back}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>Take Counter Photo</Text>
-          <View style={{ width: 40 }} />
-        </View>
+        facing="back"
+      />
+      {/* Overlay content with absolute positioning */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeButton} onPress={onCancel}>
+          <Text style={styles.closeButtonText}>✕</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Take Counter Photo</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.instruction}>
-            Position the camera to capture the counter/storefront
-          </Text>
-          <TouchableOpacity
-            style={styles.captureButton}
-            onPress={handleCapture}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <View style={styles.captureButtonInner} />
-            )}
-          </TouchableOpacity>
-        </View>
-      </Camera>
+      <View style={styles.footer}>
+        <Text style={styles.instruction}>
+          Position the camera to capture the counter/storefront
+        </Text>
+        <TouchableOpacity
+          style={styles.captureButton}
+          onPress={handleCapture}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <View style={styles.captureButtonInner} />
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };

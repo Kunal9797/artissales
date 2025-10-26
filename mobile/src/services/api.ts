@@ -1,5 +1,6 @@
 import { getAuth } from '@react-native-firebase/auth';
 import { getIdToken } from '@react-native-firebase/auth';
+import { logger } from '../utils/logger';
 
 async function getAuthToken(): Promise<string | null> {
   const authInstance = getAuth();
@@ -55,7 +56,7 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
   }
 
   const url = `${API_BASE_URL}/${endpoint}`;
-  console.log(`[API] Calling ${endpoint} at ${url}`);
+  logger.debug('API', `Calling ${endpoint} at ${url}`);
 
   try {
     const response = await fetch(url, {
@@ -67,18 +68,18 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
       body: JSON.stringify(data),
     });
 
-    console.log(`[API] Response status: ${response.status}`);
-    console.log(`[API] Response headers:`, response.headers);
+    logger.debug('API', `Response status: ${response.status}`);
+    logger.debug('API', `Response headers:`, response.headers);
 
     const responseText = await response.text();
-    console.log(`[API] Response text (first 200 chars):`, responseText.substring(0, 200));
+    logger.debug('API', `Response text (first 200 chars):`, responseText.substring(0, 200));
 
     const responseData = JSON.parse(responseText);
 
     if (!response.ok) {
       // Redact PII before logging
       const sanitized = redactPII(responseData);
-      console.error(`[API] ${endpoint} error:`, JSON.stringify(sanitized));
+      logger.error(`[API] ${endpoint} error:`, JSON.stringify(sanitized));
       throw new ApiError(
         responseData.error || 'API request failed',
         response.status,
@@ -88,9 +89,9 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
 
     return responseData;
   } catch (error: any) {
-    console.error(`[API] ${endpoint} fetch error:`, error);
-    console.error(`[API] Error name: ${error.name}`);
-    console.error(`[API] Error message: ${error.message}`);
+    logger.error(`[API] ${endpoint} fetch error:`, error);
+    logger.error(`[API] Error name: ${error.name}`);
+    logger.error(`[API] Error message: ${error.message}`);
     throw error;
   }
 }
@@ -336,7 +337,7 @@ export const api = {
     formData.append('file', file);
 
     try {
-      console.log('[API] Uploading document:', { name, fileName, fileType, uri: fileUri.substring(0, 50) + '...' });
+      logger.debug('API', 'Uploading document:', { name, fileName, fileType, uri: fileUri.substring(0, 50) + '...' });
 
       const response = await fetch(url, {
         method: 'POST',
@@ -347,11 +348,11 @@ export const api = {
         body: formData,
       });
 
-      console.log('[API] Upload response status:', response.status);
+      logger.debug('API', `Upload response status: ${response.status}`);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('[API] Upload error response:', errorText);
+        logger.error('[API] Upload error response:', errorText);
         let errorData;
         try {
           errorData = JSON.parse(errorText);
@@ -363,7 +364,7 @@ export const api = {
 
       return await response.json();
     } catch (error) {
-      console.error('[API] Upload exception:', error);
+      logger.error('[API] Upload exception:', error);
       if (error instanceof ApiError) throw error;
       throw new ApiError('Network error', 0, error);
     }

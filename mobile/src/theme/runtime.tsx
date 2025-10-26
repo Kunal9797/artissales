@@ -197,5 +197,5 @@ export function useThemeOverrides() {
 // Export function to set overrides (for external use)
 export function setThemeOverrides(overrides: ThemeOverrides) {
   // This is handled by the context, but we export it for API consistency
-  console.warn('Use useThemeOverrides() hook instead of setThemeOverrides()');
+  logger.warn('Use useThemeOverrides() hook instead of setThemeOverrides()');
 }

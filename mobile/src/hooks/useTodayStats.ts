@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '../utils/logger';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, collection, query, where, onSnapshot, FirebaseFirestoreTypes, Timestamp } from '@react-native-firebase/firestore';
 
@@ -70,13 +71,18 @@ export const useTodayStats = () => {
         setStats((prev) => ({ ...prev, checkInAt: checkIn, checkOutAt: checkOut }));
       },
       (error) => {
-        console.error('Attendance listener error:', error);
+        logger.error('Attendance listener error:', error);
       }
     );
 
-    // Listen to visits - use simple userId filter and check timestamp in client
+    // Listen to visits - filter by userId and today's timestamp (PERFORMANCE FIX)
     const visitsRef = collection(db, 'visits');
-    const visitsQuery = query(visitsRef, where('userId', '==', user.uid));
+    const visitsQuery = query(
+      visitsRef,
+      where('userId', '==', user.uid),
+      where('timestamp', '>=', startOfDay),
+      where('timestamp', '<=', endOfDay)
+    );
 
     const unsubVisits = onSnapshot(
       visitsQuery,
@@ -86,19 +92,12 @@ export const useTodayStats = () => {
         const byType: { [key: string]: number } = {};
         let todayCount = 0;
 
-        const todayStart = Timestamp.fromDate(startOfDay);
-        const todayEnd = Timestamp.fromDate(endOfDay);
-
+        // No need for client-side timestamp filtering anymore - query handles it
         snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
-          const visitTime = data.timestamp;
-
-          // Filter to today's visits
-          if (visitTime >= todayStart && visitTime <= todayEnd) {
-            todayCount++;
-            const type = data.accountType || 'other';
-            byType[type] = (byType[type] || 0) + 1;
-          }
+          todayCount++;
+          const type = data.accountType || 'other';
+          byType[type] = (byType[type] || 0) + 1;
         });
 
         setStats((prev) => ({
@@ -107,7 +106,7 @@ export const useTodayStats = () => {
         }));
       },
       (error) => {
-        console.error('Visits listener error:', error);
+        logger.error('Visits listener error:', error);
       }
     );
 
@@ -141,7 +140,7 @@ export const useTodayStats = () => {
         }));
       },
       (error) => {
-        console.error('Sheets sales listener error:', error);
+        logger.error('Sheets sales listener error:', error);
       }
     );
 
@@ -181,7 +180,7 @@ export const useTodayStats = () => {
         }));
       },
       (error) => {
-        console.error('Expenses listener error:', error);
+        logger.error('Expenses listener error:', error);
       }
     );
 

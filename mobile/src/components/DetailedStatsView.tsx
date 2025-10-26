@@ -9,6 +9,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Calendar as CalendarComponent } from 'react-native-calendars';
 import { Calendar as CalendarIcon } from 'lucide-react-native';
 import { colors, spacing } from '../theme';
+import { getCatalogDisplayName } from '../types';
 
 type TabType = 'attendance' | 'visits' | 'sales' | 'expenses';
 
@@ -33,7 +34,7 @@ interface DetailedStatsProps {
         'Fine Decor': number;
         'Artvio': number;
         'Woodrica': number;
-        'Artis': number;
+        'Artis 1MM': number;
       };
     };
     expenses: {
@@ -415,7 +416,7 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                     <View style={styles.categoryHeader}>
                       <View style={styles.categoryLeft}>
                         <View style={[styles.categoryDot, { backgroundColor: color }]} />
-                        <Text style={styles.categoryLabel}>{catalog}</Text>
+                        <Text style={styles.categoryLabel}>{getCatalogDisplayName(catalog)}</Text>
                       </View>
                       <View style={styles.categoryRight}>
                         <Text style={styles.categoryValue}>{count.toLocaleString('en-IN')}</Text>

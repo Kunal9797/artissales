@@ -23,7 +23,11 @@ const db = firestore();
  *
  * Log a visit after meeting with distributor/dealer
  */
-export const logVisit = onRequest({cors: true}, async (request, response) => {
+export const logVisit = onRequest({
+  cors: true,
+  maxInstances: 10,
+  concurrency: 5,
+}, async (request, response) => {
   try {
     // Only POST allowed
     if (request.method !== "POST") {
@@ -62,9 +66,7 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
-    // TEMPORARY: Make photos optional for testing camera issues
     // Validate photos array (must have at least 1 photo)
-    /* TEMPORARY: Commented out for testing
     if (!Array.isArray(body.photos) || body.photos.length < 1) {
       const error: ApiError = {
         ok: false,
@@ -75,7 +77,6 @@ export const logVisit = onRequest({cors: true}, async (request, response) => {
       response.status(400).json(error);
       return;
     }
-    */
 
     // Validate photo URLs (basic check) - only if photos provided
     if (body.photos && body.photos.length > 0) {

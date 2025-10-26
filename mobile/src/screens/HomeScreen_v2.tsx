@@ -1,4 +1,5 @@
 /**
+import { logger } from '../utils/logger';
  * HomeScreen (Sales Rep Dashboard) - Redesigned with DS v0.1
  *
  * Changes from original:
@@ -146,7 +147,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         });
       }
     } catch (error) {
-      console.error('Error fetching attendance:', error);
+      logger.error('Error fetching attendance:', error);
     }
   }, [user?.uid]);
 
@@ -266,7 +267,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       setTodayActivities(activities);
 
     } catch (error) {
-      console.error('Error fetching today stats:', error);
+      logger.error('Error fetching today stats:', error);
     }
   }, [user?.uid]);
 
@@ -294,7 +295,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             // No need to manually redirect here
           }
         } catch (error) {
-          console.error('Error loading user data:', error);
+          logger.error('Error loading user data:', error);
           setUserName('User');
         } finally {
           setLoading(false);
@@ -371,7 +372,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       if (hrs === 0) return `${mins}m`;
       return `${hrs}h ${mins}m`;
     } catch (error) {
-      console.error('Error calculating duration:', error);
+      logger.error('Error calculating duration:', error);
       return null;
     }
   };

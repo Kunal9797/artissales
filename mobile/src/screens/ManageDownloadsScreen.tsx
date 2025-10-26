@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { logger } from '../utils/logger';
 import {
   View,
   Text,
@@ -41,7 +42,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
       const size = await documentCache.getTotalCacheSize();
       setTotalSize(size);
     } catch (err) {
-      console.error('Error loading cached documents:', err);
+      logger.error('Error loading cached documents:', err);
       Alert.alert('Error', 'Failed to load cached documents');
     } finally {
       setLoading(false);
@@ -100,7 +101,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
         await Linking.openURL(contentUri);
       }
     } catch (err: any) {
-      console.error('Error opening document:', err);
+      logger.error('Error opening document:', err);
 
       // Check if it's a "no handler" error
       if (err?.message?.includes('No Activity found') || err?.message?.includes('no handler')) {
@@ -131,7 +132,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
         UTI: doc.mimeType === 'application/pdf' ? 'com.adobe.pdf' : undefined,
       });
     } catch (err: any) {
-      console.error('Error sharing document:', err);
+      logger.error('Error sharing document:', err);
       if (!err.message?.includes('cancelled')) {
         Alert.alert('Share Failed', 'Could not share document. Please try again.');
       }
@@ -159,7 +160,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
                 onDelete();
               }
             } catch (err) {
-              console.error('Error deleting document:', err);
+              logger.error('Error deleting document:', err);
               Alert.alert('Error', 'Failed to delete offline copy');
             } finally {
               setDeleting(null);
@@ -193,7 +194,7 @@ export const ManageDownloadsScreen: React.FC<ManageDownloadsScreenProps> = ({ na
 
               Alert.alert('Success', 'All offline documents cleared');
             } catch (err) {
-              console.error('Error clearing cache:', err);
+              logger.error('Error clearing cache:', err);
               Alert.alert('Error', 'Failed to clear offline documents');
             } finally {
               setLoading(false);

@@ -24,6 +24,7 @@ import { DetailedStatsView } from '../components/DetailedStatsView';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { api } from '../services/api';
 import { Skeleton } from '../patterns';
+import { logger } from '../utils/logger';
 import {
   Calendar,
   FileText,
@@ -93,7 +94,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         unverifiedSheets: totalPendingSheets,  // Actual sheet count
       });
     } catch (error) {
-      console.error('Error fetching pending counts:', error);
+      logger.error('Error fetching pending counts:', error);
     } finally {
       setLoadingPending(false);
     }
@@ -142,14 +143,14 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
       const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
 
-      console.log('[Stats] Fetching stats...');
+      logger.log('[Stats] Fetching stats...');
       // Fetch detailed stats from API
       const response = await api.getUserStats({
         userId: user.uid,
         startDate,
         endDate,
       });
-      console.log(`[Stats] Stats fetched in ${Date.now() - startTime}ms`);
+      logger.log(`[Stats] Stats fetched in ${Date.now() - startTime}ms`);
 
       setDetailedStats(response.stats);
 
@@ -164,7 +165,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       });
       setAttendanceDays(attendanceDaysSet);
     } catch (error) {
-      console.error('Error fetching monthly stats:', error);
+      logger.error('Error fetching monthly stats:', error);
     } finally {
       setLoading(false);
     }
@@ -175,13 +176,13 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     if (!user?.uid) return;
 
     try {
-      console.log('[Stats] Fetching targets for:', { userId: user.uid, month: currentMonth });
+      logger.log('[Stats] Fetching targets for:', { userId: user.uid, month: currentMonth });
       const response = await api.getTarget({
         userId: user.uid,
         month: currentMonth,
       });
 
-      console.log('[Stats] Target response:', response);
+      logger.log('[Stats] Target response:', response);
 
       if (response.ok && response.target) {
         const newTargets: any = {};
@@ -201,17 +202,17 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
             'Fine Decor': response.target.targetsByCatalog['Fine Decor'],
             'Artvio': response.target.targetsByCatalog['Artvio'],
             'Woodrica': response.target.targetsByCatalog['Woodrica'],
-            'Artis': response.target.targetsByCatalog['Artis'],
+            'Artis 1MM': response.target.targetsByCatalog['Artis 1MM'],
           };
         }
 
-        console.log('[Stats] Setting targets:', newTargets);
+        logger.log('[Stats] Setting targets:', newTargets);
         setTargets(newTargets);
       } else {
-        console.log('[Stats] No target found for this month');
+        logger.log('[Stats] No target found for this month');
       }
     } catch (error) {
-      console.error('[Stats] Error fetching targets:', error);
+      logger.error('[Stats] Error fetching targets:', error);
       // Targets are optional, so don't show error to user
     }
   }, [user?.uid, currentMonth]);

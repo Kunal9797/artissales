@@ -1,4 +1,5 @@
 /**
+import { logger } from '../../utils/logger';
  * ManagerHomeScreen - Redesigned with DS v0.1
  *
  * Modern manager dashboard with:
@@ -79,7 +80,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         setUserName(userData?.name || 'Manager');
       }
     } catch (error) {
-      console.error('Error fetching user name:', error);
+      logger.error('Error fetching user name:', error);
       setUserName('Manager');
     }
   }, [user?.uid]);
@@ -122,7 +123,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         setAlerts(newAlerts);
       }
     } catch (error) {
-      console.error('Error fetching team stats:', error);
+      logger.error('Error fetching team stats:', error);
     }
   }, []);
 
