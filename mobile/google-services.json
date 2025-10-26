@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "213810547379",
+    "project_id": "artis-sales-dev",
+    "storage_bucket": "artis-sales-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:213810547379:android:85a1451aa6adcc7cb13ec6",
+        "android_client_info": {
+          "package_name": "com.artis.sales"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAT-4r897sgkn6hcTvJlA2Ol9tZmvfjx88"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

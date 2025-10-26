@@ -1,12 +1,12 @@
 import { getAuth } from '@react-native-firebase/auth';
-import { getIdToken } from '@react-native-firebase/auth';
 import { logger } from '../utils/logger';
 
 async function getAuthToken(): Promise<string | null> {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
   if (!user) return null;
-  return await getIdToken(user);
+  // Call getIdToken as a method on the user object
+  return await user.getIdToken();
 }
 import {
   CheckInRequest,

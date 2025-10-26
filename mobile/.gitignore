@@ -33,7 +33,7 @@ yarn-error.*
 node_modules/
 
 # Firebase
-google-services.json
+# google-services.json  # Temporarily unignored for EAS builds (dev environment only)
 GoogleService-Info.plist
 
 # IDE
