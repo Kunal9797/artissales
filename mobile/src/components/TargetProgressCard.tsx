@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Target, Plus } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
-import { TargetProgress } from '../types';
-import { api } from '../services/api';
+import { useTargetProgress } from '../hooks/useTargetProgress';
 
 interface TargetProgressCardProps {
   userId: string;
@@ -22,33 +21,7 @@ export const TargetProgressCard: React.FC<TargetProgressCardProps> = ({
   style,
   onLogPress,
 }) => {
-  const [progress, setProgress] = useState<TargetProgress[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchTarget = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await api.getTarget({ userId, month });
-
-        if (response.target && response.progress) {
-          setProgress(response.progress);
-        } else {
-          setProgress(null);
-        }
-      } catch (err: any) {
-        console.error('[TargetProgressCard] Error fetching target:', err);
-        setError(err.message || 'Failed to load target');
-        setProgress(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTarget();
-  }, [userId, month]);
+  const { progress, loading, error } = useTargetProgress(userId, month);
 
   if (loading) {
     return null; // Don't show anything while loading

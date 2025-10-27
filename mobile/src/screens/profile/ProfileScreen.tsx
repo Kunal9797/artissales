@@ -15,8 +15,10 @@ import {
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
-import { LogOut, User as UserIcon, Mail, Phone, MapPin, Briefcase } from 'lucide-react-native';
-import { colors, spacing, typography, featureColors } from '../../theme';
+import { User as UserIcon, Mail, Phone, MapPin, Briefcase, Camera } from 'lucide-react-native';
+import { uploadProfilePhoto, deleteProfilePhoto, cacheProfilePhotoLocally, getLocalProfilePhoto } from '../../services/storage';
+import { selectPhoto } from '../../utils/photoUtils';
+import { colors, spacing, typography } from '../../theme';
 import { Card, Badge } from '../../components/ui';
 import { Skeleton } from '../../patterns';
 
@@ -34,10 +36,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Track original values to detect changes
   const [originalName, setOriginalName] = useState('');
   const [originalEmail, setOriginalEmail] = useState('');
+
+  // Load local cached photo on mount
+  useEffect(() => {
+    const loadLocalPhoto = async () => {
+      const localUri = await getLocalProfilePhoto();
+      if (localUri) {
+        setLocalPhotoUri(localUri);
+        logger.debug('Profile', 'Loaded profile photo from local cache');
+      }
+    };
+    loadLocalPhoto();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -59,6 +76,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           setOriginalEmail(userEmail);
           setRole(data?.role || 'rep');
           setTerritory(data?.territory || 'Not assigned');
+          setProfilePhotoUrl(data?.profilePhotoUrl || null);
         }
         setLoading(false);
       },
@@ -120,6 +138,66 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleChangePhoto = async () => {
+    const photoUri = await selectPhoto({
+      title: 'Profile Photo',
+      includeRemove: !!localPhotoUri || !!profilePhotoUrl,
+      onRemove: handleRemovePhoto,
+    });
+
+    if (!photoUri) return;
+
+    try {
+      setUploadingPhoto(true);
+
+      // Step 1: Cache locally first (instant)
+      const localUri = await cacheProfilePhotoLocally(photoUri);
+      setLocalPhotoUri(localUri);
+      logger.debug('Profile', 'Profile photo cached locally, displaying immediately');
+
+      // Step 2: Upload to cloud in background
+      const downloadUrl = await uploadProfilePhoto(photoUri);
+      await api.updateProfile({ profilePhotoUrl: downloadUrl });
+      setProfilePhotoUrl(downloadUrl);
+
+      Alert.alert('Success', 'Profile photo updated!');
+    } catch (error: any) {
+      logger.error('Profile photo upload error:', error);
+      Alert.alert('Error', 'Failed to upload photo. Please try again.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    Alert.alert(
+      'Remove Photo',
+      'Are you sure you want to remove your profile photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUploadingPhoto(true);
+              await deleteProfilePhoto(); // Also deletes local cache
+              await api.updateProfile({ profilePhotoUrl: '' });
+              setProfilePhotoUrl(null);
+              setLocalPhotoUri(null);
+              Alert.alert('Success', 'Profile photo removed');
+            } catch (error: any) {
+              logger.error('Profile photo removal error:', error);
+              Alert.alert('Error', 'Failed to remove photo');
+            } finally {
+              setUploadingPhoto(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Pull-to-refresh handler
@@ -230,12 +308,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         {/* Profile Info Card */}
         <Card elevation="md" style={styles.profileCard}>
           <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
-              <UserIcon size={48} color={colors.primary} />
+            <View style={styles.avatarContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.avatar,
+                  (localPhotoUri || profilePhotoUrl) && styles.avatarWithPhoto
+                ]}
+                onPress={handleChangePhoto}
+                disabled={uploadingPhoto}
+                activeOpacity={0.7}
+              >
+                {(localPhotoUri || profilePhotoUrl) ? (
+                  <Image
+                    source={{ uri: localPhotoUri || profilePhotoUrl }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <UserIcon size={56} color="#C9A961" />
+                )}
+                {uploadingPhoto && (
+                  <View style={styles.avatarLoading}>
+                    <ActivityIndicator color="#fff" size="large" />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Camera badge overlay */}
+              <View style={styles.cameraBadge}>
+                <Camera size={16} color="#393735" />
+              </View>
             </View>
+
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{name || 'User'}</Text>
-              <Badge variant="neutral">{getRoleDisplay(role)}</Badge>
+              <Badge variant="neutral" style={styles.roleBadge}>{getRoleDisplay(role)}</Badge>
             </View>
           </View>
         </Card>
@@ -382,25 +488,70 @@ const styles = StyleSheet.create({
   avatarSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.lg,
+  },
+  avatarContainer: {
+    position: 'relative',
+    width: 120,
+    height: 120,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: colors.border.default,
+    overflow: 'hidden',
+  },
+  avatarWithPhoto: {
+    borderColor: '#C9A961',
+    borderWidth: 3,
+  },
+  avatarImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  avatarLoading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 60,
+  },
+  cameraBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#C9A961',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
   profileInfo: {
     flex: 1,
     gap: spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   profileName: {
     ...typography.styles.h2,
     color: colors.text.primary,
+    textAlign: 'center',
+  },
+  roleBadge: {
+    alignSelf: 'center',
   },
   // Cards
   card: {

@@ -28,6 +28,7 @@ export interface User {
   reportsToUserId?: string; // Manager hierarchy
   territory?: string; // Area/zone assignment
   primaryDistributorId?: string; // For reps assigned to distributors
+  profilePhotoUrl?: string; // Firebase Storage URL for profile photo
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -384,12 +385,18 @@ export interface VisitLogRequest {
   notes?: string;
   photos: string[]; // REQUIRED - Storage URLs (min 1)
   requestId?: string; // For idempotency
+  geo?: { // Optional GPS for auto check-in
+    lat: number;
+    lon: number;
+    accuracyM?: number;
+  };
 }
 
 export interface VisitLogResponse {
   ok: boolean;
   visitId: string;
   timestamp: string; // ISO 8601
+  autoCheckedIn?: boolean; // True if auto check-in was triggered
 }
 
 // Lead First Touch

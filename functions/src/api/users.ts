@@ -11,7 +11,7 @@ import {
   isValidPhoneNumber,
 } from "../utils/validation";
 import {requireAuth} from "../utils/auth";
-import {User, UserRole, ApiError} from "../types";
+import {UserRole, ApiError} from "../types";
 import {setUserRoleClaim} from "../utils/customClaims";
 
 const db = getFirestore();
@@ -180,7 +180,7 @@ export const createUserByManager = onRequest(async (request, response) => {
     const newUserRef = db.collection("users").doc();
     const userId = newUserRef.id;
 
-    const newUser: User = {
+    const newUser: any = {
       id: userId,
       phone: normalizedPhone,
       name: name.trim(),
@@ -188,10 +188,14 @@ export const createUserByManager = onRequest(async (request, response) => {
       role: role,
       isActive: true,
       territory: territory.trim(),
-      primaryDistributorId: primaryDistributorId || undefined,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
+
+    // Only add primaryDistributorId if it's provided (Firestore doesn't accept undefined)
+    if (primaryDistributorId) {
+      newUser.primaryDistributorId = primaryDistributorId;
+    }
 
     await newUserRef.set(newUser);
 
@@ -214,12 +218,17 @@ export const createUserByManager = onRequest(async (request, response) => {
       message: "User created successfully",
     });
   } catch (error: any) {
-    logger.error("[createUserByManager] ❌ Error:", error);
+    logger.error("[createUserByManager] ❌ Error:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+    });
     const apiError: ApiError = {
       ok: false,
-      error: "Internal server error",
+      error: error.message || "Internal server error",
       code: "INTERNAL_ERROR",
-      details: error.message,
+      details: error.message || "Unknown error occurred",
     };
     response.status(500).json(apiError);
   }

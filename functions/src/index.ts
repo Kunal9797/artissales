@@ -33,6 +33,7 @@ export {checkSLAViolations} from "./scheduled/slaEscalator";
 export {compileDSRReports} from "./scheduled/dsrCompiler";
 export {processOutboxEvents} from "./scheduled/outboxProcessor";
 export {targetAutoRenewScheduled} from "./scheduled/targetAutoRenew";
+export {autoCheckOut} from "./scheduled/autoCheckOut";
 
 // Firestore Triggers
 export {onLeadCreated} from "./triggers/onLeadCreated";

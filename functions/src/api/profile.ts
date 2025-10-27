@@ -13,6 +13,7 @@ const db = getFirestore();
 interface UpdateProfileRequest {
   name?: string;
   email?: string;
+  profilePhotoUrl?: string;
 }
 
 /**
@@ -31,10 +32,10 @@ export const updateProfile = onRequest(async (request, response) => {
     const body = request.body as UpdateProfileRequest;
 
     // Validate: at least one field must be provided
-    if (!body.name && !body.email) {
+    if (body.name === undefined && body.email === undefined && body.profilePhotoUrl === undefined) {
       const error: ApiError = {
         ok: false,
-        error: "At least one field (name or email) must be provided",
+        error: "At least one field (name, email, or profilePhotoUrl) must be provided",
         code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
@@ -78,6 +79,21 @@ export const updateProfile = onRequest(async (request, response) => {
       }
     }
 
+    // Validate profilePhotoUrl if provided
+    if (body.profilePhotoUrl !== undefined && body.profilePhotoUrl.trim().length > 0) {
+      const photoUrl = body.profilePhotoUrl.trim();
+      // Check if it's a valid Firebase Storage URL
+      if (!photoUrl.includes("firebasestorage.googleapis.com")) {
+        const error: ApiError = {
+          ok: false,
+          error: "Profile photo URL must be a valid Firebase Storage URL",
+          code: "INVALID_PHOTO_URL",
+        };
+        response.status(400).json(error);
+        return;
+      }
+    }
+
     // Get user document
     const userRef = db.collection("users").doc(auth.uid);
     const userDoc = await userRef.get();
@@ -103,6 +119,10 @@ export const updateProfile = onRequest(async (request, response) => {
 
     if (body.email !== undefined) {
       updateData.email = body.email.trim() || null; // null if empty string
+    }
+
+    if (body.profilePhotoUrl !== undefined) {
+      updateData.profilePhotoUrl = body.profilePhotoUrl.trim() || null; // null if empty string
     }
 
     // Update user document

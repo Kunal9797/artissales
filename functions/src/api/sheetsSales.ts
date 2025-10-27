@@ -11,6 +11,7 @@ import * as logger from "firebase-functions/logger";
 import {ApiError, CatalogType} from "../types";
 import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
+import {invalidateTargetCache} from "./targets";
 
 interface LogSheetsRequest {
   date: string; // YYYY-MM-DD format
@@ -167,6 +168,10 @@ export const logSheetsSale = onRequest(async (request, response) => {
     };
 
     await saleRef.set(saleData);
+
+    // Invalidate target cache for this user's month
+    const month = body.date.substring(0, 7); // YYYY-MM
+    invalidateTargetCache(auth.uid, month);
 
     logger.info("Sheets sale logged", {
       saleId: saleRef.id,
@@ -377,6 +382,10 @@ export const updateSheetsSale = onRequest(async (request, response) => {
       updatedAt: firestore.Timestamp.now(),
     });
 
+    // Invalidate target cache for this user's month
+    const month = saleDate.substring(0, 7); // YYYY-MM
+    invalidateTargetCache(auth.uid, month);
+
     logger.info("Sheet sale updated", {
       saleId: id,
       userId: auth.uid,
@@ -449,6 +458,13 @@ export const deleteSheetsSale = onRequest(async (request, response) => {
 
     // Delete the sheet sale
     await saleRef.delete();
+
+    // Invalidate target cache for this user's month
+    const saleDate = saleData?.date; // YYYY-MM-DD
+    if (saleDate) {
+      const month = saleDate.substring(0, 7); // YYYY-MM
+      invalidateTargetCache(auth.uid, month);
+    }
 
     logger.info("Sheet sale deleted", {
       saleId: id,

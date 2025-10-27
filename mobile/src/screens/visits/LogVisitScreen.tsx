@@ -13,6 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock } from 'lucide-react-native';
+import * as Location from 'expo-location';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { Account } from '../../hooks/useAccounts';
@@ -51,59 +52,62 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Fetch existing visit data in edit mode
+  // Fetch existing visit data in edit mode (PARALLEL LOADING OPTIMIZATION)
   useEffect(() => {
     if (isEditMode && editActivityId) {
       const fetchExistingData = async () => {
         try {
           setSubmitting(true);
+
+          // STEP 1: Fetch visit data first (fastest)
           const visitResponse = await api.getVisit({ id: editActivityId });
 
-          if (visitResponse) {
-            // Fetch full account details using direct account lookup (PERFORMANCE FIX)
-            if (visitResponse.accountId) {
-              try {
-                const accountResponse = await api.getAccountDetails({ accountId: visitResponse.accountId });
-
-                if (accountResponse.ok && accountResponse.account) {
-                  setVisitAccount(accountResponse.account);
-                } else {
-                  // Fallback to partial data if account not found
-                  setVisitAccount({
-                    id: visitResponse.accountId,
-                    name: visitResponse.accountName || 'Unknown Account',
-                    type: visitResponse.accountType || 'dealer',
-                    address: '',
-                    phone: '',
-                    city: '',
-                    state: '',
-                  } as Account);
-                }
-              } catch (accountError) {
-                logger.error('Error fetching account details:', accountError);
-                // Use partial data from visit
-                setVisitAccount({
-                  id: visitResponse.accountId,
-                  name: visitResponse.accountName || 'Unknown Account',
-                  type: visitResponse.accountType || 'dealer',
-                  address: '',
-                  phone: '',
-                  city: '',
-                  state: '',
-                } as Account);
-              }
-            }
-
-            setPurpose(visitResponse.purpose);
-            setNotes(visitResponse.notes || '');
-            if (visitResponse.photos && visitResponse.photos.length > 0) {
-              setPhotoUri(visitResponse.photos[0]); // Use first photo
-            }
+          if (!visitResponse) {
+            throw new Error('Visit not found');
           }
+
+          // STEP 2: Immediately render text fields (purpose, notes)
+          setPurpose(visitResponse.purpose);
+          setNotes(visitResponse.notes || '');
+          setSubmitting(false); // Allow user to start editing immediately
+
+          // STEP 3: Parallel loading - Account details & Photo (non-blocking)
+          const accountId = visitResponse.accountId;
+          const photoUrl = visitResponse.photos?.[0];
+
+          // Load account and photo in parallel
+          Promise.allSettled([
+            accountId
+              ? api.getAccountDetails({ accountId }).then((accountResponse) => {
+                  if (accountResponse.ok && accountResponse.account) {
+                    setVisitAccount(accountResponse.account);
+                  } else {
+                    // Fallback to partial data
+                    setVisitAccount({
+                      id: accountId,
+                      name: visitResponse.accountName || 'Unknown Account',
+                      type: visitResponse.accountType || 'dealer',
+                      address: '',
+                      phone: '',
+                      city: '',
+                      state: '',
+                    } as Account);
+                  }
+                })
+              : Promise.resolve(),
+
+            photoUrl
+              ? Promise.resolve().then(() => {
+                  setPhotoUri(photoUrl);
+                })
+              : Promise.resolve(),
+          ]).catch((err) => {
+            logger.error('Error loading account/photo:', err);
+            // Non-critical - user can still edit purpose/notes
+          });
         } catch (error) {
           logger.error('Error fetching visit data:', error);
           Alert.alert('Error', 'Failed to load visit data');
-        } finally {
           setSubmitting(false);
         }
       };
@@ -129,6 +133,31 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         },
       ]
     );
+  };
+
+  // Helper: Attempt to capture GPS for auto check-in (non-blocking)
+  const captureGPSForAutoCheckIn = async (): Promise<{ lat: number; lon: number; accuracyM?: number } | null> => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        logger.info('[AutoCheckIn] GPS permission denied - skipping');
+        return null;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        timeInterval: 5000,
+      });
+
+      return {
+        lat: location.coords.latitude,
+        lon: location.coords.longitude,
+        accuracyM: location.coords.accuracy || undefined,
+      };
+    } catch (error) {
+      logger.error('[AutoCheckIn] Failed to get GPS:', error);
+      return null;
+    }
   };
 
   const handleSubmit = async () => {
@@ -174,6 +203,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         ]);
       } else {
         // NEW VISIT: Optimistic update with background upload
+        // Try to capture GPS for auto check-in (non-blocking)
+        const gpsData = await captureGPSForAutoCheckIn();
+
         const { uploadQueue } = await import('../../services/uploadQueue');
 
         if (photoUri && !photoUri.startsWith('http')) {
@@ -188,6 +220,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
               accountId: visitAccount.id,
               purpose: purpose as any,
               notes: notes.trim() || undefined,
+              geo: gpsData || undefined,
             },
           });
 
@@ -207,6 +240,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             purpose: purpose as any,
             notes: notes.trim() || undefined,
             photos: photoUri ? [photoUri] : [],
+            geo: gpsData || undefined,
           });
 
           Alert.alert('Success', 'Visit logged successfully!', [

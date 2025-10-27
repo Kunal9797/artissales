@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Target, TrendingUp } from 'lucide-react-native';
+import { Target } from 'lucide-react-native';
 import { colors, spacing, typography } from '../theme';
-import { TargetProgress } from '../types';
-import { api } from '../services/api';
+import { useTargetProgress } from '../hooks/useTargetProgress';
 
 interface DetailedTargetProgressCardProps {
   userId: string;
@@ -16,30 +15,8 @@ export const DetailedTargetProgressCard: React.FC<DetailedTargetProgressCardProp
   month,
   style,
 }) => {
-  const [progress, setProgress] = useState<TargetProgress[] | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchTarget = async () => {
-      try {
-        setLoading(true);
-        const response = await api.getTarget({ userId, month });
-
-        if (response.target && response.progress) {
-          setProgress(response.progress);
-        } else {
-          setProgress(null);
-        }
-      } catch (err: any) {
-        console.error('[DetailedTargetProgressCard] Error:', err);
-        setProgress(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTarget();
-  }, [userId, month]);
+  // Use cached hook instead of direct API call
+  const { progress, loading } = useTargetProgress(userId, month);
 
   // Loading skeleton - compact version
   if (loading) {
@@ -82,30 +59,30 @@ export const DetailedTargetProgressCard: React.FC<DetailedTargetProgressCardProp
     <View style={[{
       backgroundColor: '#FFFFFF',
       borderRadius: 8,
-      padding: 12,
+      padding: 16,
       borderWidth: 1,
       borderColor: '#E0E0E0',
     }, style]}>
-      {/* Compact Header */}
+      {/* Header */}
       <View style={{
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 10,
+        gap: 8,
+        marginBottom: 16,
       }}>
-        <Target size={16} color="#C9A961" strokeWidth={2.5} />
+        <Target size={18} color="#C9A961" strokeWidth={2.5} />
         <Text style={{
-          fontSize: 13,
-          fontWeight: '600',
+          fontSize: 14,
+          fontWeight: '700',
           color: '#666666',
           textTransform: 'uppercase',
-          letterSpacing: 0.3,
+          letterSpacing: 0.5,
         }}>
           Monthly Progress
         </Text>
       </View>
 
-      {/* Compact Progress Rows */}
+      {/* Simple rows - just numbers with color coding */}
       {progress.map((item, index) => {
         const isLast = index === progress.length - 1;
         const progressColor = getProgressColor(item.percentage);
@@ -114,52 +91,49 @@ export const DetailedTargetProgressCard: React.FC<DetailedTargetProgressCardProp
           <View
             key={item.catalog}
             style={{
-              paddingVertical: 8,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: 12,
               borderBottomWidth: isLast ? 0 : 1,
               borderBottomColor: '#F0F0F0',
             }}
           >
-            {/* Catalog name and percentage in one line */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>
-                {item.catalog}
-              </Text>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-              }}>
-                <Text style={{ fontSize: 11, color: '#666666' }}>
-                  {item.achieved.toLocaleString()} / {item.target.toLocaleString()}
-                </Text>
-                <View style={{
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
-                  backgroundColor: progressColor + '20',
-                }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: progressColor }}>
-                    {item.percentage >= 100 ? '+' : ''}{item.percentage}%
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Thin progress bar */}
-            <View style={{
-              height: 4,
-              backgroundColor: '#F0F0F0',
-              borderRadius: 2,
-              overflow: 'hidden',
+            {/* Catalog name */}
+            <Text style={{
+              fontSize: 15,
+              fontWeight: '600',
+              color: '#1A1A1A',
+              flex: 1,
             }}>
-              <View
-                style={{
-                  height: '100%',
-                  width: `${Math.min(item.percentage, 100)}%`,
-                  backgroundColor: progressColor,
-                  borderRadius: 2,
-                }}
-              />
+              {item.catalog}
+            </Text>
+
+            {/* Achievement and percentage in one clean line */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+            }}>
+              {/* Achieved/Target - BIGGER */}
+              <Text style={{
+                fontSize: 17,
+                color: '#333333',
+                fontWeight: '600',
+              }}>
+                {item.achieved.toLocaleString()}/{item.target.toLocaleString()}
+              </Text>
+
+              {/* Percentage with color - BIGGER */}
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: progressColor,
+                minWidth: 65,
+                textAlign: 'right',
+              }}>
+                {item.percentage}%
+              </Text>
             </View>
           </View>
         );

@@ -1,11 +1,11 @@
 /**
-import { logger } from '../../utils/logger';
  * Expense Entry Screen
  * Allows sales reps to log daily expenses with multiple items
  * (e.g., 100 for travel + 500 for hotel in one report)
  */
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -196,16 +196,26 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   };
 
   const handleSubmit = async () => {
+    console.log('[Expense] handleSubmit called');
+    console.log('[Expense] Items:', items);
+    console.log('[Expense] Date:', date);
+    console.log('[Expense] Receipt photos:', receiptPhotoUrls);
+
     // Validation
     if (items.length === 0) {
+      console.log('[Expense] Validation failed: no items');
       Alert.alert('Validation Error', 'Please add at least one expense item');
       return;
     }
 
+    console.log('[Expense] Validation passed, starting submission');
+
     try {
       setSubmitting(true);
+      console.log('[Expense] setSubmitting(true) called');
 
       if (isEditMode && editActivityId) {
+        console.log('[Expense] Edit mode detected');
         // Update existing expense
         const updateData = {
           id: editActivityId,

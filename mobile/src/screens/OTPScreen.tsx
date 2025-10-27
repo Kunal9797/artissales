@@ -35,10 +35,20 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
       // Auth state change will be handled by useAuth hook
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Invalid verification code. Please try again.'
-      );
+
+      // Handle specific Firebase error codes with user-friendly messages
+      let errorMessage = 'Verification failed. Please try again.';
+
+      if (error.code === 'auth/invalid-verification-code') {
+        errorMessage = 'Incorrect code. Please check and try again.';
+      } else if (error.code === 'auth/session-expired') {
+        errorMessage = 'Code expired. Please request a new code.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Please try again later.';
+      }
+
+      Alert.alert('Verification Failed', errorMessage);
+      setCode(''); // Clear the input for retry
     } finally {
       setLoading(false);
     }

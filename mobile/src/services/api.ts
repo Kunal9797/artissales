@@ -184,7 +184,7 @@ export const api = {
     return callFunction('deleteExpense', data);
   },
 
-  updateProfile: async (data: { name?: string; email?: string }) => {
+  updateProfile: async (data: { name?: string; email?: string; profilePhotoUrl?: string }) => {
     return callFunction('updateProfile', data);
   },
 

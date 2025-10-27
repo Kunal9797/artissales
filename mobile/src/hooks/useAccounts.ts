@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, collection, query, where, orderBy, onSnapshot, FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+import { api } from '../services/api';
 
 export interface Account {
   id: string;
   name: string;
-  type: 'distributor' | 'dealer' | 'architect';
+  type: 'distributor' | 'dealer' | 'architect' | 'contractor';
   contactPerson?: string;
   phone?: string;
   email?: string;
@@ -34,66 +33,31 @@ export const useAccounts = () => {
   };
 
   useEffect(() => {
-    const authInstance = getAuth();
-    const user = authInstance.currentUser;
-    if (!user) {
-      setError('Not authenticated');
-      setLoading(false);
-      return;
-    }
+    const fetchAccounts = async () => {
+      try {
+        setLoading(true);
+        // Use API endpoint which handles visibility rules on backend
+        const response = await api.getAccountsList({});
 
-    const db = getFirestore();
+        // Convert ISO strings back to Date objects (handle missing dates)
+        const accountsWithDates = response.accounts.map((account: any) => ({
+          ...account,
+          lastVisitAt: account.lastVisitAt ? new Date(account.lastVisitAt) : undefined,
+          createdAt: account.createdAt ? new Date(account.createdAt) : new Date(),
+          updatedAt: account.updatedAt ? new Date(account.updatedAt) : new Date(),
+        }));
 
-    // Subscribe to accounts assigned to current user
-    const accountsRef = collection(db, 'accounts');
-    const q = query(
-      accountsRef,
-      where('assignedRepUserId', '==', user.uid),
-      where('status', '==', 'active'),
-      orderBy('name', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const accountsData: Account[] = [];
-
-        snapshot.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-          const data = doc.data();
-          accountsData.push({
-            id: doc.id,
-            name: data.name,
-            type: data.type,
-            contactPerson: data.contactPerson,
-            phone: data.phone,
-            email: data.email,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            pincode: data.pincode,
-            territory: data.territory,
-            assignedRepUserId: data.assignedRepUserId,
-            parentDistributorId: data.parentDistributorId,
-            createdByUserId: data.createdByUserId,
-            status: data.status,
-            lastVisitAt: data.lastVisitAt?.toDate(),
-            createdAt: data.createdAt?.toDate(),
-            updatedAt: data.updatedAt?.toDate(),
-          });
-        });
-
-        setAccounts(accountsData);
+        setAccounts(accountsWithDates);
         setLoading(false);
         setError(null);
-      },
-      (err) => {
+      } catch (err: any) {
         console.error('Accounts fetch error:', err);
         setError(err.message || 'Failed to fetch accounts');
         setLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    fetchAccounts();
   }, [refreshTrigger]);
 
   return { accounts, loading, error, refreshAccounts };

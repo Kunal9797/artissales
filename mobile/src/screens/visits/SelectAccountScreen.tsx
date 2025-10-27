@@ -54,24 +54,33 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   }, [accounts, searchQuery, selectedType]);
 
   const handleSelectAccount = (account: Account) => {
+    // Helper function to safely convert date to ISO string
+    const safeToISOString = (date: any): string | null => {
+      if (!date) return null;
+      try {
+        if (date instanceof Date) {
+          // Check if date is valid
+          if (isNaN(date.getTime())) return null;
+          return date.toISOString();
+        }
+        if (date.toDate && typeof date.toDate === 'function') {
+          const d = date.toDate();
+          if (isNaN(d.getTime())) return null;
+          return d.toISOString();
+        }
+        return null;
+      } catch (error) {
+        console.error('Error converting date to ISO string:', error);
+        return null;
+      }
+    };
+
     // Sanitize account data - convert Dates/Timestamps to ISO strings for navigation
     const sanitizedAccount = {
       ...account,
-      lastVisitAt: account.lastVisitAt
-        ? (account.lastVisitAt instanceof Date
-          ? account.lastVisitAt.toISOString()
-          : account.lastVisitAt.toDate?.()?.toISOString?.() || null)
-        : null,
-      createdAt: account.createdAt
-        ? (account.createdAt instanceof Date
-          ? account.createdAt.toISOString()
-          : account.createdAt.toDate?.()?.toISOString?.() || null)
-        : null,
-      updatedAt: account.updatedAt
-        ? (account.updatedAt instanceof Date
-          ? account.updatedAt.toISOString()
-          : account.updatedAt.toDate?.()?.toISOString?.() || null)
-        : null,
+      lastVisitAt: safeToISOString(account.lastVisitAt),
+      createdAt: safeToISOString(account.createdAt),
+      updatedAt: safeToISOString(account.updatedAt),
     };
     navigation.navigate('LogVisit', { account: sanitizedAccount });
   };

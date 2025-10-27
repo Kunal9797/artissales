@@ -15,7 +15,8 @@ import { Plus, X, ChevronLeft, FileText } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
-import { TargetProgress } from '../../types';
+import { useTargetProgress } from '../../hooks/useTargetProgress';
+import { targetCache } from '../../services/targetCache';
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -42,9 +43,11 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
   const editActivityId = route.params?.editActivityId;
   const isEditMode = !!editActivityId;
 
-  // Target progress data
-  const [targetProgress, setTargetProgress] = useState<TargetProgress[] | null>(null);
-  const [loadingTargets, setLoadingTargets] = useState(true);
+  // Get current month
+  const month = new Date().toISOString().substring(0, 7); // YYYY-MM
+
+  // Use cached target progress hook
+  const { progress: targetProgress, loading: loadingTargets } = useTargetProgress(user?.uid, month);
 
   // Quick add state
   const [selectedCatalog, setSelectedCatalog] = useState<CatalogType | null>(null);
@@ -57,29 +60,6 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
 
   // Notes for manager
   const [managerNotes, setManagerNotes] = useState('');
-
-  // Fetch targets
-  useEffect(() => {
-    const fetchTargets = async () => {
-      if (!user?.uid) return;
-
-      try {
-        setLoadingTargets(true);
-        const month = new Date().toISOString().substring(0, 7);
-        const response = await api.getTarget({ userId: user.uid, month });
-
-        if (response.target && response.progress) {
-          setTargetProgress(response.progress);
-        }
-      } catch (err) {
-        logger.error('Error loading targets:', err);
-      } finally {
-        setLoadingTargets(false);
-      }
-    };
-
-    fetchTargets();
-  }, [user?.uid]);
 
   // Fetch existing sheet data in edit mode
   useEffect(() => {
@@ -180,6 +160,12 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
             setDeleting(true);
             try {
               await api.deleteSheetsSale({ id: editActivityId });
+
+              // Invalidate target cache since a sale was deleted
+              if (user?.uid) {
+                targetCache.invalidate(user.uid, month);
+              }
+
               Alert.alert('Success', 'Sheet sale deleted successfully', [
                 { text: 'OK', onPress: () => navigation.goBack() }
               ]);
@@ -411,6 +397,11 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
                     sheetsCount: entry.sheetsCount,
                     notes: managerNotes || undefined,
                   });
+                }
+
+                // Invalidate target cache since new sales were logged
+                if (user?.uid) {
+                  targetCache.invalidate(user.uid, month);
                 }
 
                 Alert.alert('Success', 'Sales submitted for approval', [

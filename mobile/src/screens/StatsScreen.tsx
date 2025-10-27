@@ -271,11 +271,17 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
 
         {/* Detailed Stats View */}
         {loading ? (
-          <View style={styles.content}>
-            <Skeleton card />
-            <Skeleton card />
-            <Skeleton card />
-          </View>
+          (() => {
+            console.log('[StatsScreen] Rendering skeleton loading state');
+            return (
+              <>
+                <Skeleton card fullWidth />
+                <Skeleton card fullWidth />
+                <Skeleton card fullWidth />
+                <Skeleton card fullWidth />
+              </>
+            );
+          })()
         ) : detailedStats ? (
           <DetailedStatsView
             stats={detailedStats}

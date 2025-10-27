@@ -14,9 +14,11 @@ export interface SkeletonProps {
   avatar?: boolean;
   /** Card layout */
   card?: boolean;
+  /** Full width (ignores parent padding) */
+  fullWidth?: boolean;
 }
 
-export function Skeleton({ rows = 3, avatar = false, card = false }: SkeletonProps) {
+export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = false }: SkeletonProps) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -40,8 +42,10 @@ export function Skeleton({ rows = 3, avatar = false, card = false }: SkeletonPro
   }, [opacity]);
 
   if (card) {
+    console.log('[Skeleton] Rendering card with fullWidth:', fullWidth);
+    console.log('[Skeleton] Using style:', fullWidth ? 'fullWidthCard' : 'card');
     return (
-      <View style={styles.card}>
+      <View style={fullWidth ? styles.fullWidthCard : styles.card}>
         <Animated.View style={[styles.cardImage, { opacity }]} />
         <View style={styles.cardContent}>
           <Animated.View style={[styles.line, styles.lineTitle, { opacity }]} />
@@ -111,6 +115,13 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.md,
     overflow: 'hidden',
     marginBottom: spacing.md,
+  },
+  fullWidthCard: {
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.md,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    width: '100%',
   },
   cardImage: {
     height: 120,

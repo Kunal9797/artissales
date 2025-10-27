@@ -25,6 +25,7 @@ import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../../components/ui';
 import { KpiCard } from '../../patterns/KpiCard';
 import { colors, spacing, typography, featureColors } from '../../theme';
+import { getGreeting } from '../../utils/greeting';
 import {
   Users,
   Bell,
@@ -162,14 +163,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
       fetchTopPerformers();
     }, [fetchTeamStats, fetchTopPerformers])
   );
-
-  // Helper function to get time-based greeting and icon
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: 'Good morning', icon: 'sunrise' };
-    if (hour < 17) return { text: 'Good afternoon', icon: 'sun' };
-    return { text: 'Good evening', icon: 'moon' };
-  };
 
   const greeting = getGreeting();
 

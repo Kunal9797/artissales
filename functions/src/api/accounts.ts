@@ -277,17 +277,11 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       query = query.where("type", "==", type);
     }
 
-    // Admin and National Head can see all accounts
-    // Reps see only their assigned accounts
-    if (callerRole !== "admin" && callerRole !== "national_head") {
-      query = query.where("assignedRepUserId", "==", userId);
-    }
-
     // 4. Execute query
     const accountsSnap = await query.get();
 
-    // 5. Format response
-    const accounts = accountsSnap.docs.map((doc) => {
+    // 5. Format response and apply visibility rules
+    let accounts = accountsSnap.docs.map((doc) => {
       const data = doc.data();
       return {
         id: data.id,
@@ -308,6 +302,63 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
         lastVisitAt: data.lastVisitAt?.toDate().toISOString() || undefined,
       };
     });
+
+    // 6. Apply visibility rules for reps
+    // Managers (admin, national_head) can see all accounts
+    // Reps can see:
+    //   - All distributors
+    //   - Their own created dealer/architect/contractor
+    //   - Dealer/architect/contractor created by managers
+    if (callerRole !== "admin" && callerRole !== "national_head") {
+      // Get unique creator IDs to check their roles (filter out empty/undefined)
+      const creatorIds = new Set<string>(
+        accounts
+          .filter((acc) => ["dealer", "architect", "contractor"].includes(acc.type))
+          .map((acc) => acc.createdByUserId)
+          .filter((id) => id && id.trim().length > 0) // Filter out empty/undefined IDs
+      );
+
+      // Fetch creator roles
+      const creatorRoles = new Map<string, string>();
+      if (creatorIds.size > 0) {
+        const creatorDocs = await Promise.all(
+          Array.from(creatorIds).map((id) => db.collection("users").doc(id).get())
+        );
+        creatorDocs.forEach((doc) => {
+          if (doc.exists) {
+            creatorRoles.set(doc.id, doc.data()?.role || "");
+          }
+        });
+      }
+
+      // Filter accounts based on rep visibility rules
+      accounts = accounts.filter((account) => {
+        // All distributors are visible
+        if (account.type === "distributor") {
+          return true;
+        }
+
+        // For dealer/architect/contractor:
+        // 1. If createdByUserId is empty/missing, show it (legacy data or created by managers)
+        if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
+          return true;
+        }
+
+        // 2. Created by current user
+        if (account.createdByUserId === userId) {
+          return true;
+        }
+
+        // 3. Created by a manager (not a rep)
+        const creatorRole = creatorRoles.get(account.createdByUserId);
+        if (creatorRole && creatorRole !== "rep") {
+          return true;
+        }
+
+        // Otherwise, hide (created by another rep)
+        return false;
+      });
+    }
 
     logger.info(`[getAccountsList] ✅ Returned ${accounts.length} accounts for`, userId);
 

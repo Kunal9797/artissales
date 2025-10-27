@@ -211,10 +211,29 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
       );
     } catch (error: any) {
       logger.error('[AddUserScreen] Error creating user:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Failed to create user. Please try again.'
-      );
+
+      // Extract meaningful error message
+      let errorMessage = 'Failed to create user. Please try again.';
+
+      if (error.message) {
+        errorMessage = error.message;
+      }
+
+      // Handle specific error codes
+      if (error.code === 'DUPLICATE_PHONE') {
+        errorMessage = 'This phone number is already registered.';
+      } else if (error.code === 'INSUFFICIENT_PERMISSIONS') {
+        errorMessage = 'You do not have permission to create users.';
+      } else if (error.code === 'INVALID_PHONE') {
+        errorMessage = 'Please enter a valid 10-digit phone number.';
+      }
+
+      // Show details if available
+      if (error.details) {
+        logger.error('[AddUserScreen] Error details:', error.details);
+      }
+
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

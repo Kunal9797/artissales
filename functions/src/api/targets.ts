@@ -31,6 +31,48 @@ import {requireAuth} from "../utils/auth";
 
 const db = getFirestore();
 
+// ============================================================================
+// IN-MEMORY CACHE (5-min TTL)
+// ============================================================================
+interface CacheEntry {
+  data: GetTargetResponse;
+  timestamp: number;
+}
+
+const targetCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedTarget(userId: string, month: string): GetTargetResponse | null {
+  const cacheKey = `${userId}_${month}`;
+  const entry = targetCache.get(cacheKey);
+
+  if (!entry) return null;
+
+  const age = Date.now() - entry.timestamp;
+  if (age > CACHE_TTL_MS) {
+    targetCache.delete(cacheKey);
+    return null;
+  }
+
+  logger.info(`[Cache HIT] Target for ${cacheKey}, age: ${age}ms`);
+  return entry.data;
+}
+
+function setCachedTarget(userId: string, month: string, data: GetTargetResponse): void {
+  const cacheKey = `${userId}_${month}`;
+  targetCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+  });
+  logger.info(`[Cache SET] Target for ${cacheKey}`);
+}
+
+export function invalidateTargetCache(userId: string, month: string): void {
+  const cacheKey = `${userId}_${month}`;
+  targetCache.delete(cacheKey);
+  logger.info(`[Cache INVALIDATE] Target for ${cacheKey}`);
+}
+
 // Helper: Validate YYYY-MM format
 function isValidMonthFormat(month: string): boolean {
   const regex = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -390,7 +432,14 @@ export const getTarget = onRequest(async (request, response) => {
       return;
     }
 
-    // 3. Check permissions: can only view own target unless manager
+    // 3. Check cache first (before auth/permission checks for speed)
+    const cached = getCachedTarget(userId, month);
+    if (cached) {
+      response.status(200).json(cached);
+      return;
+    }
+
+    // 4. Check permissions: can only view own target unless manager
     const callerDoc = await db.collection("users").doc(callerId).get();
     if (!callerDoc.exists) {
       const error: ApiError = {
@@ -417,7 +466,7 @@ export const getTarget = onRequest(async (request, response) => {
       return;
     }
 
-    // 4. Get target
+    // 5. Get target
     const targetId = `${userId}_${month}`;
     const targetDoc = await db.collection("targets").doc(targetId).get();
 
@@ -426,6 +475,8 @@ export const getTarget = onRequest(async (request, response) => {
         ok: true,
         target: null,
       };
+      // Cache the "no target" response as well
+      setCachedTarget(userId, month, successResponse);
       response.status(200).json(successResponse);
       return;
     }
@@ -441,10 +492,10 @@ export const getTarget = onRequest(async (request, response) => {
       targetsByAccountType: target.targetsByAccountType,
     });
 
-    // 5. Calculate progress for sheet sales
+    // 6. Calculate progress for sheet sales
     const progress = await calculateProgress(userId, month, target.targetsByCatalog as {[key: string]: number | undefined});
 
-    // 6. Calculate visit progress (if visit targets exist)
+    // 7. Calculate visit progress (if visit targets exist)
     let visitProgress: VisitProgress[] | undefined;
     if (target.targetsByAccountType) {
       logger.info("[getTarget] Calculating visit progress for:", target.targetsByAccountType);
@@ -460,6 +511,9 @@ export const getTarget = onRequest(async (request, response) => {
       progress,
       visitProgress,
     };
+
+    // 8. Cache the response before sending
+    setCachedTarget(userId, month, successResponse);
 
     logger.info("[getTarget] Sending response with visitProgress:", !!visitProgress);
     response.status(200).json(successResponse);

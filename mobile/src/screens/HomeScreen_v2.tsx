@@ -1,5 +1,4 @@
 /**
-import { logger } from '../utils/logger';
  * HomeScreen (Sales Rep Dashboard) - Redesigned with DS v0.1
  *
  * Changes from original:
@@ -12,6 +11,7 @@ import { logger } from '../utils/logger';
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../utils/logger';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import { Card, Badge } from '../components/ui';
 import { KpiCard } from '../patterns/KpiCard';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { api } from '../services/api';
+import { getGreeting } from '../utils/greeting';
 import {
   MapPin,
   IndianRupee,
@@ -193,6 +194,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       );
       const expensesSnapshot = await getDocs(expensesQuery);
 
+      // Calculate total expense amount from all items
+      let totalExpenses = 0;
+      expensesSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        if (data.items && Array.isArray(data.items)) {
+          data.items.forEach((item: any) => {
+            totalExpenses += item.amount || 0;
+          });
+        }
+      });
+
       // Fetch attendance for today - to include in timeline
       const attendanceQuery = query(
         collection(firestore, 'attendance'),
@@ -204,7 +216,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       setTodayStats({
         visits: visitsSnapshot.size,
         sheets: totalSheets,
-        expenses: expensesSnapshot.size,
+        expenses: totalExpenses,
       });
 
       // Build activity timeline
@@ -254,11 +266,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       // Add expenses
       expensesSnapshot.forEach((doc: any) => {
         const data = doc.data();
+        // Calculate total amount from items array
+        const totalAmount = data.items && Array.isArray(data.items)
+          ? data.items.reduce((sum: number, item: any) => sum + (item.amount || 0), 0)
+          : 0;
+
+        // Get primary category from first item (capitalize first letter)
+        let categoryLabel = 'expense';
+        if (data.items && data.items.length > 0) {
+          const firstItem = data.items[0];
+          if (firstItem.category === 'other' && firstItem.categoryOther) {
+            categoryLabel = firstItem.categoryOther;
+          } else {
+            // Capitalize first letter (travel → Travel, food → Food)
+            categoryLabel = firstItem.category.charAt(0).toUpperCase() + firstItem.category.slice(1);
+          }
+        }
+
         activities.push({
           id: doc.id,
           type: 'expense',
           time: data.createdAt?.toDate() || new Date(),
-          description: `Reported ₹${data.amount} expense - ${data.category}`,
+          description: `Reported ₹${totalAmount} - ${categoryLabel}`,
         });
       });
 
@@ -314,13 +343,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }, [fetchAttendance, fetchTodayStats])
   );
 
-  // Helper function to get time-based greeting and icon
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return { text: 'Good morning', icon: 'sunrise' };
-    if (hour < 17) return { text: 'Good afternoon', icon: 'sun' };
-    return { text: 'Good evening', icon: 'moon' };
-  };
 
   // Helper function to get relative time ("2 hours ago")
   const getRelativeTime = (date: Date): string => {

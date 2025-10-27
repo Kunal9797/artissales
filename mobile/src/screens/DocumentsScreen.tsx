@@ -63,6 +63,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   // State
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOnline, setLoadingOnline] = useState(false);
   const [cachedDocIds, setCachedDocIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({});
@@ -71,9 +72,11 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   const [totalCacheSize, setTotalCacheSize] = useState(0);
   const [deleting, setDeleting] = useState<string | null>(null);
 
-  const loadDocuments = useCallback(async () => {
+  const loadDocuments = useCallback(async (showLoadingIndicator = true) => {
     try {
-      setLoading(true);
+      if (showLoadingIndicator) {
+        setLoadingOnline(true);
+      }
       const response = await api.getDocuments();
       if (response.ok) {
         setDocuments(response.documents);
@@ -81,7 +84,9 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
     } catch (error) {
       logger.error('Error fetching documents:', error);
     } finally {
-      setLoading(false);
+      if (showLoadingIndicator) {
+        setLoadingOnline(false);
+      }
     }
   }, []);
 
@@ -100,8 +105,17 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
   useFocusEffect(
     useCallback(() => {
-      loadDocuments();
-      loadCachedDocuments();
+      // Priority loading: Load cached documents first (instant), then online documents
+      const loadInPriority = async () => {
+        // 1. Load cached documents immediately (synchronous, from AsyncStorage)
+        await loadCachedDocuments();
+        setLoading(false); // Show cached documents immediately
+
+        // 2. Load online documents in background
+        loadDocuments(true); // Will set loadingOnline state
+      };
+
+      loadInPriority();
     }, [loadDocuments, loadCachedDocuments])
   );
 
@@ -471,69 +485,79 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
               }
             />
           ) : (
-            documents.map((doc, index) => {
-              const isCached = cachedDocIds.has(doc.id);
-              const isDownloading = downloading === doc.id;
-              const progress = downloadProgress[doc.id];
-              const isPdf = doc.fileType === 'pdf';
+            <>
+              {documents.map((doc, index) => {
+                const isCached = cachedDocIds.has(doc.id);
+                const isDownloading = downloading === doc.id;
+                const progress = downloadProgress[doc.id];
+                const isPdf = doc.fileType === 'pdf';
 
-              return (
-                <TouchableOpacity
-                  key={doc.id}
-                  style={[
-                    styles.documentCard,
-                    index === documents.length - 1 && { marginBottom: 0 },
-                  ]}
-                  onPress={() => handleOpenDocument(doc)}
-                  disabled={isDownloading}
-                >
-                  <View style={styles.documentIcon}>
-                    {isPdf ? (
-                      <FileText size={24} color={colors.primary} />
-                    ) : (
-                      <ImageIcon size={24} color={colors.primary} />
-                    )}
-                  </View>
+                return (
+                  <TouchableOpacity
+                    key={doc.id}
+                    style={[
+                      styles.documentCard,
+                      index === documents.length - 1 && !loadingOnline && { marginBottom: 0 },
+                    ]}
+                    onPress={() => handleOpenDocument(doc)}
+                    disabled={isDownloading}
+                  >
+                    <View style={styles.documentIcon}>
+                      {isPdf ? (
+                        <FileText size={24} color={colors.primary} />
+                      ) : (
+                        <ImageIcon size={24} color={colors.primary} />
+                      )}
+                    </View>
 
-                  <View style={styles.documentInfo}>
-                    <Text style={styles.documentName} numberOfLines={1}>
-                      {doc.name}
-                    </Text>
-                    <Text style={styles.documentMeta}>
-                      {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
-                    </Text>
-                    {isDownloading && progress !== undefined && (
-                      <Text style={styles.downloadingText}>
-                        Downloading... {progress}%
+                    <View style={styles.documentInfo}>
+                      <Text style={styles.documentName} numberOfLines={1}>
+                        {doc.name}
                       </Text>
-                    )}
-                  </View>
+                      <Text style={styles.documentMeta}>
+                        {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
+                      </Text>
+                      {isDownloading && progress !== undefined && (
+                        <Text style={styles.downloadingText}>
+                          Downloading... {progress}%
+                        </Text>
+                      )}
+                    </View>
 
-                  <View style={styles.documentActions}>
-                    {isDownloading ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : isCached ? (
-                      <>
-                        {/* Share button for cached documents */}
+                    <View style={styles.documentActions}>
+                      {isDownloading ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : isCached ? (
+                        <>
+                          {/* Share button for cached documents */}
+                          <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleShareDocument(doc)}
+                          >
+                            <Share2 size={20} color="#F57C00" />
+                          </TouchableOpacity>
+                        </>
+                      ) : (
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => handleShareDocument(doc)}
+                          onPress={() => handleDownloadDocument(doc)}
                         >
-                          <Share2 size={20} color="#F57C00" />
+                          <Download size={20} color={colors.info} />
                         </TouchableOpacity>
-                      </>
-                    ) : (
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDownloadDocument(doc)}
-                      >
-                        <Download size={20} color={colors.info} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+
+              {/* Show skeleton rows at bottom while loading online documents */}
+              {loadingOnline && (
+                <>
+                  <Skeleton rows={2} />
+                  <Skeleton rows={2} />
+                </>
+              )}
+            </>
           )
         ) : (
           // OFFLINE VIEW

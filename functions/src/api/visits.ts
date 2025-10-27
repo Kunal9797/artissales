@@ -147,10 +147,78 @@ export const logVisit = onRequest({
       accountId: body.accountId,
     });
 
+    // AUTO CHECK-IN: If this is the first visit of the day and user hasn't checked in
+    let autoCheckedIn = false;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayTimestamp = firestore.Timestamp.fromDate(today);
+
+      // Check if user has already checked in today
+      const existingCheckIn = await db
+        .collection("attendance")
+        .where("userId", "==", auth.uid)
+        .where("type", "==", "check_in")
+        .where("timestamp", ">=", todayTimestamp)
+        .limit(1)
+        .get();
+
+      // Check if user has already checked out today
+      const existingCheckOut = await db
+        .collection("attendance")
+        .where("userId", "==", auth.uid)
+        .where("type", "==", "check_out")
+        .where("timestamp", ">=", todayTimestamp)
+        .limit(1)
+        .get();
+
+      // Only auto check-in if user hasn't checked in AND hasn't checked out
+      if (existingCheckIn.empty && existingCheckOut.empty) {
+        // User hasn't checked in yet - create auto check-in
+        // Use the visit location if available from body, otherwise no GPS
+        const autoCheckInData: any = {
+          userId: auth.uid,
+          type: "check_in",
+          timestamp: firestore.Timestamp.now(),
+          accuracyM: -1, // Indicates auto check-in (no GPS)
+          method: "auto",
+          triggeredBy: "first_visit",
+          createdAt: firestore.Timestamp.now(),
+        };
+
+        // If client sent GPS coordinates for the visit, use them for check-in
+        if (body.geo && body.geo.lat && body.geo.lon) {
+          autoCheckInData.geo = new firestore.GeoPoint(body.geo.lat, body.geo.lon);
+          if (body.geo.accuracyM) {
+            autoCheckInData.accuracyM = body.geo.accuracyM;
+          }
+        } else {
+          autoCheckInData.geo = null;
+        }
+
+        await db.collection("attendance").add(autoCheckInData);
+        autoCheckedIn = true;
+
+        logger.info("Auto check-in completed", {
+          userId: auth.uid,
+          visitId: visitRef.id,
+          hasGPS: !!body.geo,
+        });
+      }
+    } catch (autoCheckInError: any) {
+      // Auto check-in failure should NOT block visit logging
+      logger.error("Auto check-in failed (non-blocking)", {
+        error: autoCheckInError.message,
+        userId: auth.uid,
+        visitId: visitRef.id,
+      });
+    }
+
     const result: VisitLogResponse = {
       ok: true,
       visitId: visitRef.id,
       timestamp: visitData.timestamp?.toDate().toISOString() || "",
+      autoCheckedIn, // Let client know if auto check-in happened
     };
 
     response.status(200).json(result);
