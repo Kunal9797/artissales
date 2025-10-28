@@ -481,11 +481,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </View>
             </>
           ) : attendanceStatus.hasCheckedOut ? (
-            // State 2: Already checked out - Show completion message with no button
+            // State 2: Already checked out - Show completion message with Check In Again button
             <>
               <View style={styles.attendanceRow}>
                 <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Day Complete</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <CheckCircle size={20} color={featureColors.attendance.primary} strokeWidth={2.5} />
+                    <Text style={styles.statusLabel}>Day Complete</Text>
+                  </View>
                   <Text style={styles.notCheckedInText}>
                     Checked out at {attendanceStatus.checkOutTime}
                   </Text>
@@ -495,9 +498,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     </Text>
                   )}
                 </View>
-                <View style={styles.completedBadge}>
-                  <Text style={styles.completedBadgeText}>✓</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.checkInAgainButton}
+                  onPress={() => setShowAttendanceModal(true)}
+                >
+                  <Text style={styles.checkInAgainButtonText}>Check In Again</Text>
+                </TouchableOpacity>
               </View>
             </>
           ) : (
@@ -674,7 +680,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         visible={showAttendanceModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAttendanceModal(false)}
+        onRequestClose={() => !attendanceLoading && setShowAttendanceModal(false)}
       >
         <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}>
           <View style={{
@@ -713,10 +719,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
-                style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: '#F8F8F8', alignItems: 'center' }}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: attendanceLoading ? '#E0E0E0' : '#F8F8F8',
+                  alignItems: 'center'
+                }}
                 onPress={() => setShowAttendanceModal(false)}
+                disabled={attendanceLoading}
               >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#666666' }}>Cancel</Text>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: attendanceLoading ? '#999999' : '#666666' }}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -724,8 +737,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   flex: 1,
                   paddingVertical: 14,
                   borderRadius: 12,
-                  backgroundColor: attendanceStatus.isCheckedIn ? '#EF5350' : '#2E7D32',
+                  backgroundColor: attendanceLoading
+                    ? (attendanceStatus.isCheckedIn ? '#EF5350' : '#2E7D32') + '99' // Add transparency when loading
+                    : (attendanceStatus.isCheckedIn ? '#EF5350' : '#2E7D32'),
                   alignItems: 'center',
+                  opacity: attendanceLoading ? 0.7 : 1,
                 }}
                 onPress={async () => {
                   try {
@@ -770,9 +786,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 }}
                 disabled={attendanceLoading}
               >
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
-                  {attendanceStatus.isCheckedIn ? 'Check Out' : 'Check In'}
-                </Text>
+                {attendanceLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                    {attendanceStatus.isCheckedIn ? 'Check Out' : 'Check In'}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -879,15 +899,29 @@ const styles = StyleSheet.create({
   },
   // Completed badge (for checked out state)
   completedBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: featureColors.attendance.light,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: featureColors.attendance.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   completedBadgeText: {
     fontSize: 24,
+    color: featureColors.attendance.primary,
+  },
+  // Check In Again button (smaller, secondary style)
+  checkInAgainButton: {
+    backgroundColor: '#E8F5E9',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: spacing.borderRadius.md,
+    borderWidth: 1,
+    borderColor: featureColors.attendance.primary,
+  },
+  checkInAgainButtonText: {
+    fontSize: 12,
+    fontWeight: typography.fontWeight.semiBold,
     color: featureColors.attendance.primary,
   },
 

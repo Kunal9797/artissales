@@ -61,6 +61,9 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
   // Notes for manager
   const [managerNotes, setManagerNotes] = useState('');
 
+  // Send for approval loading state
+  const [sendingForApproval, setSendingForApproval] = useState(false);
+
   // Fetch existing sheet data in edit mode
   useEffect(() => {
     if (isEditMode && editActivityId && user?.uid) {
@@ -384,8 +387,9 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           </View>
 
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[styles.submitButton, sendingForApproval && styles.submitButtonDisabled]}
             onPress={async () => {
+              setSendingForApproval(true);
               try {
                 const today = new Date().toISOString().split('T')[0];
 
@@ -410,10 +414,17 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
               } catch (error: any) {
                 logger.error('Error submitting sales:', error);
                 Alert.alert('Error', error.message || 'Failed to submit sales');
+              } finally {
+                setSendingForApproval(false);
               }
             }}
+            disabled={sendingForApproval}
           >
-            <Text style={styles.submitButtonText}>Send for Approval</Text>
+            {sendingForApproval ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitButtonText}>Send for Approval</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}
@@ -478,6 +489,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 48,
     ...shadows.sm,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#E0E0E0',
   },
   submitButtonText: {
     fontSize: typography.fontSize.base,

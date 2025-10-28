@@ -353,7 +353,11 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
         {dsr.status === 'pending' && (
           <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={[styles.actionButton, styles.rejectButton]}
+              style={[
+                styles.actionButton,
+                styles.rejectButton,
+                submitting && styles.actionButtonDisabled
+              ]}
               onPress={handleRequestRevision}
               disabled={submitting}
             >
@@ -368,7 +372,11 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionButton, styles.approveButton]}
+              style={[
+                styles.actionButton,
+                styles.approveButton,
+                submitting && styles.actionButtonDisabled
+              ]}
               onPress={handleApprove}
               disabled={submitting}
             >
@@ -517,6 +525,10 @@ const styles = StyleSheet.create({
   },
   rejectButton: {
     backgroundColor: colors.error,
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#E0E0E0',
+    opacity: 0.6,
   },
   actionButtonText: {
     color: '#fff',

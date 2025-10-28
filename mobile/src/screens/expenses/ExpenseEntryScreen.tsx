@@ -79,6 +79,10 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingReceipts, setUploadingReceipts] = useState(false);
+  const [showItemsExpanded, setShowItemsExpanded] = useState(true);
+  const [justAdded, setJustAdded] = useState(false);
+  const [amountError, setAmountError] = useState<string>('');
+  const [formCollapsed, setFormCollapsed] = useState(false);
 
   // Fetch existing expense data in edit mode
   useEffect(() => {
@@ -165,15 +169,28 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
     setItems([...items, newItem]);
 
-    // Reset current item
+    // Auto-collapse items list after 2+ items to save space
+    if (items.length >= 1) {
+      setShowItemsExpanded(false);
+    }
+
+    // Collapse add expense form after first item
+    if (items.length >= 0) {
+      setFormCollapsed(true);
+    }
+
+    // Visual feedback - brief success animation on button
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 800);
+
+    // Reset current item and clear amount error
     setCurrentItem({
       category: 'travel',
       categoryOther: '',
       amount: '',
       description: '',
     });
-
-    Alert.alert('Success', 'Expense item added! Add more or submit.');
+    setAmountError('');
   };
 
   const handleRemoveItem = (index: number) => {
@@ -334,70 +351,52 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-
-      {/* Added Items List */}
-      {items.length > 0 && (
-        <View style={styles.field}>
-          <Text style={styles.label}>Added Expenses ({items.length})</Text>
-          {items.map((item, index) => (
-            <View key={index} style={styles.itemCard}>
-              <View style={styles.itemHeader}>
-                <View style={styles.itemCategoryRow}>
-                  {(() => {
-                    const cat = CATEGORIES.find(c => c.value === item.category);
-                    const IconComponent = cat?.icon;
-                    return IconComponent ? <IconComponent size={16} color={cat.color} /> : null;
-                  })()}
-                  <Text style={styles.itemCategory}>
-                    {CATEGORIES.find(c => c.value === item.category)?.label}
-                    {item.category === 'other' && item.categoryOther && ` - ${item.categoryOther}`}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => handleRemoveItem(index)}>
-                  <Text style={styles.removeItemButton}>✕</Text>
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.itemAmount}>₹{item.amount.toFixed(2)}</Text>
-              <Text style={styles.itemDescription}>{item.description}</Text>
-            </View>
-          ))}
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalLabel}>Total Amount:</Text>
-            <Text style={styles.totalAmount}>₹{getTotalAmount().toFixed(2)}</Text>
-          </View>
-        </View>
-      )}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* Add New Item Section */}
       <View style={styles.addItemSection}>
-        <Text style={styles.sectionTitle}>
-          {items.length === 0 ? 'Add First Expense Item' : 'Add Another Item'}
-        </Text>
+        <TouchableOpacity
+          style={styles.collapsibleHeader}
+          onPress={() => setFormCollapsed(!formCollapsed)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.sectionTitle}>
+            {formCollapsed ? '▶ ' : '▼ '}
+            {items.length === 0 ? 'Add First Expense Item' : 'Add Another Expense'}
+          </Text>
+        </TouchableOpacity>
 
-        {/* Category Picker */}
+        {/* Category Picker - Always Visible */}
         <View style={styles.field}>
           <Text style={styles.label}>Category *</Text>
-          <View style={styles.categoryGrid}>
+          <View style={styles.categoryGridContainer}>
             {CATEGORIES.map((cat) => {
               const IconComponent = cat.icon;
+              // Only show as selected if form is expanded
+              const isSelected = currentItem.category === cat.value && !formCollapsed;
               return (
                 <TouchableOpacity
                   key={cat.value}
                   style={[
-                    styles.categoryButton,
-                    currentItem.category === cat.value && styles.categoryButtonSelected,
+                    styles.categoryPill,
+                    isSelected && { ...styles.categoryPillSelected, borderColor: cat.color, backgroundColor: `${cat.color}15` },
                   ]}
-                  onPress={() => setCurrentItem({ ...currentItem, category: cat.value })}
+                  onPress={() => {
+                    setCurrentItem({ ...currentItem, category: cat.value });
+                    // Auto-expand form when category clicked in collapsed state
+                    if (formCollapsed) {
+                      setFormCollapsed(false);
+                    }
+                  }}
                 >
                   <IconComponent
                     size={20}
-                    color={currentItem.category === cat.value ? cat.color : colors.text.secondary}
+                    color={isSelected ? cat.color : colors.text.secondary}
                   />
                   <Text
                     style={[
-                      styles.categoryButtonText,
-                      currentItem.category === cat.value && styles.categoryButtonTextSelected,
+                      styles.categoryPillText,
+                      isSelected && { ...styles.categoryPillTextSelected, color: cat.color },
                     ]}
                   >
                     {cat.label}
@@ -408,132 +407,239 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           </View>
         </View>
 
-        {/* Category Other Input (shown when "other" selected) */}
-        {currentItem.category === 'other' && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Category Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Internet, Office supplies, etc."
-              placeholderTextColor="#999"
-              value={currentItem.categoryOther}
-              onChangeText={(text) => setCurrentItem({ ...currentItem, categoryOther: text })}
-            />
-          </View>
-        )}
-
-        {/* Amount Input */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Amount (₹) *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter amount in INR"
-            placeholderTextColor="#999"
-            keyboardType="decimal-pad"
-            value={currentItem.amount}
-            onChangeText={(text) => setCurrentItem({ ...currentItem, amount: text })}
-          />
-        </View>
-
-        {/* Description Input */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Description *</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Brief description of this expense"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={2}
-            value={currentItem.description}
-            onChangeText={(text) => setCurrentItem({ ...currentItem, description: text })}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={styles.addItemButton}
-          onPress={handleAddItem}
-        >
-          <Text style={styles.addItemButtonText}>+ Add This Item</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Receipt Photos (Optional) */}
-      <View style={styles.field}>
-        <Text style={styles.label}>Receipt Photos (Optional)</Text>
-        {receiptPhotos.length > 0 && (
-          <View style={styles.photosGrid}>
-            {receiptPhotos.map((photo, index) => (
-              <View key={index} style={styles.photoPreviewContainer}>
-                <Image source={{ uri: photo }} style={styles.photoPreview} />
-                {uploadingReceipts && index === receiptPhotos.length - 1 && (
-                  <View style={styles.uploadingOverlay}>
-                    <ActivityIndicator size="small" color="#fff" />
-                  </View>
-                )}
-                <TouchableOpacity
-                  style={styles.removePhotoButton}
-                  onPress={() => handleRemoveReceipt(index)}
-                >
-                  <Text style={styles.removePhotoButtonText}>✕</Text>
-                </TouchableOpacity>
+        {/* Conditional Form Fields - Only show when not collapsed */}
+        {!formCollapsed && (
+          <>
+            {/* Category Other Input (shown when "other" selected) */}
+            {currentItem.category === 'other' && (
+              <View style={styles.field}>
+                <Text style={styles.label}>Category Name *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., Internet, Office supplies, etc."
+                  placeholderTextColor="#999"
+                  value={currentItem.categoryOther}
+                  onChangeText={(text) => setCurrentItem({ ...currentItem, categoryOther: text })}
+                />
               </View>
-            ))}
-          </View>
+            )}
+
+            {/* Amount Input */}
+            <View style={styles.fieldCompact}>
+              <Text style={styles.label}>Amount (₹) *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  amountError && styles.inputError
+                ]}
+                placeholder="e.g., 250"
+                placeholderTextColor="#999"
+                keyboardType="decimal-pad"
+                value={currentItem.amount}
+                onChangeText={(text) => {
+                  setCurrentItem({ ...currentItem, amount: text });
+
+                  // Real-time validation - check if entire string is a valid number
+                  if (text.trim() === '') {
+                    setAmountError('');
+                  } else {
+                    // Use regex to check if the entire string is a valid number
+                    const isValidNumber = /^\d+\.?\d*$/.test(text.trim());
+                    const numValue = parseFloat(text);
+
+                    if (!isValidNumber || isNaN(numValue) || numValue <= 0) {
+                      setAmountError('Amount must be a number');
+                    } else {
+                      setAmountError('');
+                    }
+                  }
+                }}
+              />
+              {amountError && (
+                <Text style={styles.errorText}>{amountError}</Text>
+              )}
+            </View>
+
+            {/* Description Input */}
+            <View style={styles.fieldCompact}>
+              <Text style={styles.label}>Description *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Brief description"
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={2}
+                value={currentItem.description}
+                onChangeText={(text) => setCurrentItem({ ...currentItem, description: text })}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.addItemButton,
+                justAdded && styles.addItemButtonSuccess,
+                (!!amountError || !currentItem.amount.trim()) && styles.addItemButtonDisabled
+              ]}
+              onPress={handleAddItem}
+              disabled={!!amountError || !currentItem.amount.trim()}
+            >
+              <Text style={styles.addItemButtonText}>
+                {justAdded ? '✓ Added!' : '+ Add This Item'}
+              </Text>
+            </TouchableOpacity>
+          </>
         )}
-        <TouchableOpacity
-          style={styles.addPhotoButton}
-          onPress={() => setShowCamera(true)}
-        >
-          <Camera size={20} color={colors.primary} />
-          <Text style={styles.addPhotoButtonText}>
-            {receiptPhotos.length > 0 ? 'Add Another Receipt' : 'Add Receipt Photo'}
-          </Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[
-          styles.submitButton,
-          (submitting || uploadingReceipts || items.length === 0) && styles.submitButtonDisabled
-        ]}
-        onPress={handleSubmit}
-        disabled={submitting || uploadingReceipts || items.length === 0}
-      >
-        {submitting ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text style={styles.submitButtonText}>
-            {isEditMode ? 'Update Report' : `Submit Report (${items.length} ${items.length === 1 ? 'item' : 'items'})`}
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Delete Button (Edit Mode Only) */}
-      {isEditMode && (
-        <TouchableOpacity
-          style={[styles.deleteButton, deleting && styles.deleteButtonDisabled]}
-          onPress={handleDelete}
-          disabled={deleting}
-        >
-          {deleting ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.deleteButtonText}>Delete Expense Report</Text>
+      {/* Receipt Photos (Optional - Collapsed by default if items exist) */}
+      {items.length > 0 && (
+        <View style={styles.fieldCompact}>
+          <Text style={styles.label}>Receipt Photos (Optional)</Text>
+          {receiptPhotos.length > 0 && (
+            <View style={styles.photosGrid}>
+              {receiptPhotos.map((photo, index) => (
+                <View key={index} style={styles.photoPreviewContainer}>
+                  <Image source={{ uri: photo }} style={styles.photoPreview} />
+                  {uploadingReceipts && index === receiptPhotos.length - 1 && (
+                    <View style={styles.uploadingOverlay}>
+                      <ActivityIndicator size="small" color="#fff" />
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.removePhotoButton}
+                    onPress={() => handleRemoveReceipt(index)}
+                  >
+                    <Text style={styles.removePhotoButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addPhotoButton}
+            onPress={() => setShowCamera(true)}
+          >
+            <Camera size={20} color={colors.primary} />
+            <Text style={styles.addPhotoButtonText}>
+              {receiptPhotos.length > 0 ? 'Add Another' : 'Add Receipt'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
-      {!isEditMode && (
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-          disabled={submitting}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
+      {/* Added Items List - Moved to bottom for better UX */}
+      {items.length > 0 && (
+        <View style={styles.field}>
+          <TouchableOpacity
+            style={styles.itemsSummaryHeader}
+            onPress={() => setShowItemsExpanded(!showItemsExpanded)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.summaryBadge}>
+              <Text style={styles.summaryBadgeText}>
+                {items.length} {items.length === 1 ? 'item' : 'items'} • ₹{getTotalAmount().toFixed(0)}
+              </Text>
+            </View>
+            <Text style={styles.expandCollapseText}>
+              {showItemsExpanded ? '▼ Hide' : '▶ Show'}
+            </Text>
+          </TouchableOpacity>
+
+          {showItemsExpanded && (
+            <>
+              {items.map((item, index) => (
+                <View key={index} style={styles.itemCard}>
+                  <View style={styles.itemHeader}>
+                    <View style={styles.itemCategoryRow}>
+                      {(() => {
+                        const cat = CATEGORIES.find(c => c.value === item.category);
+                        const IconComponent = cat?.icon;
+                        return IconComponent ? <IconComponent size={16} color={cat.color} /> : null;
+                      })()}
+                      <Text style={styles.itemCategory}>
+                        {CATEGORIES.find(c => c.value === item.category)?.label}
+                        {item.category === 'other' && item.categoryOther && ` - ${item.categoryOther}`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleRemoveItem(index)}>
+                      <Text style={styles.removeItemButton}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.itemAmount}>₹{item.amount.toFixed(2)}</Text>
+                  <Text style={styles.itemDescription}>{item.description}</Text>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
       )}
       </ScrollView>
+
+      {/* Sticky Footer - Always Visible */}
+      <View style={styles.stickyFooter}>
+        {isEditMode ? (
+          // Edit Mode: Delete + Update buttons
+          <View style={styles.footerButtonRow}>
+            <TouchableOpacity
+              style={[styles.deleteButtonCompact, deleting && styles.deleteButtonDisabled]}
+              onPress={handleDelete}
+              disabled={deleting || submitting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.submitButtonCompact,
+                (submitting || uploadingReceipts) && styles.submitButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={submitting || uploadingReceipts}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  Update Report
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          // Create Mode: Cancel + Submit buttons
+          <View style={styles.footerButtonRow}>
+            <TouchableOpacity
+              style={styles.cancelButtonCompact}
+              onPress={() => navigation.goBack()}
+              disabled={submitting}
+            >
+              <Text style={styles.cancelButtonCompactText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.submitButtonCompact,
+                (submitting || uploadingReceipts || items.length === 0) && styles.submitButtonDisabled
+              ]}
+              onPress={handleSubmit}
+              disabled={submitting || uploadingReceipts || items.length === 0}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {items.length === 0
+                    ? 'Add Items First'
+                    : `Submit (${items.length} • ₹${getTotalAmount().toFixed(0)})`
+                  }
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -580,10 +686,13 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: 120, // Extra padding for floating nav bar + safe area
+    paddingBottom: 160, // Extra padding for sticky footer + safe area
   },
   field: {
     marginBottom: spacing.md,
+  },
+  fieldCompact: {
+    marginBottom: spacing.sm,
   },
   label: {
     fontSize: typography.fontSize.sm,
@@ -610,11 +719,36 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.text.tertiary,
   },
+  itemsSummaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: featureColors.expenses.light,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: featureColors.expenses.primary,
+  },
+  summaryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryBadgeText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: featureColors.expenses.primary,
+  },
+  expandCollapseText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    fontWeight: typography.fontWeight.medium,
+  },
   itemCard: {
     backgroundColor: colors.surface,
     borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border.default,
   },
@@ -673,43 +807,50 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.md,
     padding: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 2,
-    borderColor: featureColors.expenses.primary,
-    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    ...shadows.sm,
+  },
+  collapsibleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xs / 2,
   },
   sectionTitle: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: featureColors.expenses.primary,
-    marginBottom: spacing.sm,
   },
-  categoryGrid: {
+  categoryGridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: 12,
+    marginBottom: spacing.md,
   },
-  categoryButton: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: colors.background,
+  categoryPill: {
+    width: '48%',
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
     borderRadius: spacing.borderRadius.md,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
     borderWidth: 2,
     borderColor: colors.border.default,
-    alignItems: 'center',
-    gap: spacing.xs / 2,
   },
-  categoryButtonSelected: {
-    borderColor: featureColors.expenses.primary,
-    backgroundColor: featureColors.expenses.light,
+  categoryPillSelected: {
+    borderWidth: 2,
   },
-  categoryButtonText: {
-    fontSize: typography.fontSize.sm,
+  categoryPillText: {
+    fontSize: typography.fontSize.base,
     color: colors.text.secondary,
     fontWeight: typography.fontWeight.medium,
   },
-  categoryButtonTextSelected: {
-    color: featureColors.expenses.primary,
+  categoryPillTextSelected: {
     fontWeight: typography.fontWeight.semiBold,
   },
   input: {
@@ -720,6 +861,16 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     borderWidth: 1,
     borderColor: colors.border.default,
+  },
+  inputError: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.error,
+    marginTop: spacing.xs / 2,
+    marginLeft: spacing.xs / 2,
   },
   textArea: {
     minHeight: 50,
@@ -733,6 +884,13 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     minHeight: 48,
     ...shadows.sm,
+  },
+  addItemButtonSuccess: {
+    backgroundColor: '#4CAF50',
+  },
+  addItemButtonDisabled: {
+    backgroundColor: colors.border.default,
+    opacity: 0.6,
   },
   addItemButtonText: {
     color: colors.surface,
@@ -796,12 +954,35 @@ const styles = StyleSheet.create({
     color: featureColors.expenses.primary,
     fontWeight: typography.fontWeight.medium,
   },
-  submitButton: {
+  // Sticky Footer Styles
+  stickyFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 40,
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  footerButtonRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  submitButtonCompact: {
+    flex: 1,
     backgroundColor: featureColors.expenses.primary,
     borderRadius: spacing.borderRadius.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
-    marginTop: spacing.md,
+    justifyContent: 'center',
     minHeight: 48,
     ...shadows.sm,
   },
@@ -814,24 +995,29 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
   },
-  cancelButton: {
+  cancelButtonCompact: {
+    flex: 0.4,
     backgroundColor: 'transparent',
     borderRadius: spacing.borderRadius.lg,
-    padding: 18,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    minHeight: 48,
   },
-  cancelButtonText: {
+  cancelButtonCompactText: {
     color: colors.text.secondary,
     fontSize: typography.fontSize.base,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.semiBold,
   },
-  deleteButton: {
+  deleteButtonCompact: {
+    flex: 0.4,
     backgroundColor: colors.error,
     borderRadius: spacing.borderRadius.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
-    marginTop: spacing.md,
+    justifyContent: 'center',
     minHeight: 48,
     ...shadows.sm,
   },

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Artis Sales",
     "slug": "artis-sales",
-    "version": "1.0.2",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -20,7 +20,7 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "versionCode": 2,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#393735"
@@ -42,6 +42,13 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Artis Sales to use your location for attendance tracking and visit logging."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Artis Sales to access your photos for profile pictures and visit photos.",
+          "cameraPermission": "Allow Artis Sales to use your camera for profile pictures and visit photos."
         }
       ],
       [

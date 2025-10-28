@@ -37,7 +37,7 @@ export const autoCheckOut = onSchedule(
         startOfDay: startOfDayIST.toISOString(),
       });
 
-      // Get all check-ins for today
+      // Get all users who checked in today
       const checkInsSnapshot = await db
         .collection("attendance")
         .where("type", "==", "check_in")
@@ -51,27 +51,38 @@ export const autoCheckOut = onSchedule(
         return;
       }
 
-      // Process each check-in
+      // Get unique user IDs from check-ins
+      const userIds = new Set<string>();
+      checkInsSnapshot.docs.forEach((doc) => {
+        userIds.add(doc.data().userId);
+      });
+
+      logger.info(`[AutoCheckOut] Processing ${userIds.size} unique users`);
+
+      // Process each unique user
       let autoCheckOutCount = 0;
       let alreadyCheckedOutCount = 0;
 
-      for (const checkInDoc of checkInsSnapshot.docs) {
-        const checkInData = checkInDoc.data();
-        const userId = checkInData.userId;
+      for (const userId of userIds) {
 
-        // Check if this user has already checked out today
-        const checkOutSnapshot = await db
+        // Check the LATEST attendance record to see current state
+        // This correctly handles multiple check-ins/check-outs per day
+        const latestAttendanceSnapshot = await db
           .collection("attendance")
           .where("userId", "==", userId)
-          .where("type", "==", "check_out")
           .where("timestamp", ">=", startTimestamp)
+          .orderBy("timestamp", "desc")
           .limit(1)
           .get();
 
-        if (!checkOutSnapshot.empty) {
-          // User already checked out
-          alreadyCheckedOutCount++;
-          continue;
+        if (!latestAttendanceSnapshot.empty) {
+          const latestRecord = latestAttendanceSnapshot.docs[0].data();
+
+          if (latestRecord.type === "check_out") {
+            // User's latest action was checkout - already checked out
+            alreadyCheckedOutCount++;
+            continue;
+          }
         }
 
         // Create auto check-out record
@@ -91,7 +102,6 @@ export const autoCheckOut = onSchedule(
 
         logger.info("[AutoCheckOut] Created auto check-out", {
           userId,
-          checkInTime: checkInData.timestamp?.toDate().toISOString(),
         });
       }
 

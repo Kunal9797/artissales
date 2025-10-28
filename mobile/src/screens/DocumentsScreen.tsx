@@ -1,5 +1,4 @@
 /**
-import { logger } from '../utils/logger';
  * DocumentsScreen - Unified Role-Adaptive Documents Library
  *
  * Features:
@@ -11,6 +10,7 @@ import { logger } from '../utils/logger';
  */
 
 import React, { useState, useCallback } from 'react';
+import { logger } from '../utils/logger';
 import {
   View,
   Text,
@@ -105,14 +105,17 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
   useFocusEffect(
     useCallback(() => {
-      // Priority loading: Load cached documents first (instant), then online documents
+      // Priority loading: Load both in parallel, but keep loading=true until we have online docs
       const loadInPriority = async () => {
-        // 1. Load cached documents immediately (synchronous, from AsyncStorage)
-        await loadCachedDocuments();
-        setLoading(false); // Show cached documents immediately
+        // Start both loads in parallel
+        const cachePromise = loadCachedDocuments();
+        const onlinePromise = loadDocuments(false); // Don't show loadingOnline indicator
 
-        // 2. Load online documents in background
-        loadDocuments(true); // Will set loadingOnline state
+        // Wait for both to complete
+        await Promise.all([cachePromise, onlinePromise]);
+
+        // Now we have both cached and online data, hide loading
+        setLoading(false);
       };
 
       loadInPriority();
@@ -161,39 +164,96 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
   const handleOpenDocument = async (document: Document) => {
     try {
-      logger.log('[DocumentsScreen] Opening document:', document.name, document.id);
+      logger.log('[DocumentsScreen] ========== Opening Document ==========');
+      logger.log('[DocumentsScreen] Document name:', document.name);
+      logger.log('[DocumentsScreen] Document ID:', document.id);
+      logger.log('[DocumentsScreen] Document fileType:', document.fileType);
+      logger.log('[DocumentsScreen] Document fileUrl:', document.fileUrl);
+
       let cachedDoc = await documentCache.getCachedDocument(document.id);
 
       if (cachedDoc) {
-        logger.log('[DocumentsScreen] Document is cached, localUri:', cachedDoc.localUri);
+        logger.log('[DocumentsScreen] ✓ Document is cached');
+        logger.log('[DocumentsScreen] Cached localUri:', cachedDoc.localUri);
+        logger.log('[DocumentsScreen] Cached MIME type:', cachedDoc.mimeType);
+
+        // Check if file actually exists
+        const { File } = await import('expo-file-system');
+        try {
+          const file = new File(cachedDoc.localUri);
+          const exists = file.exists;
+          logger.log('[DocumentsScreen] File exists check:', exists);
+          if (exists) {
+            logger.log('[DocumentsScreen] File size:', file.size, 'bytes');
+          } else {
+            logger.error('[DocumentsScreen] ✗ File does not exist at localUri!');
+            Alert.alert('Error', 'Cached file not found. Please re-download the document.');
+            return;
+          }
+        } catch (fileCheckError) {
+          logger.error('[DocumentsScreen] Error checking file existence:', fileCheckError);
+        }
 
         // Fix MIME type if it's wrong using the document's fileType from Firestore
         if (cachedDoc.mimeType === 'application/octet-stream' && document.fileType) {
-          logger.log('[DocumentsScreen] Fixing MIME type using fileType:', document.fileType);
+          logger.log('[DocumentsScreen] Fixing MIME type from fileType:', document.fileType);
           cachedDoc = await documentCache.fixMimeType(document.id, document.fileType);
+          logger.log('[DocumentsScreen] MIME type after fix:', cachedDoc.mimeType);
         }
 
+        logger.log('[DocumentsScreen] Getting content URI for Android...');
         const contentUri = await documentCache.getContentUri(cachedDoc.localUri);
-        logger.log('[DocumentsScreen] Content URI:', contentUri);
-        logger.log('[DocumentsScreen] Using MIME type:', cachedDoc.mimeType);
+        logger.log('[DocumentsScreen] Content URI result:', contentUri);
 
+        // Use IntentLauncher to open the document directly (Android)
         if (Platform.OS === 'android') {
-          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-            data: contentUri,
-            flags: 1,
-            type: cachedDoc.mimeType,
-          });
-          logger.log('[DocumentsScreen] IntentLauncher succeeded');
+          logger.log('[DocumentsScreen] Opening with IntentLauncher...');
+          logger.log('[DocumentsScreen]   - action: android.intent.action.VIEW');
+          logger.log('[DocumentsScreen]   - data:', contentUri);
+          logger.log('[DocumentsScreen]   - type:', cachedDoc.mimeType);
+
+          try {
+            await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+              data: contentUri,
+              flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+              type: cachedDoc.mimeType,
+            });
+            logger.log('[DocumentsScreen] ✓ IntentLauncher succeeded');
+          } catch (intentError: any) {
+            logger.error('[DocumentsScreen] ✗ IntentLauncher failed:', intentError);
+            logger.error('[DocumentsScreen] Intent error message:', intentError?.message);
+            logger.error('[DocumentsScreen] Intent error code:', intentError?.code);
+
+            // Fallback: Try using Linking as a last resort
+            logger.log('[DocumentsScreen] Trying Linking.openURL as fallback...');
+            try {
+              await Linking.openURL(contentUri);
+              logger.log('[DocumentsScreen] ✓ Linking fallback succeeded');
+            } catch (linkError) {
+              logger.error('[DocumentsScreen] Linking fallback also failed:', linkError);
+              throw intentError; // Throw original error
+            }
+          }
         } else {
+          // iOS
+          logger.log('[DocumentsScreen] iOS: Opening with Linking.openURL');
           await Linking.openURL(contentUri);
         }
+        logger.log('[DocumentsScreen] ✓ Document opened successfully');
       } else {
-        logger.log('[DocumentsScreen] Document not cached, opening from web:', document.fileUrl);
+        logger.log('[DocumentsScreen] Document not cached, opening from web');
+        logger.log('[DocumentsScreen] Web URL:', document.fileUrl);
         await Linking.openURL(document.fileUrl);
       }
+
+      logger.log('[DocumentsScreen] ========== Document Opened Successfully ==========');
     } catch (error: any) {
-      logger.error('[DocumentsScreen] Error opening document:', error);
-      logger.error('[DocumentsScreen] Error details:', JSON.stringify(error, null, 2));
+      logger.error('[DocumentsScreen] ========== ERROR Opening Document ==========');
+      logger.error('[DocumentsScreen] Error type:', error?.constructor?.name);
+      logger.error('[DocumentsScreen] Error message:', error?.message);
+      logger.error('[DocumentsScreen] Error code:', error?.code);
+      logger.error('[DocumentsScreen] Full error object:', JSON.stringify(error, null, 2));
+      logger.error('[DocumentsScreen] Error stack:', error?.stack);
 
       if (error?.message?.includes('No Activity found') || error?.message?.includes('no handler')) {
         Alert.alert(
@@ -202,9 +262,13 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
           [{ text: 'OK', style: 'default' }]
         );
       } else {
+        // Show detailed error in dev mode
+        const errorDetails = __DEV__
+          ? `\n\nDev Details:\nMessage: ${error?.message}\nCode: ${error?.code}\nType: ${error?.constructor?.name}`
+          : '';
         Alert.alert(
           'Error Opening File',
-          `${error?.message || 'Failed to open document'}\n\nMake sure you have a PDF viewer installed.`
+          `${error?.message || 'Failed to open document'}${errorDetails}\n\nMake sure you have a PDF viewer installed.`
         );
       }
     }

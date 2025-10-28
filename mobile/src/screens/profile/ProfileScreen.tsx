@@ -39,6 +39,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // Track original values to detect changes
   const [originalName, setOriginalName] = useState('');
@@ -219,6 +220,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
+            setSigningOut(true);
             try {
               await signOut(authInstance);
               // Success - navigation will happen automatically via auth state listener
@@ -226,6 +228,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               logger.error('Sign out error:', error);
               // Don't show alert during navigation/unmount - just log it
               // The error is rare and user will see they're still logged in
+            } finally {
+              setSigningOut(false);
             }
           },
         },
@@ -281,14 +285,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: '#C9A961',
+              backgroundColor: signingOut ? '#E0E0E0' : '#C9A961',
               paddingHorizontal: 16,
               paddingVertical: 10,
               borderRadius: 8,
             }}
             onPress={handleSignOut}
+            disabled={signingOut}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Logout</Text>
+            {signingOut ? (
+              <ActivityIndicator size="small" color="#393735" />
+            ) : (
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Logout</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>

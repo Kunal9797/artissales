@@ -125,20 +125,11 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
 
         {/* Stats Row */}
         <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
-          {item.totalVisits > 0 && (
+          {item.totalSheetsSold > 0 && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <MapPin size={14} color="#1976D2" />
+              <FileBarChart size={14} color="#7B1FA2" />
               <Text style={{ fontSize: 14, color: '#666666' }}>
-                {item.totalVisits} visits
-              </Text>
-            </View>
-          )}
-
-          {item.totalSheets > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <TrendingUp size={14} color="#7B1FA2" />
-              <Text style={{ fontSize: 14, color: '#666666' }}>
-                {item.totalSheets} sheets
+                {item.totalSheetsSold} sheets
               </Text>
             </View>
           )}

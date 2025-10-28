@@ -23,7 +23,7 @@ import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
 import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
 import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
-// import { DSRApprovalListScreen } from '../screens/manager/DSRApprovalListScreen'; // Not needed - using ReviewHomeScreen
+// DSRApprovalListScreen removed - using ReviewHomeScreen instead (accessible via dock)
 import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { EditAccountScreen } from '../screens/EditAccountScreen';
 import { AccountDetailScreen } from '../screens/manager/AccountDetailScreen';
@@ -46,7 +46,6 @@ export type RootStackParamList = {
   AccountDesignKitchenSink: undefined;
   DesignLab: undefined;
   AddUser: undefined;
-  DSRApprovalList: undefined;
   DSRApprovalDetail: { reportId: string };
   UserList: undefined;
   UserDetail: { userId: string };

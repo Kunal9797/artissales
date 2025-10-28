@@ -87,27 +87,31 @@ export const checkIn = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
-    // Check if already checked in today
+    // Check if currently checked in (last action was check-in, not check-out)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayTimestamp = firestore.Timestamp.fromDate(today);
 
-    const existingCheckIn = await db
+    const todayAttendance = await db
       .collection("attendance")
       .where("userId", "==", auth.uid)
-      .where("type", "==", "check_in")
       .where("timestamp", ">=", todayTimestamp)
+      .orderBy("timestamp", "desc")
       .limit(1)
       .get();
 
-    if (!existingCheckIn.empty) {
-      const error: ApiError = {
-        ok: false,
-        error: "Already checked in today",
-        code: "ALREADY_CHECKED_IN",
-      };
-      response.status(400).json(error);
-      return;
+    // Only block if the LATEST attendance record today is a check-in (meaning they're currently checked in)
+    if (!todayAttendance.empty) {
+      const latestRecord = todayAttendance.docs[0].data();
+      if (latestRecord.type === "check_in") {
+        const error: ApiError = {
+          ok: false,
+          error: "Already checked in. Please check out first.",
+          code: "ALREADY_CHECKED_IN",
+        };
+        response.status(400).json(error);
+        return;
+      }
     }
 
     // Create attendance record
@@ -225,20 +229,21 @@ export const checkOut = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
-    // Check if checked in today
+    // Check if currently checked in (last action was check-in)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayTimestamp = firestore.Timestamp.fromDate(today);
 
-    const checkInRecord = await db
+    const todayAttendance = await db
       .collection("attendance")
       .where("userId", "==", auth.uid)
-      .where("type", "==", "check_in")
       .where("timestamp", ">=", todayTimestamp)
+      .orderBy("timestamp", "desc")
       .limit(1)
       .get();
 
-    if (checkInRecord.empty) {
+    // Must have a check-in record today
+    if (todayAttendance.empty) {
       const error: ApiError = {
         ok: false,
         error: "Must check in before checking out",
@@ -248,19 +253,12 @@ export const checkOut = onRequest({cors: true}, async (request, response) => {
       return;
     }
 
-    // Check if already checked out today
-    const existingCheckOut = await db
-      .collection("attendance")
-      .where("userId", "==", auth.uid)
-      .where("type", "==", "check_out")
-      .where("timestamp", ">=", todayTimestamp)
-      .limit(1)
-      .get();
-
-    if (!existingCheckOut.empty) {
+    // Only allow checkout if the LATEST attendance record is a check-in (meaning they're currently checked in)
+    const latestRecord = todayAttendance.docs[0].data();
+    if (latestRecord.type === "check_out") {
       const error: ApiError = {
         ok: false,
-        error: "Already checked out today",
+        error: "Already checked out. Check in first.",
         code: "ALREADY_CHECKED_OUT",
       };
       response.status(400).json(error);
