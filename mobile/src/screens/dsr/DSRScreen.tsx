@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Clock, Building2, BarChart3, Wallet, Phone } from 'lucide-react-native';
 import { useDSR } from '../../hooks/useDSR';
@@ -13,15 +14,26 @@ import { useTodayStats } from '../../hooks/useTodayStats';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { Skeleton } from '../../patterns';
 import { getCatalogDisplayName } from '../../types';
+import { logger } from '../../utils/logger';
+import { api } from '../../services/api';
 
 interface DSRScreenProps {
   navigation: any;
+  route?: {
+    params?: {
+      date?: string;
+    };
+  };
 }
 
-export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
-  const today = new Date().toISOString().split('T')[0];
-  const { report, loading } = useDSR(today);
+export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
+  // Use date from route params, or default to today
+  const date = route?.params?.date || new Date().toISOString().split('T')[0];
+  const isToday = date === new Date().toISOString().split('T')[0];
+
+  const { report, loading } = useDSR(date);
   const { stats, loading: statsLoading } = useTodayStats();
+  const [resubmitting, setResubmitting] = React.useState(false);
 
   const formatTime = (timestamp: any): string => {
     if (!timestamp) return 'Not recorded';
@@ -66,7 +78,32 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
   }
 
   if (!report) {
-    // Show real-time "Today So Far" stats
+    // Show real-time stats (only for today)
+    if (!isToday) {
+      // If viewing a past date with no DSR, show message
+      return (
+        <ScrollView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <Text style={styles.backButtonText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.title}>No DSR Found</Text>
+            <Text style={styles.subtitle}>{new Date(date).toLocaleDateString()}</Text>
+          </View>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>No Report Generated</Text>
+            <Text style={styles.emptyMessage}>
+              DSR for this date was not generated or has been deleted.
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
+
+    // Show real-time "Today So Far" stats (only for today)
     return (
       <ScrollView style={styles.container}>
         <View style={styles.header}>
@@ -77,7 +114,7 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Today So Far</Text>
-          <Text style={styles.subtitle}>{new Date().toLocaleDateString()}</Text>
+          <Text style={styles.subtitle}>{new Date(date).toLocaleDateString()}</Text>
           <View style={styles.liveIndicatorContainer}>
             <View style={styles.liveIndicatorDot} />
             <Text style={styles.liveIndicator}>Live Updates</Text>
@@ -202,7 +239,7 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Daily Sales Report</Text>
-        <Text style={styles.subtitle}>{new Date(report.date).toLocaleDateString()}</Text>
+        <Text style={styles.subtitle}>{new Date(date).toLocaleDateString()}</Text>
       </View>
 
       {/* Status Badge */}
@@ -220,6 +257,57 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation }) => {
             <Text style={styles.commentsLabel}>Manager Comments:</Text>
             <Text style={styles.commentsText}>{report.managerComments}</Text>
           </View>
+        )}
+
+        {/* Resubmit Button - Only show for needs_revision status */}
+        {report.status === 'needs_revision' && (
+          <TouchableOpacity
+            style={[styles.resubmitButton, resubmitting && styles.resubmitButtonDisabled]}
+            disabled={resubmitting}
+            onPress={() => {
+              Alert.alert(
+                'Resubmit DSR',
+                'Make sure you have fixed the issues mentioned by your manager before resubmitting.\n\nThis will send your DSR back for review.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Resubmit',
+                    onPress: async () => {
+                      setResubmitting(true);
+                      try {
+                        const response = await api.resubmitDSR({ reportId: report.id });
+                        if (response.ok) {
+                          Alert.alert(
+                            'Success',
+                            'Your DSR has been resubmitted for review.',
+                            [
+                              {
+                                text: 'OK',
+                                onPress: () => navigation.goBack(),
+                              },
+                            ]
+                          );
+                        } else {
+                          Alert.alert('Error', response.error || 'Failed to resubmit DSR');
+                        }
+                      } catch (error: any) {
+                        logger.error('Error resubmitting DSR:', error);
+                        Alert.alert('Error', error.message || 'Failed to resubmit DSR');
+                      } finally {
+                        setResubmitting(false);
+                      }
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            {resubmitting ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={styles.resubmitButtonText}>Resubmit for Review</Text>
+            )}
+          </TouchableOpacity>
         )}
       </View>
 
@@ -528,5 +616,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.text.primary,
+  },
+  resubmitButton: {
+    backgroundColor: colors.accent,
+    borderRadius: spacing.borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    alignItems: 'center',
+    ...shadows.sm,
+  },
+  resubmitButtonDisabled: {
+    backgroundColor: '#E0E0E0',
+    opacity: 0.6,
+  },
+  resubmitButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
 });

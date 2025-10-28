@@ -490,6 +490,12 @@ export const getUserStats = onRequest(async (request, response) => {
 
     sheetsSnap.docs.forEach((doc) => {
       const data = doc.data();
+
+      // Only count verified sheets (approved by manager)
+      if (data.verified !== true) {
+        return;
+      }
+
       totalSheets += data.sheetsCount || 0;
       if (sheetsByCatalog[data.catalog] !== undefined) {
         sheetsByCatalog[data.catalog] += data.sheetsCount || 0;
@@ -513,6 +519,11 @@ export const getUserStats = onRequest(async (request, response) => {
 
     expensesSnap.docs.forEach((doc) => {
       const data = doc.data();
+
+      // Only count approved expenses
+      if (data.status !== "approved") {
+        return;
+      }
 
       // Handle both old format (amount/category fields) and new format (items array)
       if (data.items && Array.isArray(data.items)) {

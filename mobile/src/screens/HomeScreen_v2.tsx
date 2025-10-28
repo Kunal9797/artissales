@@ -29,7 +29,7 @@ import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../components/ui';
 import { KpiCard } from '../patterns/KpiCard';
-import { colors, spacing, typography, featureColors } from '../theme';
+import { colors, spacing, typography, featureColors, shadows } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
 import {
@@ -83,6 +83,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     description: string;
   }>>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [needsRevisionCount, setNeedsRevisionCount] = useState(0);
 
   // Fetch attendance data
   const fetchAttendance = useCallback(async () => {
@@ -300,12 +301,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid]);
 
+  // Fetch DSRs needing revision
+  const fetchNeedsRevisionCount = useCallback(async () => {
+    if (!user?.uid) return;
+
+    try {
+      const firestore = getFirestore();
+      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
+
+      // Query DSRs with status = 'needs_revision' for this user
+      const dsrQuery = query(
+        collection(firestore, 'dsrReports'),
+        where('userId', '==', user.uid),
+        where('status', '==', 'needs_revision')
+      );
+      const dsrSnapshot = await getDocs(dsrQuery);
+      setNeedsRevisionCount(dsrSnapshot.size);
+    } catch (error) {
+      logger.error('Error fetching needs revision count:', error);
+      setNeedsRevisionCount(0);
+    }
+  }, [user?.uid]);
+
   // Refresh function for pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchAttendance(), fetchTodayStats()]);
+    await Promise.all([fetchAttendance(), fetchTodayStats(), fetchNeedsRevisionCount()]);
     setRefreshing(false);
-  }, [fetchAttendance, fetchTodayStats]);
+  }, [fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount]);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -340,7 +363,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     useCallback(() => {
       fetchAttendance();
       fetchTodayStats();
-    }, [fetchAttendance, fetchTodayStats])
+      fetchNeedsRevisionCount();
+    }, [fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount])
   );
 
 
@@ -525,6 +549,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           )}
         </Card>
 
+        {/* DSR Reports Button */}
+        <TouchableOpacity
+          style={styles.dsrButton}
+          onPress={() => navigation.navigate('DSRList')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.dsrButtonContent}>
+            <FileText size={20} color={colors.accent} />
+            <Text style={styles.dsrButtonText}>DSR Reports</Text>
+            {needsRevisionCount > 0 && (
+              <View style={styles.dsrBadgeContainer}>
+                <Badge variant="error">{needsRevisionCount}</Badge>
+              </View>
+            )}
+          </View>
+          <ChevronRight size={20} color={colors.text.tertiary} />
+        </TouchableOpacity>
+
         {/* Today's Activities - KPI Cards in a row */}
         <View style={styles.kpiSection}>
           <Text style={styles.sectionTitle}>Today's Activities</Text>
@@ -532,17 +574,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             <KpiCard
               title="Visits"
               value={todayStats.visits.toString()}
-              icon={<MapPin size={16} color={featureColors.visits.primary} />}
+              icon={<MapPin size={20} color={featureColors.visits.primary} />}
             />
             <KpiCard
               title="Sheets"
               value={todayStats.sheets.toString()}
-              icon={<FileText size={16} color={featureColors.sheets.primary} />}
+              icon={<FileText size={20} color={featureColors.sheets.primary} />}
             />
             <KpiCard
               title="Expenses"
               value={todayStats.expenses.toString()}
-              icon={<IndianRupee size={16} color={featureColors.expenses.primary} />}
+              icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
             />
           </View>
         </View>
@@ -550,7 +592,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         {/* Activity Timeline with connecting lines */}
         {todayActivities.length > 0 ? (
           <View style={styles.timelineContainer}>
-            <Text style={styles.sectionTitle}>Today's Timeline</Text>
             {todayActivities.map((activity, index) => {
               const isLast = index === todayActivities.length - 1;
 
@@ -1098,5 +1139,34 @@ const styles = StyleSheet.create({
     ...typography.styles.button,
     color: colors.accent,
     fontSize: typography.fontSize.sm,
+  },
+
+  // DSR Reports Button
+  dsrButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    ...shadows.sm,
+  },
+  dsrButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  dsrButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  dsrBadgeContainer: {
+    marginLeft: spacing.xs,
   },
 });

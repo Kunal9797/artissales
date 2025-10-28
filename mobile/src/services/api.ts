@@ -209,6 +209,10 @@ export const api = {
     return callFunction('getDSRDetail', data);
   },
 
+  resubmitDSR: async (data: { reportId: string }) => {
+    return callFunction('resubmitDSR', data);
+  },
+
   getUsersList: async (data: GetUsersListRequest) => {
     return callFunction('getUsersList', data);
   },

@@ -42,22 +42,49 @@ export function KpiCard({ title, value, delta, icon }: KpiCardProps) {
     );
   };
 
+  // Dynamic font size based on value length
+  const getDynamicFontSize = () => {
+    const valueStr = String(value);
+    const length = valueStr.length;
+
+    if (length <= 3) return 36;      // 0-999: Large, impactful
+    if (length === 4) return 30;      // 1000-9999: Slightly smaller
+    if (length === 5) return 26;      // 10000-99999: More compact
+    return 22;                         // 100000+: Very compact
+  };
+
+  // Dynamic letter spacing (tighter for smaller fonts)
+  const getDynamicLetterSpacing = () => {
+    const fontSize = getDynamicFontSize();
+    if (fontSize >= 36) return -1;
+    if (fontSize >= 30) return -0.8;
+    if (fontSize >= 26) return -0.6;
+    return -0.5;
+  };
+
   return (
-    <View style={[styles.container, shadows.sm]}>
-      {/* Icon Section */}
+    <View style={[styles.container, shadows.md]}>
+      {/* Icon Section - Centered */}
       {icon && (
         <View style={styles.iconContainer}>
           {icon}
         </View>
       )}
 
-      {/* Title */}
-      <Text style={styles.title}>{title}</Text>
-
-      {/* Value */}
-      <Text style={styles.value}>
+      {/* Value - Large and centered */}
+      <Text style={[
+        styles.value,
+        {
+          fontSize: getDynamicFontSize(),
+          letterSpacing: getDynamicLetterSpacing(),
+          lineHeight: getDynamicFontSize() + 4,
+        }
+      ]}>
         {value}
       </Text>
+
+      {/* Title - Centered below value */}
+      <Text style={styles.title}>{title}</Text>
 
       {/* Delta */}
       {delta && (
@@ -76,33 +103,37 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     padding: spacing.md,
-    borderRadius: spacing.borderRadius.lg,
+    borderRadius: spacing.borderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: 'rgba(0, 0, 0, 0.06)',
     flex: 1,
-    minHeight: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 110,
   },
   iconContainer: {
     marginBottom: spacing.xs,
+    alignItems: 'center',
   },
   title: {
     fontSize: 11,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.text.tertiary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs / 2,
+    letterSpacing: 0.8,
+    textAlign: 'center',
   },
   value: {
-    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs / 2,
+    textAlign: 'center',
   },
   deltaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs / 2,
+    marginTop: spacing.xs / 2,
   },
   deltaText: {
     fontSize: 11,

@@ -21,6 +21,7 @@ export {updateProfile} from "./api/profile";
 export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
 export {reviewDSR, getPendingDSRs, getDSRDetail} from "./api/dsrReview";
+export {resubmitDSR} from "./api/resubmitDSR";
 export {createAccount, getAccountsList, updateAccount, getAccountDetails, deleteAccount} from "./api/accounts";
 export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 export {uploadDocument, getDocuments, deleteDocument, createDocumentMetadata} from "./api/documents";

@@ -14,6 +14,7 @@ import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
 import { ExpenseEntryScreen } from '../screens/expenses/ExpenseEntryScreen';
 import { CompactSheetsEntryScreen } from '../screens/sheets/CompactSheetsEntryScreen';
 import { DSRScreen } from '../screens/dsr/DSRScreen';
+import { DSRListScreen } from '../screens/dsr/DSRListScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
@@ -40,7 +41,8 @@ export type RootStackParamList = {
   LogVisit: { account?: { id: string; name: string; type: string }; editActivityId?: string };
   ExpenseEntry: { editActivityId?: string };
   SheetsEntry: { editActivityId?: string };
-  DSR: undefined;
+  DSR: { date?: string };
+  DSRList: undefined;
   Profile: undefined;
   KitchenSink: undefined;
   AccountDesignKitchenSink: undefined;
@@ -103,6 +105,7 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="ExpenseEntry" component={ExpenseEntryScreen} />
           <Stack.Screen name="SheetsEntry" component={CompactSheetsEntryScreen} />
           <Stack.Screen name="DSR" component={DSRScreen} />
+          <Stack.Screen name="DSRList" component={DSRListScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
           <Stack.Screen name="AccountDesignKitchenSink" component={AccountDesignKitchenSink} />

@@ -111,7 +111,8 @@ async function calculateProgress(
 
   salesSnapshot.forEach((doc) => {
     const sale = doc.data();
-    if (achievedByCatalog[sale.catalog] !== undefined) {
+    // Only count verified sheets (approved by manager)
+    if (sale.verified === true && achievedByCatalog[sale.catalog] !== undefined) {
       achievedByCatalog[sale.catalog] += sale.sheetsCount || 0;
     }
   });
