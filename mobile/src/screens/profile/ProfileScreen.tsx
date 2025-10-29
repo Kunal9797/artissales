@@ -21,6 +21,7 @@ import { selectPhoto } from '../../utils/photoUtils';
 import { colors, spacing, typography } from '../../theme';
 import { Card, Badge } from '../../components/ui';
 import { Skeleton } from '../../patterns';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface ProfileScreenProps {
   navigation: any;
@@ -29,6 +30,10 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -304,7 +309,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -487,7 +492,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
-    paddingBottom: 120, // Extra padding for floating nav bar + safe area
+    // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
   },
   // Profile Card
   profileCard: {

@@ -19,6 +19,7 @@ import { uploadPhoto } from '../../services/storage';
 import { Account } from '../../hooks/useAccounts';
 import { CameraCapture } from '../../components/CameraCapture';
 import { colors, featureColors } from '../../theme';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -42,6 +43,9 @@ const VISIT_PURPOSES = [
 export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, route }) => {
   const { account, editActivityId } = route.params;
   const isEditMode = !!editActivityId;
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
 
   const [visitAccount, setVisitAccount] = useState<Account | null>(account || null);
   const [purpose, setPurpose] = useState<string>('');
@@ -318,7 +322,10 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           </View>
         </View>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: 80 + bottomPadding }]}
+        >
           {/* Compact Account Info */}
           {visitAccount && (
             <View style={{
@@ -620,6 +627,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 120, // Extra padding for floating nav bar + safe area
+    // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
   },
 });

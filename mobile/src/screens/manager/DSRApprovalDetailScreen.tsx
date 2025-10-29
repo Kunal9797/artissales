@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { Skeleton } from '../../patterns';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface DSRApprovalDetailScreenProps {
   navigation: any;
@@ -50,6 +51,10 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
 }) => {
   const { reportId } = route.params; // Changed from dsrId to reportId
   const dsrId = reportId; // Use reportId as dsrId for backward compatibility
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
+
   const [dsr, setDsr] = useState<DSRDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [comments, setComments] = useState('');
@@ -170,7 +175,10 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
         <View style={styles.header}>
           <Text style={styles.headerTitle}>DSR Details</Text>
         </View>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: spacing.lg, paddingBottom: 60 + bottomPadding }}
+        >
           <Skeleton card />
           <Skeleton card />
           <Skeleton card />
@@ -220,7 +228,10 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
+      >
         {/* Attendance Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

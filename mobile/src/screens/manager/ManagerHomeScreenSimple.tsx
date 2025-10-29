@@ -10,8 +10,12 @@ import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, Book
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
+
   const [refreshing, setRefreshing] = useState(false);
   const [userName, setUserName] = useState('Manager');
   const [userRole, setUserRole] = useState('');
@@ -134,7 +138,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 24, paddingBottom: 60 + bottomPadding }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* KPI Cards */}

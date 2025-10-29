@@ -17,6 +17,7 @@ import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgr
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useTargetProgress } from '../../hooks/useTargetProgress';
 import { targetCache } from '../../services/targetCache';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -38,6 +39,9 @@ interface TodayEntry {
 export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> = ({ navigation, route }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
 
   // Edit mode detection
   const editActivityId = route.params?.editActivityId;
@@ -220,7 +224,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         style={styles.scrollView}
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: 120, // Extra padding for floating nav bar + safe area
+          paddingBottom: 80 + bottomPadding, // Dynamic padding for nav bar + safe area
         }}
       >
         {/* Compact Target Progress */}
@@ -371,7 +375,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
 
       {/* Sticky Bottom Section - Today's Entries + Submit */}
       {todayEntries.length > 0 && (
-        <View style={styles.stickyFooter}>
+        <View style={[styles.stickyFooter, { paddingBottom: bottomPadding }]}>
           <View style={styles.todaySection}>
             <Text style={styles.todaySectionTitle}>Today's Entries ({todayEntries.length})</Text>
             <ScrollView style={styles.entriesScroll} showsVerticalScrollIndicator={false}>
@@ -449,7 +453,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border.default,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
+    // paddingBottom set dynamically via useBottomSafeArea hook (inline style)
   },
   todaySection: {
     backgroundColor: colors.surface,

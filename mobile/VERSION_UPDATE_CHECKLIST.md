@@ -63,9 +63,9 @@ eas build --platform android --profile production
 
 ## Current Version:
 
-- **Version Name**: 1.0.4
-- **Version Code**: 2
-- **Last Updated**: October 28, 2025
+- **Version Name**: 1.0.5
+- **Version Code**: 3
+- **Last Updated**: October 29, 2025
 
 ## Quick Reference:
 
@@ -74,6 +74,7 @@ eas build --platform android --profile production
 | 1.0.0 | 1 | Oct 28, 2025 | Initial release |
 | 1.0.2 | 1 | Oct 28, 2025 | Profile & Performance |
 | 1.0.4 | 2 | Oct 28, 2025 | Stats fix & DSR revision workflow |
+| 1.0.5 | 3 | Oct 29, 2025 | Safe area fixes for 10 screens (Phase 1 + 2) |
 
 ---
 

@@ -25,6 +25,7 @@ import { colors, spacing, typography, featureColors } from '../theme';
 import { api } from '../services/api';
 import { Skeleton } from '../patterns';
 import { logger } from '../utils/logger';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 import {
   Calendar,
   FileText,
@@ -40,6 +41,9 @@ interface StatsScreenProps {
 export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
 
   // State for selected month
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -258,7 +262,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -426,7 +430,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
-    paddingBottom: 100, // Extra padding for floating nav bar
+    // paddingBottom set dynamically via useBottomSafeArea hook (60 + bottomPadding)
   },
   sectionTitle: {
     ...typography.styles.h3,

@@ -32,6 +32,7 @@ import { KpiCard } from '../patterns/KpiCard';
 import { colors, spacing, typography, featureColors, shadows } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 import {
   MapPin,
   IndianRupee,
@@ -53,6 +54,10 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
+
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
@@ -472,7 +477,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -873,7 +878,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.screenPadding,
-    paddingBottom: 100, // Extra padding to prevent content hidden behind floating nav bar
+    // paddingBottom set dynamically via useBottomSafeArea hook (60 + bottomPadding)
   },
 
   // Attendance Status Card - Compact Design

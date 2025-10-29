@@ -25,6 +25,7 @@ import { CameraCapture } from '../../components/CameraCapture';
 import { Card } from '../../components/ui';
 import { SubmitExpenseRequest, ExpenseItem } from '../../types';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
@@ -57,6 +58,9 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   route,
 }) => {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
 
   // Edit mode detection
   const editActivityId = route.params?.editActivityId;
@@ -351,7 +355,11 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
+        keyboardShouldPersistTaps="handled"
+      >
 
       {/* Add New Item Section */}
       <View style={styles.addItemSection}>
@@ -576,7 +584,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
       </ScrollView>
 
       {/* Sticky Footer - Always Visible */}
-      <View style={styles.stickyFooter}>
+      <View style={[styles.stickyFooter, { paddingBottom: bottomPadding }]}>
         {isEditMode ? (
           // Edit Mode: Delete + Update buttons
           <View style={styles.footerButtonRow}>
@@ -686,7 +694,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingBottom: 160, // Extra padding for sticky footer + safe area
+    // paddingBottom is set dynamically via inline style (100 + bottomPadding)
   },
   field: {
     marginBottom: spacing.md,
@@ -829,7 +837,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   categoryPill: {
-    width: '48%',
+    width: '46%', // Reduced from 48% to account for gap + borders in production builds
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
@@ -960,7 +968,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingBottom: 40,
+    // paddingBottom is set dynamically via useBottomSafeArea hook (inline style)
     paddingTop: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',

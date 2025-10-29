@@ -16,6 +16,7 @@ import { Skeleton } from '../../patterns';
 import { getCatalogDisplayName } from '../../types';
 import { logger } from '../../utils/logger';
 import { api } from '../../services/api';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface DSRScreenProps {
   navigation: any;
@@ -30,6 +31,9 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
   // Use date from route params, or default to today
   const date = route?.params?.date || new Date().toISOString().split('T')[0];
   const isToday = date === new Date().toISOString().split('T')[0];
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
 
   const { report, loading } = useDSR(date);
   const { stats, loading: statsLoading } = useTodayStats();
@@ -69,7 +73,10 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
 
   if (loading) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={{ padding: spacing.screenPadding }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ padding: spacing.screenPadding, paddingBottom: 60 + bottomPadding }}
+      >
         <Skeleton card />
         <Skeleton card />
         <Skeleton card />
@@ -82,7 +89,10 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
     if (!isToday) {
       // If viewing a past date with no DSR, show message
       return (
-        <ScrollView style={styles.container}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{ paddingBottom: 60 + bottomPadding }}
+        >
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -105,7 +115,10 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
 
     // Show real-time "Today So Far" stats (only for today)
     return (
-      <ScrollView style={styles.container}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 60 + bottomPadding }}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -230,7 +243,10 @@ export const DSRScreen: React.FC<DSRScreenProps> = ({ navigation, route }) => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 60 + bottomPadding }}
+    >
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}

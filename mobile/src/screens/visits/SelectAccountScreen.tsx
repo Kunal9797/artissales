@@ -16,6 +16,7 @@ import { useAccounts, Account } from '../../hooks/useAccounts';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface SelectAccountScreenProps {
   navigation: any;
@@ -26,6 +27,10 @@ type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'contr
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
   const { accounts, loading, error, refreshAccounts } = useAccounts();
   const { user } = useAuth();
+
+  // Safe area insets for bottom padding (accounts for Android nav bar)
+  const bottomPadding = useBottomSafeArea(12);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<AccountTypeFilter>('all');
 
@@ -404,7 +409,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           renderItem={renderAccount}
           keyExtractor={(item) => item.id}
           estimatedItemSize={100}
-          contentContainerStyle={styles.listContainer}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: 80 + bottomPadding }]}
         />
       )}
     </View>
@@ -424,7 +429,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: spacing.lg,
-    paddingBottom: 120, // Extra padding for floating nav bar + safe area
+    // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
   },
   accountCard: {
     backgroundColor: colors.surface,
