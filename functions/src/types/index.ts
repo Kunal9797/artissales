@@ -209,7 +209,7 @@ export interface Attendance {
 // SHEETS SALES TYPES (Daily Sales Tracking)
 // ============================================================================
 
-export type CatalogType = "Fine Decor" | "Artvio" | "Woodrica" | "Artis";
+export type CatalogType = "Fine Decor" | "Artvio" | "Woodrica" | "Artis 1MM";
 
 export interface SheetsSale {
   id: string;
@@ -566,7 +566,7 @@ export interface TargetsByCatalog {
   "Fine Decor"?: number;
   "Artvio"?: number;
   "Woodrica"?: number;
-  "Artis"?: number;
+  "Artis 1MM"?: number;
 }
 
 // Visit targets by account type

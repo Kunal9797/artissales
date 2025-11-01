@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, ViewStyle } from 'react-native';
 import { colors, spacing } from '../theme';
 
 export interface SkeletonProps {
@@ -16,9 +16,11 @@ export interface SkeletonProps {
   card?: boolean;
   /** Full width (ignores parent padding) */
   fullWidth?: boolean;
+  /** Custom styles */
+  style?: ViewStyle;
 }
 
-export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = false }: SkeletonProps) {
+export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = false, style }: SkeletonProps) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = f
     console.log('[Skeleton] Rendering card with fullWidth:', fullWidth);
     console.log('[Skeleton] Using style:', fullWidth ? 'fullWidthCard' : 'card');
     return (
-      <View style={fullWidth ? styles.fullWidthCard : styles.card}>
+      <View style={[fullWidth ? styles.fullWidthCard : styles.card, style]}>
         <Animated.View style={[styles.cardImage, { opacity }]} />
         <View style={styles.cardContent}>
           <Animated.View style={[styles.line, styles.lineTitle, { opacity }]} />
@@ -56,7 +58,7 @@ export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = f
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       {avatar && (
         <Animated.View style={[styles.avatar, { opacity }]} />
       )}

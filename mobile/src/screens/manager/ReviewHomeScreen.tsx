@@ -1,5 +1,4 @@
 /**
-import { logger } from '../../utils/logger';
  * ReviewHomeScreen - DSR Approval Dashboard
  *
  * Review and approve Daily Sales Reports (DSRs)
@@ -7,6 +6,7 @@ import { logger } from '../../utils/logger';
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, TextInput } from 'react-native';
 import { FileText, User as UserIcon, CheckCircle, XCircle, Clock, MapPin, TrendingUp, IndianRupee, FileBarChart, Search } from 'lucide-react-native';
 import { api } from '../../services/api';
@@ -15,35 +15,38 @@ import { Skeleton } from '../../patterns';
 export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'all'>('pending');
   const [refreshing, setRefreshing] = useState(false);
-  const [dsrs, setDsrs] = useState<any[]>([]);
+  const [allDsrs, setAllDsrs] = useState<any[]>([]); // Store all DSRs
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Phase 2A: Fetch all DSRs once, filter client-side (no API call on filter change)
   const loadData = async () => {
     setLoading(true);
     try {
-      const dsrResponse = await api.getPendingDSRs({ status: statusFilter === 'all' ? undefined : statusFilter });
+      // Fetch ALL DSRs (pending, approved, rejected)
+      const dsrResponse = await api.getPendingDSRs({ status: undefined });
 
       if (dsrResponse.ok) {
-        setDsrs(dsrResponse.dsrs || []);
+        setAllDsrs(dsrResponse.dsrs || []);
       }
     } catch (error) {
       logger.error('Error loading DSRs:', error);
-      setDsrs([]);
+      setAllDsrs([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // Load data only on mount (Phase 2A optimization)
   useEffect(() => {
     loadData();
-  }, [statusFilter]);
+  }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
-  }, [statusFilter]);
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -60,10 +63,16 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     Alert.alert('Performance Reports', 'Report generation coming soon');
   };
 
-  // Filter DSRs by search term
-  const filteredDSRs = dsrs.filter((dsr) =>
-    dsr.userName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Phase 2A: Client-side filtering (instant, no API calls)
+  const filteredDSRs = allDsrs.filter((dsr) => {
+    // Apply status filter
+    const matchesStatus = statusFilter === 'all' || dsr.status === statusFilter;
+
+    // Apply search filter
+    const matchesSearch = !searchTerm || dsr.userName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesStatus && matchesSearch;
+  });
 
   const renderDSRItem = ({ item }: { item: any }) => {
     const badge = getStatusBadge(item.status || 'pending');
@@ -162,7 +171,7 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
               Review DSRs
             </Text>
             <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-              {dsrs.length} reports
+              {allDsrs.length} reports
             </Text>
           </View>
 

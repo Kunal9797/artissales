@@ -29,6 +29,9 @@ Quick reference guide for finding the right documentation.
 → [design/COMPONENT_CATALOG.md](design/COMPONENT_CATALOG.md) - Use existing components
 → [development/QA_SUMMARY.md](development/QA_SUMMARY.md) - Known issues
 
+### Manage Documents (Backend)
+→ [development/DOCUMENT_MANAGEMENT_SCRIPTS.md](development/DOCUMENT_MANAGEMENT_SCRIPTS.md) - Sync Storage to Firestore
+
 ### Fix Issues
 → [development/METRO_TROUBLESHOOTING.md](development/METRO_TROUBLESHOOTING.md) - Metro bundler issues
 → [development/METRO_HANG_TROUBLESHOOTING.md](development/METRO_HANG_TROUBLESHOOTING.md) - Metro hangs
@@ -44,6 +47,7 @@ Quick reference guide for finding the right documentation.
 → [planning/MANAGER_DASHBOARD_PLAN.md](planning/MANAGER_DASHBOARD_PLAN.md) - Manager features
 → [planning/ACCOUNT_MANAGEMENT_DESIGN.md](planning/ACCOUNT_MANAGEMENT_DESIGN.md) - Account management
 → [planning/DESIGN_REVAMP.md](planning/DESIGN_REVAMP.md) - Overall design plan
+→ [planning/PHASE_2A_PERFORMANCE_OPTIMIZATION.md](planning/PHASE_2A_PERFORMANCE_OPTIMIZATION.md) - Performance optimization strategies
 
 ### Test the App
 → [testing/HOW_TO_TEST.md](testing/HOW_TO_TEST.md) - Testing procedures
@@ -73,12 +77,13 @@ Branding, design system, components, visual guidelines
 | [DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md) | DS overview |
 | [THEME_AND_LOGO_GUIDE.md](design/THEME_AND_LOGO_GUIDE.md) | Theme & logo placement |
 
-### 🔧 Development (6 files)
+### 🔧 Development (7 files)
 Setup, Firebase, troubleshooting, QA
 
 | File | Purpose |
 |------|---------|
 | [FIREBASE_USAGE.md](development/FIREBASE_USAGE.md) | ⚠️ CRITICAL: Modular API standards |
+| [DOCUMENT_MANAGEMENT_SCRIPTS.md](development/DOCUMENT_MANAGEMENT_SCRIPTS.md) | Scripts for syncing Storage to Firestore |
 | [SDK54_VERSIONS.md](development/SDK54_VERSIONS.md) | Version compatibility matrix |
 | [METRO_TROUBLESHOOTING.md](development/METRO_TROUBLESHOOTING.md) | Common Metro issues |
 | [METRO_HANG_TROUBLESHOOTING.md](development/METRO_HANG_TROUBLESHOOTING.md) | Metro hang fixes |
@@ -96,7 +101,7 @@ Progress tracking, completed features
 | [ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md](implementation/ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md) | Account progress |
 | [TABS_IMPLEMENTED.md](implementation/TABS_IMPLEMENTED.md) | Tab navigation |
 
-### 📐 Planning (6 files)
+### 📐 Planning (7 files)
 Architecture, feature planning
 
 | File | Purpose |
@@ -107,6 +112,7 @@ Architecture, feature planning
 | [ACCOUNT_MANAGEMENT_DESIGN.md](planning/ACCOUNT_MANAGEMENT_DESIGN.md) | Account design |
 | [VISIT_TARGET_DESIGNS.md](planning/VISIT_TARGET_DESIGNS.md) | Visit tracking |
 | [DESIGN_REVAMP.md](planning/DESIGN_REVAMP.md) | Overall design plan |
+| [PHASE_2A_PERFORMANCE_OPTIMIZATION.md](planning/PHASE_2A_PERFORMANCE_OPTIMIZATION.md) | Phase 2A perf optimizations |
 
 ### 📦 Releases (5 files)
 PR descriptions, changelogs
@@ -159,4 +165,4 @@ Test procedures, progress
 - Check [CLAUDE.md](../CLAUDE.md) for project context
 - All docs are in `docs/` directory
 
-**Last Updated**: October 17, 2025
+**Last Updated**: November 1, 2025

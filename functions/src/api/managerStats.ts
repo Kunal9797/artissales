@@ -142,15 +142,64 @@ export const getTeamStats = onRequest(async (request, response) => {
 
     const totalTeamMembers = teamMembers.length;
 
-    // 4. Get attendance stats for the date range
-    const attendanceSnapshot = await db.collection("attendance")
-      .where("timestamp", ">=", startDate)
-      .where("timestamp", "<=", endDate)
-      .get();
+    // 4-8. Execute all queries in parallel for better performance
+    const [
+      attendanceSnapshot,
+      visitsSnapshot,
+      sheetsSnapshot,
+      dsrSnapshot,
+      expensesSnapshot,
+    ] = await Promise.all([
+      // Query 1: Attendance
+      db.collection("attendance")
+        .where("timestamp", ">=", startDate)
+        .where("timestamp", "<=", endDate)
+        .get(),
+
+      // Query 2: Visits
+      db.collection("visits")
+        .where("timestamp", ">=", startDate)
+        .where("timestamp", "<=", endDate)
+        .get(),
+
+      // Query 3: Sheets Sales
+      (range === "week" || range === "month")
+        ? db.collection("sheetsSales")
+            .where("date", ">=", startDateStr)
+            .where("date", "<=", endDateStr)
+            .get()
+        : db.collection("sheetsSales")
+            .where("date", "==", targetDate)
+            .get(),
+
+      // Query 4: DSR Reports
+      (range === "week" || range === "month")
+        ? db.collection("dsrReports")
+            .where("date", ">=", startDateStr)
+            .where("date", "<=", endDateStr)
+            .where("status", "==", "pending")
+            .get()
+        : db.collection("dsrReports")
+            .where("date", "==", targetDate)
+            .where("status", "==", "pending")
+            .get(),
+
+      // Query 5: Expenses
+      (range === "week" || range === "month")
+        ? db.collection("expenses")
+            .where("date", ">=", startDateStr)
+            .where("date", "<=", endDateStr)
+            .where("status", "==", "pending")
+            .get()
+        : db.collection("expenses")
+            .where("date", "==", targetDate)
+            .where("status", "==", "pending")
+            .get(),
+    ]);
 
     logger.info(`[getTeamStats] Found ${attendanceSnapshot.size} attendance records`);
 
-    // Group attendance by userId
+    // Process attendance data
     const attendanceByUser: Record<string, any[]> = {};
     attendanceSnapshot.docs.forEach((doc) => {
       const data = doc.data();
@@ -168,16 +217,10 @@ export const getTeamStats = onRequest(async (request, response) => {
     const presentCount = presentUserIds.length;
     const absentCount = totalTeamMembers - presentCount;
 
-    // 5. Get visits stats for the date range
-    const visitsSnapshot = await db.collection("visits")
-      .where("timestamp", ">=", startDate)
-      .where("timestamp", "<=", endDate)
-      .get();
-
+    // Process visits data
     const totalVisits = visitsSnapshot.size;
     logger.info(`[getTeamStats] Found ${totalVisits} visits`);
 
-    // Count by type
     let distributorVisits = 0;
     let dealerVisits = 0;
     let architectVisits = 0;
@@ -191,26 +234,13 @@ export const getTeamStats = onRequest(async (request, response) => {
       else if (data.accountType === "contractor") contractorVisits++;
     });
 
-    // 6. Get sheets sales stats for the date range
-    let sheetsSnapshot;
-    if (range === "week" || range === "month") {
-      // Query all sheets in date range (date is stored as YYYY-MM-DD string)
-      sheetsSnapshot = await db.collection("sheetsSales")
-        .where("date", ">=", startDateStr)
-        .where("date", "<=", endDateStr)
-        .get();
-    } else {
-      sheetsSnapshot = await db.collection("sheetsSales")
-        .where("date", "==", targetDate)
-        .get();
-    }
-
+    // Process sheets sales data
     let totalSheets = 0;
     const sheetsByCatalog: Record<string, number> = {
       "Fine Decor": 0,
       "Artvio": 0,
       "Woodrica": 0,
-      "Artis": 0,
+      "Artis 1MM": 0,
     };
 
     sheetsSnapshot.docs.forEach((doc) => {
@@ -221,38 +251,8 @@ export const getTeamStats = onRequest(async (request, response) => {
       }
     });
 
-    // 7. Get pending DSRs count for date range
-    let dsrSnapshot;
-    if (range === "week" || range === "month") {
-      dsrSnapshot = await db.collection("dsrReports")
-        .where("date", ">=", startDateStr)
-        .where("date", "<=", endDateStr)
-        .where("status", "==", "pending")
-        .get();
-    } else {
-      dsrSnapshot = await db.collection("dsrReports")
-        .where("date", "==", targetDate)
-        .where("status", "==", "pending")
-        .get();
-    }
-
+    // Process DSR and expenses data
     const pendingDSRs = dsrSnapshot.size;
-
-    // 8. Get pending expenses count for date range
-    let expensesSnapshot;
-    if (range === "week" || range === "month") {
-      expensesSnapshot = await db.collection("expenses")
-        .where("date", ">=", startDateStr)
-        .where("date", "<=", endDateStr)
-        .where("status", "==", "pending")
-        .get();
-    } else {
-      expensesSnapshot = await db.collection("expenses")
-        .where("date", "==", targetDate)
-        .where("status", "==", "pending")
-        .get();
-    }
-
     const pendingExpenses = expensesSnapshot.size;
     logger.info(`[getTeamStats] Found ${pendingExpenses} pending expenses`);
 

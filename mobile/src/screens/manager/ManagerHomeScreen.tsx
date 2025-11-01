@@ -1,5 +1,4 @@
 /**
-import { logger } from '../../utils/logger';
  * ManagerHomeScreen - Redesigned with DS v0.1
  *
  * Modern manager dashboard with:
@@ -11,6 +10,7 @@ import { logger } from '../../utils/logger';
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '../../utils/logger';
 import {
   View,
   Text,
@@ -18,8 +18,7 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-} from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+} from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../../components/ui';
@@ -146,7 +145,8 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     setRefreshing(false);
   }, [fetchUserName, fetchTeamStats, fetchTopPerformers]);
 
-  // Initial load
+  // Load data on mount only (Phase 2A optimization)
+  // User can manually refresh via pull-to-refresh
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -155,14 +155,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
     };
     loadData();
   }, [fetchUserName, fetchTeamStats, fetchTopPerformers]);
-
-  // Refresh when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      fetchTeamStats();
-      fetchTopPerformers();
-    }, [fetchTeamStats, fetchTopPerformers])
-  );
 
   const greeting = getGreeting();
 

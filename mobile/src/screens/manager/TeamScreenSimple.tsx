@@ -1,16 +1,46 @@
 /**
-import { logger } from '../../utils/logger';
  * TeamScreen - Simple Version
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { View, Text, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { User, Search, Phone, MapPin, CheckCircle, XCircle } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
+
+// Phase 2A: Module-level cache with 30-minute TTL
+const teamCache: {
+  data?: UserListItem[];
+  timestamp?: number;
+} = {};
+
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+const getCachedTeam = (): UserListItem[] | null => {
+  const now = Date.now();
+  if (
+    teamCache.data &&
+    teamCache.timestamp &&
+    now - teamCache.timestamp < CACHE_TTL
+  ) {
+    return teamCache.data;
+  }
+  return null;
+};
+
+const setCachedTeam = (data: UserListItem[]) => {
+  teamCache.data = data;
+  teamCache.timestamp = Date.now();
+};
+
+export const invalidateTeamCache = () => {
+  teamCache.data = undefined;
+  teamCache.timestamp = undefined;
+};
 
 export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [users, setUsers] = useState<UserListItem[]>([]);
@@ -20,13 +50,27 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const loadUsers = async () => {
+  const loadUsers = async (forceRefresh = false) => {
+    // Phase 2A: Check cache first
+    if (!forceRefresh) {
+      const cachedData = getCachedTeam();
+      if (cachedData) {
+        logger.log('[TeamScreen] Using cached team data');
+        setUsers(cachedData);
+        setFilteredUsers(cachedData);
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const response = await api.getUsersList({});
       if (response.ok && response.users) {
         setUsers(response.users);
         setFilteredUsers(response.users);
+
+        // Cache the data
+        setCachedTeam(response.users);
       }
     } catch (error) {
       logger.error('Error loading users:', error);
@@ -64,7 +108,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadUsers();
+    await loadUsers(true); // Force refresh, bypass cache
     setRefreshing(false);
   };
 

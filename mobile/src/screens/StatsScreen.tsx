@@ -8,7 +8,7 @@
  * - Performance trends
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,7 +17,6 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
 import { DetailedStatsView } from '../components/DetailedStatsView';
@@ -109,7 +108,8 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     setRefreshing(true);
     await Promise.all([fetchMonthlyStats(), fetchPendingCounts()]);
     setRefreshing(false);
-  }, [fetchMonthlyStats, fetchPendingCounts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Navigate to previous month
   const goToPreviousMonth = () => {
@@ -221,14 +221,16 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid, currentMonth]);
 
-  // Fetch data when screen is focused or month changes
-  useFocusEffect(
-    useCallback(() => {
+  // Fetch data on mount and when month changes (Phase 2A optimization)
+  // User can manually refresh via pull-to-refresh
+  useEffect(() => {
+    if (user?.uid) {
       fetchMonthlyStats();
       fetchPendingCounts();
       fetchTargets();
-    }, [fetchMonthlyStats, fetchPendingCounts, fetchTargets])
-  );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, currentMonth]);
 
   return (
     <View style={styles.container}>

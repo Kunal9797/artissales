@@ -9,7 +9,7 @@
  * - Storage usage tracking
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { logger } from '../utils/logger';
 import {
   View,
@@ -23,7 +23,7 @@ import {
   Linking,
   RefreshControl,
 } from 'react-native';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
 import { colors, spacing, typography, featureColors } from '../theme';
@@ -103,24 +103,24 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Priority loading: Load both in parallel, but keep loading=true until we have online docs
-      const loadInPriority = async () => {
-        // Start both loads in parallel
-        const cachePromise = loadCachedDocuments();
-        const onlinePromise = loadDocuments(false); // Don't show loadingOnline indicator
+  // Load data on mount only (Phase 2A optimization)
+  // User can manually refresh via pull-to-refresh
+  useEffect(() => {
+    // Priority loading: Load both in parallel, but keep loading=true until we have online docs
+    const loadInPriority = async () => {
+      // Start both loads in parallel
+      const cachePromise = loadCachedDocuments();
+      const onlinePromise = loadDocuments(false); // Don't show loadingOnline indicator
 
-        // Wait for both to complete
-        await Promise.all([cachePromise, onlinePromise]);
+      // Wait for both to complete
+      await Promise.all([cachePromise, onlinePromise]);
 
-        // Now we have both cached and online data, hide loading
-        setLoading(false);
-      };
+      // Now we have both cached and online data, hide loading
+      setLoading(false);
+    };
 
-      loadInPriority();
-    }, [loadDocuments, loadCachedDocuments])
-  );
+    loadInPriority();
+  }, [loadDocuments, loadCachedDocuments]);
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {

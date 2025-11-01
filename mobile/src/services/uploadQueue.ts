@@ -27,7 +27,7 @@ const MAX_RETRIES = 3;
 
 export interface QueueItem {
   id: string;
-  type: 'visit' | 'expense';
+  type: 'visit' | 'visit-update' | 'expense';
   photoUri: string;
   folder: 'visits' | 'expenses';
   metadata: any; // Visit or expense data
@@ -166,6 +166,13 @@ class UploadQueueService {
       if (item.type === 'visit') {
         await api.logVisit({
           ...item.metadata,
+          photos: [photoUrl],
+        });
+      } else if (item.type === 'visit-update') {
+        await api.updateVisit({
+          id: item.metadata.visitId,
+          purpose: item.metadata.purpose,
+          notes: item.metadata.notes,
           photos: [photoUrl],
         });
       } else if (item.type === 'expense') {

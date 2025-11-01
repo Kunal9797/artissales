@@ -64,7 +64,7 @@ export const logSheetsSale = onRequest(async (request, response) => {
       "Fine Decor",
       "Artvio",
       "Woodrica",
-      "Artis",
+      "Artis 1MM",
     ];
     if (!validCatalogs.includes(body.catalog)) {
       const error: ApiError = {
@@ -279,7 +279,7 @@ export const updateSheetsSale = onRequest(async (request, response) => {
       "Fine Decor",
       "Artvio",
       "Woodrica",
-      "Artis",
+      "Artis 1MM",
     ];
     if (!validCatalogs.includes(catalog)) {
       const error: ApiError = {

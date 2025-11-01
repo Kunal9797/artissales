@@ -1,6 +1,6 @@
 # Artis Field Sales App - Documentation
 
-**Last Updated**: October 21, 2025
+**Last Updated**: November 1, 2025
 
 This directory contains all project documentation organized by category. All mobile app docs have been unified here for easy access.
 
@@ -30,6 +30,7 @@ docs/
 │
 ├── development/                      # Development guides & setup
 │   ├── FIREBASE_USAGE.md            # Firebase modular API standards
+│   ├── DOCUMENT_MANAGEMENT_SCRIPTS.md # Scripts for syncing Storage to Firestore
 │   ├── SDK54_VERSIONS.md            # Expo SDK 54 version matrix
 │   ├── METRO_TROUBLESHOOTING.md     # Metro bundler fixes
 │   ├── METRO_HANG_TROUBLESHOOTING.md# Metro hang-specific issues
@@ -50,6 +51,7 @@ docs/
 │   ├── ACCOUNT_MANAGEMENT_DESIGN.md
 │   ├── VISIT_TARGET_DESIGNS.md
 │   ├── DESIGN_REVAMP.md
+│   ├── PHASE_2A_PERFORMANCE_OPTIMIZATION.md  # Performance optimization plan
 │   └── V1_PLUS_FUTURE_ENHANCEMENTS.md  # Post-V1 feature roadmap
 │
 ├── releases/                         # PR descriptions & changelogs
@@ -89,10 +91,11 @@ UI/UX, branding, design system, components, and visual guidelines.
 - **[DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** - Design system overview
 - **[THEME_AND_LOGO_GUIDE.md](design/THEME_AND_LOGO_GUIDE.md)** - Theme colors and logo placement strategy
 
-### 🔧 Development (6 files)
+### 🔧 Development (7 files)
 Setup guides, Firebase patterns, troubleshooting, and QA.
 
 - **[FIREBASE_USAGE.md](development/FIREBASE_USAGE.md)** - Firebase modular API standards (critical!)
+- **[DOCUMENT_MANAGEMENT_SCRIPTS.md](development/DOCUMENT_MANAGEMENT_SCRIPTS.md)** - Scripts for syncing Storage files to Firestore
 - **[SDK54_VERSIONS.md](development/SDK54_VERSIONS.md)** - Expo SDK 54 version compatibility matrix
 - **[METRO_TROUBLESHOOTING.md](development/METRO_TROUBLESHOOTING.md)** - Metro bundler common issues
 - **[METRO_HANG_TROUBLESHOOTING.md](development/METRO_HANG_TROUBLESHOOTING.md)** - Metro hang-specific fixes
@@ -109,7 +112,7 @@ Current implementation status, progress tracking, and completed features.
 - **[ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md](implementation/ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md)** - Account progress
 - **[TABS_IMPLEMENTED.md](implementation/TABS_IMPLEMENTED.md)** - Tab navigation implementation
 
-### 📐 Planning (7 files)
+### 📐 Planning (8 files)
 Architecture decisions, feature planning, and design documentation.
 
 - **[NAVIGATION_PLAN.md](planning/NAVIGATION_PLAN.md)** - App navigation structure and patterns
@@ -118,6 +121,7 @@ Architecture decisions, feature planning, and design documentation.
 - **[ACCOUNT_MANAGEMENT_DESIGN.md](planning/ACCOUNT_MANAGEMENT_DESIGN.md)** - Account management design
 - **[VISIT_TARGET_DESIGNS.md](planning/VISIT_TARGET_DESIGNS.md)** - Visit and target tracking designs
 - **[DESIGN_REVAMP.md](planning/DESIGN_REVAMP.md)** - Overall design revamp plan
+- **[PHASE_2A_PERFORMANCE_OPTIMIZATION.md](planning/PHASE_2A_PERFORMANCE_OPTIMIZATION.md)** - Phase 2A performance optimizations (caching, filtering, useFocusEffect)
 - **[V1_PLUS_FUTURE_ENHANCEMENTS.md](planning/V1_PLUS_FUTURE_ENHANCEMENTS.md)** - Post-V1 feature roadmap (lead assignment, map view, etc.)
 
 ### 📦 Releases (5 files)

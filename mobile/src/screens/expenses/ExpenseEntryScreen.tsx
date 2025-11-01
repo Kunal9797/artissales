@@ -119,20 +119,23 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     setShowCamera(false);
     setReceiptPhotos([...receiptPhotos, uri]);
 
-    // Upload photo to Firebase Storage
-    try {
-      setUploadingReceipts(true);
-      const downloadUrl = await uploadPhoto(uri, 'expenses');
-      setReceiptPhotoUrls([...receiptPhotoUrls, downloadUrl]);
-      logger.log('[Expense] Receipt uploaded:', downloadUrl);
-    } catch (error) {
-      logger.error('[Expense] Error uploading receipt:', error);
-      Alert.alert('Error', 'Failed to upload receipt photo. Please try again.');
-      // Remove the local photo if upload failed
-      setReceiptPhotos(receiptPhotos.filter(p => p !== uri));
-    } finally {
-      setUploadingReceipts(false);
-    }
+    // Upload photo to Firebase Storage in background (non-blocking)
+    setUploadingReceipts(true);
+
+    // Upload asynchronously without blocking UI
+    uploadPhoto(uri, 'expenses')
+      .then((downloadUrl) => {
+        setReceiptPhotoUrls(prev => [...prev, downloadUrl]);
+        logger.log('[Expense] Receipt uploaded:', downloadUrl);
+        setUploadingReceipts(false);
+      })
+      .catch((error) => {
+        logger.error('[Expense] Error uploading receipt:', error);
+        Alert.alert('Error', 'Failed to upload receipt photo. Please try again.');
+        // Remove the local photo if upload failed
+        setReceiptPhotos(prev => prev.filter(p => p !== uri));
+        setUploadingReceipts(false);
+      });
   };
 
   const handleRemoveReceipt = (index: number) => {
@@ -226,6 +229,16 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     if (items.length === 0) {
       console.log('[Expense] Validation failed: no items');
       Alert.alert('Validation Error', 'Please add at least one expense item');
+      return;
+    }
+
+    // Check if photos are still uploading
+    if (receiptPhotos.length > receiptPhotoUrls.length) {
+      Alert.alert(
+        'Photos Uploading',
+        'Please wait for receipt photos to finish uploading before submitting.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 

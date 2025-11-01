@@ -185,26 +185,40 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 
     try {
       if (isEditMode && editActivityId) {
-        // EDIT MODE: Still synchronous (photo already uploaded)
-        let photoUrl = '';
+        // EDIT MODE: Use background upload for new photos
         if (photoUri && !photoUri.startsWith('http')) {
-          setUploading(true);
-          photoUrl = await uploadPhoto(photoUri, 'visits');
-          setUploading(false);
-        } else if (photoUri) {
-          photoUrl = photoUri;
+          // New photo - queue for background upload
+          const { uploadQueue } = await import('../../services/uploadQueue');
+
+          logger.log('[LogVisit] 🚀 Edit mode: Queueing photo for background upload');
+
+          await uploadQueue.addToQueue({
+            type: 'visit-update',
+            photoUri,
+            folder: 'visits',
+            metadata: {
+              visitId: editActivityId,
+              purpose: purpose as any,
+              notes: notes.trim() || undefined,
+            },
+          });
+
+          Alert.alert('Success', 'Visit updated! Photo uploading in background...', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
+        } else {
+          // Photo already uploaded or no photo change - update immediately
+          await api.updateVisit({
+            id: editActivityId,
+            purpose: purpose as any,
+            notes: notes.trim() || undefined,
+            photos: photoUri ? [photoUri] : [],
+          });
+
+          Alert.alert('Success', 'Visit updated successfully!', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
         }
-
-        await api.updateVisit({
-          id: editActivityId,
-          purpose: purpose as any,
-          notes: notes.trim() || undefined,
-          photos: photoUri ? [photoUrl] : [],
-        });
-
-        Alert.alert('Success', 'Visit updated successfully!', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
       } else {
         // NEW VISIT: Optimistic update with background upload
         // Try to capture GPS for auto check-in (non-blocking)

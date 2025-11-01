@@ -24,7 +24,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../components/ui';
@@ -46,6 +45,42 @@ import {
   Moon,
   Sunrise,
 } from 'lucide-react-native';
+
+// Simple cache for today's stats (5-minute TTL)
+const statsCache: {
+  data?: any;
+  timestamp?: number;
+  userId?: string;
+  date?: string;
+} = {};
+
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCachedStats = (userId: string, date: string) => {
+  const now = Date.now();
+  if (
+    statsCache.data &&
+    statsCache.userId === userId &&
+    statsCache.date === date &&
+    statsCache.timestamp &&
+    now - statsCache.timestamp < CACHE_TTL
+  ) {
+    return statsCache.data;
+  }
+  return null;
+};
+
+const setCachedStats = (userId: string, date: string, data: any) => {
+  statsCache.data = data;
+  statsCache.userId = userId;
+  statsCache.date = date;
+  statsCache.timestamp = Date.now();
+};
+
+export const invalidateHomeStatsCache = () => {
+  statsCache.data = undefined;
+  statsCache.timestamp = undefined;
+};
 
 interface HomeScreenProps {
   navigation: any;
@@ -163,12 +198,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     if (!user?.uid) return;
 
     try {
+      const todayString = new Date().toISOString().substring(0, 10);
+
+      // Check cache first
+      const cachedData = getCachedStats(user.uid, todayString);
+      if (cachedData) {
+        logger.log('[HomeScreen] Using cached stats');
+        setTodayStats(cachedData.stats);
+        setTodayActivities(cachedData.activities);
+        return;
+      }
+
       const firestore = getFirestore();
 
       // Get start of today (00:00:00)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayString = new Date().toISOString().substring(0, 10);
 
       const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
 
@@ -301,6 +346,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       activities.sort((a, b) => b.time.getTime() - a.time.getTime());
       setTodayActivities(activities);
 
+      // Cache the results
+      setCachedStats(user.uid, todayString, {
+        stats: {
+          visits: visitsSnapshot.size,
+          sheets: totalSheets,
+          expenses: totalExpenses,
+        },
+        activities,
+      });
+
     } catch (error) {
       logger.error('Error fetching today stats:', error);
     }
@@ -363,14 +418,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     loadUserData();
   }, [user?.uid, navigation]);
 
-  // Fetch data when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      fetchAttendance();
-      fetchTodayStats();
-      fetchNeedsRevisionCount();
-    }, [fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount])
-  );
+  // Fetch data on mount only (Phase 2A optimization)
+  // User can manually refresh via pull-to-refresh
+  useEffect(() => {
+    if (user?.uid) {
+      // Run all queries in parallel for faster loading
+      Promise.all([
+        fetchAttendance(),
+        fetchTodayStats(),
+        fetchNeedsRevisionCount(),
+      ]);
+    }
+  }, [user?.uid, fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount]);
 
 
   // Helper function to get relative time ("2 hours ago")

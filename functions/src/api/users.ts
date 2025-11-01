@@ -160,44 +160,57 @@ export const createUserByManager = onRequest(async (request, response) => {
       }
     }
 
-    // 4. Check for duplicate phone number
-    const existingUsers = await db.collection("users")
-      .where("phone", "==", normalizedPhone)
-      .limit(1)
-      .get();
+    // 4. Check for duplicate phone number & create user atomically using transaction
+    // This prevents race conditions where two requests create the same user simultaneously
+    let userId: string;
 
-    if (!existingUsers.empty) {
-      const error: ApiError = {
-        ok: false,
-        error: "A user with this phone number already exists",
-        code: "DUPLICATE_PHONE",
-      };
-      response.status(409).json(error);
-      return;
+    try {
+      userId = await db.runTransaction(async (transaction) => {
+        // Check for existing user with this phone number
+        const existingUsersQuery = await transaction.get(
+          db.collection("users").where("phone", "==", normalizedPhone).limit(1)
+        );
+
+        if (!existingUsersQuery.empty) {
+          throw new Error("DUPLICATE_PHONE");
+        }
+
+        // Create new user document
+        const newUserRef = db.collection("users").doc();
+        const newUserId = newUserRef.id;
+
+        const newUser: any = {
+          id: newUserId,
+          phone: normalizedPhone,
+          name: name.trim(),
+          email: "", // Empty, can be updated later via profile
+          role: role,
+          isActive: true,
+          territory: territory.trim(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        };
+
+        // Only add primaryDistributorId if it's provided (Firestore doesn't accept undefined)
+        if (primaryDistributorId) {
+          newUser.primaryDistributorId = primaryDistributorId;
+        }
+
+        transaction.set(newUserRef, newUser);
+        return newUserId;
+      });
+    } catch (transactionError: any) {
+      if (transactionError.message === "DUPLICATE_PHONE") {
+        const error: ApiError = {
+          ok: false,
+          error: "A user with this phone number already exists",
+          code: "DUPLICATE_PHONE",
+        };
+        response.status(409).json(error);
+        return;
+      }
+      throw transactionError; // Re-throw other errors to be caught by outer catch
     }
-
-    // 5. Create user document
-    const newUserRef = db.collection("users").doc();
-    const userId = newUserRef.id;
-
-    const newUser: any = {
-      id: userId,
-      phone: normalizedPhone,
-      name: name.trim(),
-      email: "", // Empty, can be updated later via profile
-      role: role,
-      isActive: true,
-      territory: territory.trim(),
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    };
-
-    // Only add primaryDistributorId if it's provided (Firestore doesn't accept undefined)
-    if (primaryDistributorId) {
-      newUser.primaryDistributorId = primaryDistributorId;
-    }
-
-    await newUserRef.set(newUser);
 
     // Set custom claims for JWT (improves RLS performance - P0 fix)
     try {
@@ -318,6 +331,19 @@ export const getUsersList = onRequest(async (request, response) => {
         user.phone.includes(term)
       );
     }
+
+    // Deduplicate by phone number (keep first occurrence)
+    const seenPhones = new Set<string>();
+    users = users.filter((user) => {
+      if (!user.phone || seenPhones.has(user.phone)) {
+        if (user.phone) {
+          logger.warn(`[getUsersList] Skipping duplicate user with phone ${user.phone}: ${user.name} (${user.id})`);
+        }
+        return false;
+      }
+      seenPhones.add(user.phone);
+      return true;
+    });
 
     // Sort by name
     users.sort((a, b) => a.name.localeCompare(b.name));
@@ -485,7 +511,7 @@ export const getUserStats = onRequest(async (request, response) => {
       "Fine Decor": 0,
       "Artvio": 0,
       "Woodrica": 0,
-      "Artis": 0,
+      "Artis 1MM": 0,
     };
 
     sheetsSnap.docs.forEach((doc) => {

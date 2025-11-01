@@ -106,7 +106,7 @@ async function calculateProgress(
     "Fine Decor": 0,
     "Artvio": 0,
     "Woodrica": 0,
-    "Artis": 0,
+    "Artis 1MM": 0,
   };
 
   salesSnapshot.forEach((doc) => {
@@ -118,7 +118,7 @@ async function calculateProgress(
   });
 
   // Build progress array for catalogs that have targets
-  const catalogs: CatalogType[] = ["Fine Decor", "Artvio", "Woodrica", "Artis"];
+  const catalogs: CatalogType[] = ["Fine Decor", "Artvio", "Woodrica", "Artis 1MM"];
   catalogs.forEach((catalog) => {
     if (targetsByCatalog[catalog] !== undefined && targetsByCatalog[catalog]! > 0) {
       const target = targetsByCatalog[catalog]!;

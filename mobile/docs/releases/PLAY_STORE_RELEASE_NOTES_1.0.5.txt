@@ -1,0 +1,27 @@
+Version 1.0.5 - Layout & UX Improvements
+
+What's New:
+• Fixed category buttons in Expense Entry (now displays in 2×2 grid)
+• Improved bottom button visibility on all screens
+• Better spacing on all Android devices (gesture nav, 3-button nav, tablets)
+
+Improvements:
+• All 10 core screens now adapt perfectly to your device type
+• No more content hidden behind navigation bar
+• Consistent spacing throughout the app
+• Better touch targets for bottom buttons
+
+Screens Improved:
+✓ Home screens (Sales Rep & Manager)
+✓ Stats & Profile screens
+✓ Expense Entry & Sheets Logging
+✓ Visit Logging & Account Selection
+✓ Daily Sales Reports & Approvals
+
+Bug Fixes:
+• Fixed bottom buttons being cut off on some devices
+• Fixed category buttons displaying in single column
+• Fixed content getting hidden at bottom of screens
+• Fixed inconsistent spacing across different devices
+
+This update improves the user experience with no changes to features or data.

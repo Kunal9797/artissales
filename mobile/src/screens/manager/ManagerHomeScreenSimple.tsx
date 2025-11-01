@@ -1,22 +1,24 @@
 /**
-import { logger } from '../../utils/logger';
  * ManagerHomeScreen - Simple Version
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen, Palette } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { Skeleton } from '../../patterns/Skeleton';
 
 export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Manager');
   const [userRole, setUserRole] = useState('');
   const [teamStats, setTeamStats] = useState({
@@ -74,6 +76,8 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
       }
     } catch (error) {
       logger.error('Error loading team stats:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -143,53 +147,68 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
       >
         {/* KPI Cards */}
         <View style={{ marginBottom: 16 }}>
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-            {/* Team Present */}
-            <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Users size={20} color="#2E7D32" />
-                <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>TEAM PRESENT</Text>
+          {loading ? (
+            <>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                <Skeleton card style={{ flex: 1, height: 110 }} />
+                <Skeleton card style={{ flex: 1, height: 110 }} />
               </View>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                {teamStats.present}/{teamStats.total}
-              </Text>
-            </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Skeleton card style={{ flex: 1, height: 110 }} />
+                <Skeleton card style={{ flex: 1, height: 110 }} />
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                {/* Team Present */}
+                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Users size={20} color="#2E7D32" />
+                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>TEAM PRESENT</Text>
+                  </View>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
+                    {teamStats.present}/{teamStats.total}
+                  </Text>
+                </View>
 
-            {/* Pending Approvals */}
-            <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Bell size={20} color="#FFA726" />
-                <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>PENDING</Text>
+                {/* Pending Approvals */}
+                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Bell size={20} color="#FFA726" />
+                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>PENDING</Text>
+                  </View>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
+                    {teamStats.pendingApprovals}
+                  </Text>
+                </View>
               </View>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                {teamStats.pendingApprovals}
-              </Text>
-            </View>
-          </View>
 
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {/* Today's Visits */}
-            <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <MapPin size={20} color="#1976D2" />
-                <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>VISITS</Text>
-              </View>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                {teamStats.todayVisits}
-              </Text>
-            </View>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {/* Today's Visits */}
+                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <MapPin size={20} color="#1976D2" />
+                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>VISITS</Text>
+                  </View>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
+                    {teamStats.todayVisits}
+                  </Text>
+                </View>
 
-            {/* Today's Sheets */}
-            <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <TrendingUp size={20} color="#7B1FA2" />
-                <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>SHEETS</Text>
+                {/* Today's Sheets */}
+                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <TrendingUp size={20} color="#7B1FA2" />
+                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>SHEETS</Text>
+                  </View>
+                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
+                    {teamStats.todaySheets}
+                  </Text>
+                </View>
               </View>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                {teamStats.todaySheets}
-              </Text>
-            </View>
-          </View>
+            </>
+          )}
         </View>
 
         {/* Alerts Section */}
