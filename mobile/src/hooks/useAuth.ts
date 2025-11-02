@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Alert } from 'react-native';
 import { logger } from '../utils/logger';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, collection, doc, getDoc, setDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
@@ -62,19 +63,22 @@ export const useAuth = () => {
 
               logger.log('[Auth] ✅ Migrated user document to Auth UID');
             } else {
-              logger.log('[Auth] No existing user found, creating new rep...');
-              // Create user document on first login
-              await setDoc(userDocRef, {
-                id: authUser.uid,
-                phone: authUser.phoneNumber || '',
-                name: '', // Empty, will be set in profile
-                email: '',
-                role: 'rep', // Default role
-                isActive: true,
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
-              });
-              logger.log('[Auth] ✅ Created new user document');
+              // SECURITY: User not pre-created by manager - REJECT login
+              logger.error('[Auth] ❌ Unauthorized login attempt:', authUser.phoneNumber);
+              logger.error('[Auth] User document does not exist in Firestore');
+
+              // Show user-friendly error message
+              Alert.alert(
+                'Account Not Found',
+                'Your phone number is not registered in the system. Only managers (National Head or Admin) can create new accounts. Please contact your manager.',
+                [{ text: 'OK' }]
+              );
+
+              // Force logout to prevent unauthorized access
+              await authInstance.signOut();
+              setUser(null);
+              setLoading(false);
+              return; // Stop processing - don't create user document
             }
           }
 
