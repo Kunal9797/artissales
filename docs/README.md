@@ -1,6 +1,6 @@
 # Artis Field Sales App - Documentation
 
-**Last Updated**: November 1, 2025
+**Last Updated**: November 1, 2025 (added VERSION_UPDATE_GUIDE.md)
 
 This directory contains all project documentation organized by category. All mobile app docs have been unified here for easy access.
 
@@ -29,6 +29,7 @@ docs/
 │   └── BRANDING_TODO.md             # Asset requirements checklist
 │
 ├── development/                      # Development guides & setup
+│   ├── VERSION_UPDATE_GUIDE.md      # Version number update checklist (4 locations!)
 │   ├── FIREBASE_USAGE.md            # Firebase modular API standards
 │   ├── DOCUMENT_MANAGEMENT_SCRIPTS.md # Scripts for syncing Storage to Firestore
 │   ├── SDK54_VERSIONS.md            # Expo SDK 54 version matrix
@@ -91,9 +92,10 @@ UI/UX, branding, design system, components, and visual guidelines.
 - **[DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md)** - Design system overview
 - **[THEME_AND_LOGO_GUIDE.md](design/THEME_AND_LOGO_GUIDE.md)** - Theme colors and logo placement strategy
 
-### 🔧 Development (7 files)
+### 🔧 Development (8 files)
 Setup guides, Firebase patterns, troubleshooting, and QA.
 
+- **[VERSION_UPDATE_GUIDE.md](development/VERSION_UPDATE_GUIDE.md)** - ⚠️ **How to update version numbers before builds** (4 locations!)
 - **[FIREBASE_USAGE.md](development/FIREBASE_USAGE.md)** - Firebase modular API standards (critical!)
 - **[DOCUMENT_MANAGEMENT_SCRIPTS.md](development/DOCUMENT_MANAGEMENT_SCRIPTS.md)** - Scripts for syncing Storage files to Firestore
 - **[SDK54_VERSIONS.md](development/SDK54_VERSIONS.md)** - Expo SDK 54 version compatibility matrix

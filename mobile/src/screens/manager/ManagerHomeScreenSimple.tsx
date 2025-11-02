@@ -3,7 +3,7 @@
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
 import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen, Palette } from 'lucide-react-native';
@@ -12,22 +12,15 @@ import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { Skeleton } from '../../patterns/Skeleton';
+import { useQuery } from '@tanstack/react-query';
 
 export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('Manager');
   const [userRole, setUserRole] = useState('');
-  const [teamStats, setTeamStats] = useState({
-    present: 0,
-    total: 0,
-    pendingApprovals: 0,
-    todayVisits: 0,
-    todaySheets: 0,
-  });
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -46,48 +39,72 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     return roleMap[role] || role;
   };
 
-  const loadData = async () => {
-    try {
-      // Load user info
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) {
-        const db = getFirestore();
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserName(userData?.name || 'Manager');
-          setUserRole(userData?.role || '');
-        }
-      }
+  // Get today's date for team stats
+  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
 
-      // Load team stats
-      const today = new Date().toISOString().substring(0, 10);
+  // Fetch team stats using React Query with caching
+  const {
+    data: teamStatsData,
+    isLoading: loading,
+    refetch: refetchStats,
+  } = useQuery({
+    queryKey: ['teamStats', today],
+    queryFn: async () => {
       const response = await api.getTeamStats({ date: today });
 
       if (response.ok && response.stats) {
-        setTeamStats({
+        return {
           present: response.stats.team?.present || 0,
           total: response.stats.team?.total || 0,
           pendingApprovals: (response.stats.pending?.dsrs || 0) + (response.stats.pending?.expenses || 0),
           todayVisits: response.stats.visits?.total || 0,
           todaySheets: response.stats.sheets?.total || 0,
-        });
+        };
       }
-    } catch (error) {
-      logger.error('Error loading team stats:', error);
-    } finally {
-      setLoading(false);
-    }
+      return {
+        present: 0,
+        total: 0,
+        pendingApprovals: 0,
+        todayVisits: 0,
+        todaySheets: 0,
+      };
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes (fresher data for manager dashboard)
+  });
+
+  const teamStats = teamStatsData || {
+    present: 0,
+    total: 0,
+    pendingApprovals: 0,
+    todayVisits: 0,
+    todaySheets: 0,
   };
 
+  // Load user info on mount
   useEffect(() => {
-    loadData();
+    const loadUserInfo = async () => {
+      try {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        if (user) {
+          const db = getFirestore();
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserName(userData?.name || 'Manager');
+            setUserRole(userData?.role || '');
+          }
+        }
+      } catch (error) {
+        logger.error('Error loading user info:', error);
+      }
+    };
+    loadUserInfo();
   }, []);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await refetchStats();
     setRefreshing(false);
   };
 

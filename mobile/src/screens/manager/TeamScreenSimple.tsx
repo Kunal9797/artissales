@@ -212,7 +212,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             onPress={() => navigation?.navigate('AddUser')}
           >
             <Text style={{ fontSize: 16, fontWeight: '600', color: '#393735' }}>+</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add User</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add</Text>
           </TouchableOpacity>
         </View>
       </View>

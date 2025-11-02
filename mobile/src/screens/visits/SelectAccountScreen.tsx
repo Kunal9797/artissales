@@ -257,7 +257,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             })}
           >
             <Plus size={18} color="#393735" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add Account</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add</Text>
           </TouchableOpacity>
         </View>
       </View>

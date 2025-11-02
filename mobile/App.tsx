@@ -6,6 +6,7 @@ import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 import { SyncStatusIndicator } from './src/components/SyncStatusIndicator';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Initialize Firebase (must be imported before any Firebase usage)
 import './src/services/firebase';
@@ -16,6 +17,18 @@ import { uploadQueue } from './src/services/uploadQueue';
 // DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab and TenantThemeProvider for white-label
 const isDev = __DEV__;
 
+// Create React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (previously cacheTime)
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 export default function App() {
   // Initialize upload queue on app start
   useEffect(() => {
@@ -23,13 +36,15 @@ export default function App() {
   }, []);
   const AppContent = (
     <ErrorBoundary>
-      <TenantThemeProvider>
-        <ToastProvider>
-          <AppStatusBar />
-          <RootNavigator />
-          <SyncStatusIndicator />
-        </ToastProvider>
-      </TenantThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TenantThemeProvider>
+          <ToastProvider>
+            <AppStatusBar />
+            <RootNavigator />
+            <SyncStatusIndicator />
+          </ToastProvider>
+        </TenantThemeProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 

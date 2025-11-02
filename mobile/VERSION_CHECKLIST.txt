@@ -1,0 +1,25 @@
+⚠️  VERSION UPDATE CHECKLIST ⚠️
+
+Before running: eas build --platform android --profile production
+
+Update version numbers in ALL 4 LOCATIONS:
+
+[ ] 1. mobile/app.json (line ~5)
+       "version": "X.X.X"
+
+[ ] 2. mobile/app.json (line ~23)
+       "versionCode": N (increment by 1!)
+
+[ ] 3. mobile/package.json (line ~3)
+       "version": "X.X.X"
+
+[ ] 4. mobile/android/app/build.gradle (lines ~95-96)
+       versionCode N (increment by 1!)
+       versionName "X.X.X"
+
+VERIFY with this command:
+cd /Users/kunal/ArtisSales/mobile && echo "=== VERSION CHECK ===" && grep '"version"' app.json | head -1 && grep 'versionCode' app.json && grep '"version"' package.json | head -1 && grep 'versionCode' android/app/build.gradle && grep 'versionName' android/app/build.gradle
+
+📚 Full guide: docs/development/VERSION_UPDATE_GUIDE.md
+
+Current version: 1.0.6 (Build 4)

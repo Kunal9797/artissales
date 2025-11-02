@@ -10,6 +10,7 @@ Quick reference guide for finding the right documentation.
 
 ### Build/Run the App
 → [MOBILE_SETUP_SUMMARY.md](MOBILE_SETUP_SUMMARY.md) - Initial setup
+→ [development/VERSION_UPDATE_GUIDE.md](development/VERSION_UPDATE_GUIDE.md) - ⚠️ **Update version before builds**
 → [development/NEXT_STEPS.md](development/NEXT_STEPS.md) - Firebase setup guide
 → [development/SDK54_VERSIONS.md](development/SDK54_VERSIONS.md) - Version compatibility
 
@@ -77,11 +78,12 @@ Branding, design system, components, visual guidelines
 | [DESIGN_SYSTEM.md](design/DESIGN_SYSTEM.md) | DS overview |
 | [THEME_AND_LOGO_GUIDE.md](design/THEME_AND_LOGO_GUIDE.md) | Theme & logo placement |
 
-### 🔧 Development (7 files)
+### 🔧 Development (8 files)
 Setup, Firebase, troubleshooting, QA
 
 | File | Purpose |
 |------|---------|
+| [VERSION_UPDATE_GUIDE.md](development/VERSION_UPDATE_GUIDE.md) | ⚠️ **Version update checklist (4 locations!)** |
 | [FIREBASE_USAGE.md](development/FIREBASE_USAGE.md) | ⚠️ CRITICAL: Modular API standards |
 | [DOCUMENT_MANAGEMENT_SCRIPTS.md](development/DOCUMENT_MANAGEMENT_SCRIPTS.md) | Scripts for syncing Storage to Firestore |
 | [SDK54_VERSIONS.md](development/SDK54_VERSIONS.md) | Version compatibility matrix |

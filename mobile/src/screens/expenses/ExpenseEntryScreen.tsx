@@ -41,7 +41,7 @@ type ExpenseCategory = 'travel' | 'food' | 'accommodation' | 'other';
 const CATEGORIES: { value: ExpenseCategory; label: string; icon: any; color: string }[] = [
   { value: 'travel', label: 'Travel', icon: Car, color: '#2196F3' },
   { value: 'food', label: 'Food', icon: UtensilsCrossed, color: '#FF9800' },
-  { value: 'accommodation', label: 'Accommodation', icon: Hotel, color: '#9C27B0' },
+  { value: 'accommodation', label: 'Hotel', icon: Hotel, color: '#9C27B0' },
   { value: 'other', label: 'Other', icon: FileText, color: '#607D8B' },
 ];
 
