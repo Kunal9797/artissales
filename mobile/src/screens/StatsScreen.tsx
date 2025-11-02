@@ -8,7 +8,7 @@
  * - Performance trends
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -32,6 +32,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
+import { useQuery } from '@tanstack/react-query';
 
 interface StatsScreenProps {
   navigation: any;
@@ -49,8 +50,6 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   const currentMonth = selectedDate.toISOString().substring(0, 7);
 
   // State for monthly stats
-  const [detailedStats, setDetailedStats] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   // State for pending items
@@ -59,9 +58,6 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     unverifiedSheets: 0,
   });
   const [loadingPending, setLoadingPending] = useState(false);
-
-  // State for attendance calendar
-  const [attendanceDays, setAttendanceDays] = useState<Set<string>>(new Set());
 
   // State for targets
   const [targets, setTargets] = useState<{ visits?: number; sheets?: number }>({});
@@ -106,10 +102,9 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([fetchMonthlyStats(), fetchPendingCounts()]);
+    await Promise.all([refetchStats(), fetchPendingCounts()]);
     setRefreshing(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refetchStats, fetchPendingCounts]);
 
   // Navigate to previous month
   const goToPreviousMonth = () => {
@@ -130,50 +125,60 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     year: 'numeric'
   });
 
-  // Fetch monthly stats using getUserStats API
-  const fetchMonthlyStats = useCallback(async () => {
-    if (!user?.uid) return;
+  // Calculate date range for API query
+  const dateRange = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const lastDay = new Date(year, month + 1, 0);
 
-    try {
-      setLoading(true);
+    return {
+      startDate: `${year}-${String(month + 1).padStart(2, '0')}-01`,
+      endDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`,
+    };
+  }, [selectedDate]);
+
+  // Fetch monthly stats using React Query with caching
+  const {
+    data: statsData,
+    isLoading: loading,
+    refetch: refetchStats,
+  } = useQuery({
+    queryKey: ['userStats', user?.uid, dateRange.startDate, dateRange.endDate],
+    queryFn: async () => {
+      if (!user?.uid) throw new Error('No user ID');
+
       const startTime = Date.now();
-
-      // Get first and last day of selected month
-      const year = selectedDate.getFullYear();
-      const month = selectedDate.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const lastDay = new Date(year, month + 1, 0);
-
-      const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
-
       logger.log('[Stats] Fetching stats...');
-      // Fetch detailed stats from API
+
       const response = await api.getUserStats({
         userId: user.uid,
-        startDate,
-        endDate,
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
       });
+
       logger.log(`[Stats] Stats fetched in ${Date.now() - startTime}ms`);
+      return response.stats;
+    },
+    enabled: !!user?.uid,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
 
-      setDetailedStats(response.stats);
+  // Extract attendance days from stats data
+  const attendanceDays = useMemo(() => {
+    if (!statsData?.attendance?.records) return new Set<string>();
 
-      // Extract attendance days for calendar
-      const attendanceDaysSet = new Set<string>();
-      response.stats.attendance.records.forEach((record: any) => {
-        if (record.type === 'check_in' && record.timestamp) {
-          const date = record.timestamp.toDate?.() || new Date(record.timestamp);
-          const dateStr = date.toISOString().substring(0, 10);
-          attendanceDaysSet.add(dateStr);
-        }
-      });
-      setAttendanceDays(attendanceDaysSet);
-    } catch (error) {
-      logger.error('Error fetching monthly stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.uid, selectedDate]);
+    const attendanceDaysSet = new Set<string>();
+    statsData.attendance.records.forEach((record: any) => {
+      if (record.type === 'check_in' && record.timestamp) {
+        const date = record.timestamp.toDate?.() || new Date(record.timestamp);
+        const dateStr = date.toISOString().substring(0, 10);
+        attendanceDaysSet.add(dateStr);
+      }
+    });
+    return attendanceDaysSet;
+  }, [statsData]);
+
+  const detailedStats = statsData;
 
   // Fetch targets
   const fetchTargets = useCallback(async () => {
@@ -221,11 +226,10 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid, currentMonth]);
 
-  // Fetch data on mount and when month changes (Phase 2A optimization)
-  // User can manually refresh via pull-to-refresh
+  // Fetch pending counts and targets on mount and when month changes
+  // Stats are automatically fetched by React Query
   useEffect(() => {
     if (user?.uid) {
-      fetchMonthlyStats();
       fetchPendingCounts();
       fetchTargets();
     }
