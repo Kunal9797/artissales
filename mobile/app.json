@@ -64,6 +64,14 @@
           "backgroundColor": "#393735",
           "borderColor": "#393735"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
       ]
     ],
     "extra": {
