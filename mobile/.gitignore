@@ -34,7 +34,7 @@ node_modules/
 
 # Firebase
 # google-services.json  # Temporarily unignored for EAS builds (dev environment only)
-GoogleService-Info.plist
+# GoogleService-Info.plist  # Commented out for EAS builds to work properly
 
 # IDE
 .idea/
