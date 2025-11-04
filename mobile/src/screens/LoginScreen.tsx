@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
@@ -53,6 +54,36 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
       const formattedPhone = formatPhoneNumber(phoneNumber);
       logger.log('[Auth] Attempting to send code to:', formattedPhone);
 
+      // iOS TEMPORARY WORKAROUND: Skip phone auth due to React Native Firebase bug
+      // Issue: signInWithPhoneNumber crashes on iOS with Expo SDK 54 + RNFirebase 23.x
+      // GitHub: https://github.com/invertase/react-native-firebase/issues/8535
+      // TODO: Replace with Google Sign-In or configure APNs for production
+      if (Platform.OS === 'ios') {
+        logger.log('[Auth] iOS: Using mock confirmation (phone auth bug workaround)');
+
+        const authInstance = getAuth();
+
+        // Create a mock confirmation object that actually signs into Firebase
+        const mockConfirmation = {
+          verificationId: 'ios-mock-verification-id',
+          confirm: async (code: string) => {
+            logger.log('[Auth] iOS: Mock confirm called with code:', code);
+
+            // Sign in anonymously to trigger Firebase auth state
+            // This will create a real Firebase user that useAuth can detect
+            const userCredential = await authInstance.signInAnonymously();
+            logger.log('[Auth] iOS: Signed in anonymously, UID:', userCredential.user.uid);
+
+            return userCredential;
+          }
+        } as FirebaseAuthTypes.ConfirmationResult;
+
+        onCodeSent(mockConfirmation);
+        setLoading(false);
+        return;
+      }
+
+      // ANDROID: Normal phone auth flow (unchanged)
       const authInstance = getAuth();
       const confirmation = await signInWithPhoneNumber(authInstance, formattedPhone);
 

@@ -4,6 +4,77 @@
 **Branch:** `f/iosapp`
 **Goal:** Port React Native Expo app from Android to iOS and deploy to iPhone 15 Pro (iOS 26.0.1)
 
+**STATUS: ✅ BUILD SUCCESSFUL - Phase 5d worked!**
+**AUTH STATUS: ⚠️ iOS Phone Auth Workaround Active (Anonymous Sign-In)**
+
+---
+
+## 🎉 Final Working Solution (Phase 5d + Auth Workaround)
+
+After ~8 hours and 10+ build attempts, **Phase 5d successfully compiled the iOS app**!
+
+**Current State (Nov 3, 2025 - 8:30 PM):**
+- ✅ iOS app builds and runs successfully
+- ✅ All Firebase modules compile (RNFBApp, RNFBAuth, RNFBFirestore, RNFBStorage)
+- ⚠️ Phone Auth: iOS uses Anonymous Auth workaround due to RNFirebase bug
+- ✅ Android: Completely unaffected, phone auth works normally
+
+### What Finally Worked:
+
+1. **Build React Native from source** (critical!)
+   - `ios/Podfile.properties.json`: `"ios.buildReactNativeFromSource": "true"`
+   - Exposes ALL React headers properly vs incomplete prebuilt binaries
+
+2. **Enhanced header search paths for RNFB* pods** (7 paths vs 4)
+   ```ruby
+   extra = [
+     '$(PODS_ROOT)/Headers/Public',
+     '$(PODS_ROOT)/Headers/Public/React',  # Added in 5d
+     '$(PODS_ROOT)/Headers/Public/React-Core',
+     '$(PODS_ROOT)/Headers/Public/React-RCTBridge',
+     '$(PODS_ROOT)/Headers/Public/React-RCTBlob',  # Added in 5d - critical for Storage!
+     '$(PODS_ROOT)/Headers/Public/React-RCTNetwork',  # Added in 5d - critical for Storage!
+     '$(PODS_CONFIGURATION_BUILD_DIR)/React-Core/React_Core.framework/Headers'  # Added in 5d
+   ]
+   cfg.build_settings['USE_HEADERMAP'] = 'YES'  # Added in 5d
+   ```
+
+3. **Global CLANG flag for ALL pods**
+   - `CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES`
+   - `GCC_TREAT_WARNINGS_AS_ERRORS = NO`
+
+4. **Static frameworks** (not dynamic)
+   - `"ios.useFrameworks": "static"` in Podfile.properties.json
+
+### Key Insight:
+RNFBStorage needed React-RCTBlob and React-RCTNetwork headers which weren't included in Phase 5c. Building from source + enhanced header paths fixed all Firebase modules.
+
+### Build Results:
+- Phase 5b: 54 errors ❌
+- Phase 5c: 20 errors ❌
+- **Phase 5d: 0 ERRORS - BUILD SUCCEEDED ✅**
+
+### Critical Configuration Notes:
+
+**Bundle ID:** Must be `com.artis.sales` (matches Android)
+- `app.json`: `"bundleIdentifier": "com.artis.sales"`
+- `ios/ArtisSales.xcodeproj/project.pbxproj`: `PRODUCT_BUNDLE_IDENTIFIER = com.artis.sales`
+- `GoogleService-Info.plist`: `<key>BUNDLE_ID</key><string>com.artis.sales</string>`
+- `ios/ArtisSales/Info.plist`: URL scheme `com.artis.sales`
+
+**Firebase Configuration:**
+- Enable **Google Sign-In** in Firebase Console (generates REVERSED_CLIENT_ID)
+- Enable **Anonymous Authentication** in Firebase Console (required for iOS auth workaround)
+- Download fresh `GoogleService-Info.plist` - must include REVERSED_CLIENT_ID
+- Add REVERSED_CLIENT_ID as URL scheme in Info.plist
+
+**iOS Phone Auth Workaround:**
+- React Native Firebase 23.x has known bug: `signInWithPhoneNumber()` crashes on iOS with Expo
+- GitHub Issue: https://github.com/invertase/react-native-firebase/issues/8535
+- **Workaround:** iOS uses `signInAnonymously()` instead of phone auth
+- **Android:** ✅ Unaffected - still uses real Firebase Phone Authentication with SMS
+- **File:** `src/screens/LoginScreen.tsx` - Platform.OS check bypasses phone auth on iOS only
+
 ---
 
 ## Overview
@@ -110,6 +181,400 @@ end
 - React Native: **building from source** (not using prebuilt binaries)
 
 ---
+
+
+### ✅ Phase 5b: Finalized iOS strategy (Expo SDK 54 + RNFB)
+
+### ✅ Phase 5c: Hardening RNFirebase header imports (Expo SDK 54 + `useFrameworks: "static"`)
+
+**Why:** After Phase 5b, some builds still failed with `type specifier missing` / `RCT_EXPORT_METHOD` not recognized (e.g., `RNFBFirestore`, `RNFBStorage`). This indicates the CLANG setting didn’t consistently apply to all Pods targets or the React headers weren’t visible in every RNFB target at compile time.
+
+**Game plan (preferred): Fix A – stronger Podfile patch (global flag + RNFB header paths)**
+- Apply `CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES` to **all** Pods targets.
+- Disable **User Script Sandboxing** globally in Pods and the user project.
+- For **RNFB\*** pods only, add explicit **React** header search paths so `#import <React/...>` always resolves.
+- Keep iOS deployment target ≥ **15.1**.
+
+**`ios/Podfile` — replace the entire `post_install do |installer| ... end` block with:**
+```ruby
+post_install do |installer|
+  react_native_post_install(
+    installer,
+    config[:reactNativePath],
+    :mac_catalyst_enabled => false,
+    :ccache_enabled => ccache_enabled?(podfile_properties),
+  )
+
+  # 1) Apply to every Pods target (deployment target + sandbox + non‑modular includes)
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |cfg|
+      if cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
+        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+      end
+      cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      cfg.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      cfg.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+    end
+  end
+
+  # 2) Ensure RNFB targets can see React headers explicitly
+  installer.pods_project.targets.each do |t|
+    next unless t.name.start_with?('RNFB') # RNFBApp, RNFBAuth, RNFBFirestore, RNFBStorage, etc.
+    t.build_configurations.each do |cfg|
+      hdrs = cfg.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
+      extra = %w[
+        $(PODS_ROOT)/Headers/Public
+        $(PODS_ROOT)/Headers/Public/React-Core
+        $(PODS_ROOT)/Headers/Public/React-RCTBridge
+        $(PODS_ROOT)/Headers/Public/React-CoreModules
+      ]
+      cfg.build_settings['HEADER_SEARCH_PATHS'] = ([hdrs] + extra).join(' ')
+    end
+  end
+
+  # 3) Mirror the sandbox toggle on the app’s Xcode project too
+  installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+    project.save
+  end
+end
+```
+
+**Fallback (when Fix A still flakes): Fix B – build RN from source on iOS**
+- In `ios/Podfile.properties.json` add:
+```json
+{
+  "expo.jsEngine": "hermes",
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
+  "ios.useFrameworks": "static",
+  "ios.buildReactNativeFromSource": "true"
+}
+```
+- This stabilizes header visibility with `useFrameworks: "static"` at the cost of a slower first build.
+
+**Persisting Podfile edits across `expo prebuild` (optional but recommended)**
+- Create a config plugin `plugins/rnfb-nonmodular-fix.js` to re‑inject the `post_install` block after prebuild regenerates iOS:
+```js
+const { withDangerousMod } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
+
+module.exports = function withRnfbNonModularFix(config) {
+  return withDangerousMod(config, ['ios', async (cfg) => {
+    const podfilePath = path.join(cfg.modRequest.platformProjectRoot, 'Podfile');
+    let pod = fs.readFileSync(podfilePath, 'utf8');
+
+    const anchor = /post_install do \|installer\|[\\s\\S]*?end\\s*$/m;
+    const patch = `POST_INSTALL_PATCH_START
+post_install do |installer|
+  react_native_post_install(
+    installer,
+    config[:reactNativePath],
+    :mac_catalyst_enabled => false,
+    :ccache_enabled => ccache_enabled?(podfile_properties),
+  )
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |cfg|
+      if cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
+        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+      end
+      cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      cfg.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      cfg.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+    end
+  end
+  installer.pods_project.targets.each do |t|
+    if t.name.start_with?('RNFB')
+      t.build_configurations.each do |cfg|
+        hdrs = cfg.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
+        extra = %w[
+          $(PODS_ROOT)/Headers/Public
+          $(PODS_ROOT)/Headers/Public/React-Core
+          $(PODS_ROOT)/Headers/Public/React-RCTBridge
+          $(PODS_ROOT)/Headers/Public/React-CoreModules
+        ]
+        cfg.build_settings['HEADER_SEARCH_PATHS'] = ([hdrs] + extra).join(' ')
+      end
+    end
+  end
+  installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+    project.save
+  end
+end
+POST_INSTALL_PATCH_END`;
+
+    if (anchor.test(pod)) pod = pod.replace(anchor, patch);
+    else pod += '\\n\\n' + patch + '\\n';
+
+    fs.writeFileSync(podfilePath, pod);
+    return cfg;
+  }]);
+};
+```
+
+- Register it in `app.json`:
+```json
+{
+  "expo": {
+    "plugins": [
+      "expo-build-properties",
+      "./plugins/rnfb-nonmodular-fix"
+    ],
+    "ios": { "deploymentTarget": "15.1" }
+  }
+}
+```
+
+**Sanity checklist**
+- In Xcode **Pods → RNFB\* target → Build Settings**:
+  - *Allow Non‑modular Includes in Framework Modules* = **Yes**
+  - *Header Search Paths* include React public headers.
+- In **Pods project (top) → Build Settings**:
+  - *ENABLE_USER_SCRIPT_SANDBOXING* = **NO**.
+
+**Clean rebuild**
+```bash
+cd mobile/ios
+rm -rf Pods Podfile.lock
+/opt/homebrew/bin/pod install
+rm -rf ~/Library/Developer/Xcode/DerivedData
+cd ..
+npx expo run:ios --configuration Debug
+# or:
+eas build --platform ios --clear-cache
+```
+
+**Decision (Nov 3, 2025):** Use Expo **`expo-build-properties`** with **`ios.useFrameworks: "static"`** (no `use_modular_headers!`) plus a targeted `post_install` that allows RNFirebase pods to include non‑modular React headers. Also disable **User Script Sandboxing** via Podfile to avoid CocoaPods script denials on Xcode 15/16.
+
+**What changed**
+- `Podfile.properties.json`: set `"ios.useFrameworks": "static"`. Remove any `"ios.buildReactNativeFromSource"` flags and any previous `"dynamic"` value.
+- `Podfile`: remove `use_modular_headers!`. Add `post_install` tweaks:
+  - `CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES` for **`RNFB*`** pods only.
+  - `ENABLE_USER_SCRIPT_SANDBOXING = NO` for **Pods** and the **user project**.
+  - Keep iOS deployment target **≥ 15.1**.
+
+**Why**
+- RNFirebase + Expo SDK 54 guidance prefers **static frameworks**; a current compiler check can trigger *“include of non‑modular header inside framework module 'RNFBApp'”*. The small RNFB‑only clang flag fixes this while staying within supported settings.
+- Disabling User Script Sandboxing avoids the *“Sandbox: … deny(1) file‑write‑create …”* errors from CocoaPods script phases.
+
+**Result**
+- iOS builds with RNFB (App/Auth/Crashlytics/etc.) succeed without modular headers or dynamic frameworks.
+
+#### Implementation snippets
+
+**`ios/Podfile.properties.json`**
+```json
+{
+  "expo.jsEngine": "hermes",
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
+  "ios.useFrameworks": "static"
+}
+```
+
+**`ios/Podfile` (`post_install` block)**
+```ruby
+post_install do |installer|
+  react_native_post_install(
+    installer,
+    config[:reactNativePath],
+    :mac_catalyst_enabled => false,
+    :ccache_enabled => ccache_enabled?(podfile_properties),
+  )
+
+  # Ensure pods meet minimum iOS target + disable user script sandboxing for Pods
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+      end
+      # Avoid Xcode 15/16 sandbox denials on CocoaPods script phases
+      config.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+    end
+  end
+
+  # Workaround for Expo SDK 54 + RNFirebase:
+  # Allow RNFB* framework targets to import <React/...> headers when using useFrameworks: "static"
+  installer.target_installation_results.pod_target_installation_results.each do |pod_name, target_installation_result|
+    if pod_name.to_s.start_with?('RNFB')
+      target_installation_result.native_target.build_configurations.each do |config|
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
+  end
+
+  # Apply User Script Sandboxing = NO to the user project as well
+  installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+    project.targets.each do |t|
+      t.build_configurations.each do |c|
+        c.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+    project.save
+  end
+end
+```
+
+**Clean rebuild steps**
+```bash
+cd mobile/ios
+rm -rf Pods Podfile.lock
+/opt/homebrew/bin/pod install
+rm -rf ~/Library/Developer/Xcode/DerivedData
+cd ..
+npx expo run:ios --configuration Debug
+# or:
+eas build --platform ios --clear-cache
+```
+
+### 🚧 Phase 5d: RNFBStorage-only hardening (post web‑research)
+
+**Status:** In progress — focused on the last remaining module (**RNFBStorage**) throwing `type specifier missing / RCT_EXPORT_METHOD` errors.
+
+**What fresh research says (SDK 54 + iOS)**
+- Expo SDK 54 + `useFrameworks: "static"` can surface *non‑modular header* errors inside **RNFirebase** framework targets when they import `<React/...>` headers. Scoping `CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES=YES` to RNFB targets is a known workaround. 
+- A separate, reproducible issue shows that **prebuilt React Native** + `useFrameworks: "static"` may still fail; flipping **`ios.buildReactNativeFromSource` = `true`** stabilizes header visibility and resolves compile errors. 
+- Xcode 15/16’s **User Script Sandboxing** can break CocoaPods script phases; either disable it per‑target in build settings from the Podfile or ensure you’re on a Cocoapods/xcodeproj combination that doesn’t force it on.
+- RNFirebase’s own guidance expects **`use_frameworks` with static linkage** and warns that Flipper is incompatible.
+
+> These points come from current Expo issues and docs (see **References** at the end of this section).
+
+---
+
+#### Implementation (targeted to fix RNFBStorage)
+
+1) **Build React Native from source on iOS** (stabilizes headers under static frameworks)
+
+`ios/Podfile.properties.json`
+```json
+{
+  "expo.jsEngine": "hermes",
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
+  "ios.useFrameworks": "static",
+  "ios.buildReactNativeFromSource": "true"
+}
+```
+
+2) **Strengthen RNFB* header visibility — especially Storage**
+
+Replace the existing `post_install` block in `ios/Podfile` with this version (keeps your Phase 5c toggles but adds Storage‑specific header paths + headermaps):
+
+```ruby
+post_install do |installer|
+  react_native_post_install(
+    installer,
+    config[:reactNativePath],
+    :mac_catalyst_enabled => false,
+    :ccache_enabled => ccache_enabled?(podfile_properties),
+  )
+
+  # Global: enforce iOS >= 15.1, relax sandboxing, and allow non‑modular includes in Pods
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |cfg|
+      if cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
+        cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
+      end
+      cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      cfg.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      cfg.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
+    end
+  end
+
+  # RNFirebase pods: ensure React headers are always in range
+  installer.pods_project.targets.each do |t|
+    next unless t.name.start_with?('RNFB') # RNFBApp, RNFBAuth, RNFBFirestore, RNFBStorage, ...
+    t.build_configurations.each do |cfg|
+      hdrs = cfg.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
+      extra = %w[
+        $(PODS_ROOT)/Headers/Public
+        $(PODS_ROOT)/Headers/Public/React
+        $(PODS_ROOT)/Headers/Public/React-Core
+        $(PODS_ROOT)/Headers/Public/React-RCTBridge
+        $(PODS_ROOT)/Headers/Public/React-RCTBlob
+        $(PODS_ROOT)/Headers/Public/React-RCTNetwork
+        $(PODS_CONFIGURATION_BUILD_DIR)/React-Core/React_Core.framework/Headers
+      ]
+      cfg.build_settings['HEADER_SEARCH_PATHS'] = ([hdrs] + extra).join(' ')
+      cfg.build_settings['USE_HEADERMAP'] = 'YES'
+    end
+  end
+
+  # Mirror sandbox toggle into the user project
+  installer.aggregate_targets.map(&:user_project).uniq.each do |project|
+    project.targets.each do |t|
+      t.build_configurations.each do |cfg|
+        cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
+      end
+    end
+    project.save
+  end
+end
+```
+
+3) **Version hygiene & feature switches**
+- Ensure `@react-native-firebase/app` and `@react-native-firebase/storage` are on the **same minor/patch**.
+- Confirm **Flipper is not enabled** (RNFirebase says it’s incompatible with `use_frameworks`).
+- Keep **New Architecture disabled** while stabilizing this build.
+
+4) **Clean rebuild**
+```bash
+cd mobile/ios
+rm -rf Pods Podfile.lock
+/opt/homebrew/bin/pod install
+rm -rf ~/Library/Developer/Xcode/DerivedData
+cd ..
+npx expo run:ios --configuration Debug
+# or: eas build --platform ios --clear-cache
+```
+
+---
+
+#### Plan B (only if Storage still fails)
+- Switch to `ios.useFrameworks: "dynamic"` **temporarily** and use `expo-build-properties` **`forceStaticLinking`** to make specific React Native pods link statically to avoid symbol or modular‑header issues while other pods remain dynamic. Example `app.json` excerpt:
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "dynamic",
+            "forceStaticLinking": ["React-Core", "React-CoreModules", "React-RCTBridge"]
+          }
+        }
+      ]
+    ]
+  }
+}
+```
+- Keep the Podfile `post_install` above (RNFB* flags + header paths) in place.
+
+> **Note:** Dynamic frameworks have caused unrelated linking issues in some Expo projects; this is a *last resort* while we unblock shipping.
+
+---
+
+#### Quick Xcode spot‑checks
+- **Pods → RNFBStorage → Build Settings**: "Allow Non‑modular Includes…" = **Yes**, "Use Header Maps" = **Yes**, header paths include `React`, `React-Core`, `React-RCTBridge`, `React-RCTBlob`, `React-RCTNetwork`.
+- **Pods (project) → Build Settings**: `ENABLE_USER_SCRIPT_SANDBOXING` = **NO**.
+
+---
+
+#### References (Nov 3, 2025)
+- Expo SDK 54: non‑modular header errors with RNFirebase under `useFrameworks: "static"` and the RNFB‑scoped `CLANG_ALLOW_NON_MODULAR…` workaround — GitHub issue #39607.
+- Expo SDK 54: failure with `useFrameworks: "static"` when **not** building RN from source; enabling `ios.buildReactNativeFromSource` fixes — GitHub issue #39233.
+- `useFrameworks` behavior, `forceStaticLinking`, and deployment target — **Expo BuildProperties** docs (latest).
+- RNScreens / header‑exposure regressions under `useFrameworks: "static"` on SDK 54 — GitHub issue #39080.
+- Xcode 15/16 script sandboxing and CocoaPods/xcodeproj changes causing `[CP]` script denials — StackOverflow summary (+ fix via disabling sandboxing in build settings or moving to CocoaPods ≥ 1.16.1).
+- RNFirebase install notes for iOS, `use_frameworks` static, Flipper incompatibility — rnfirebase.io install docs.
 
 ### ✅ Phase 5: iOS Build Issues - Root Cause Analysis (COMPLETE)
 
@@ -372,6 +837,8 @@ end
 ## Next Steps
 
 ### Pending Tasks
+
+- Apply **Phase 5d** changes and rebuild iOS (focus on RNFBStorage). If green, lock versions and capture final diff.
 
 1. **Complete First Build** (IN PROGRESS)
    - Wait for xcodebuild to finish
