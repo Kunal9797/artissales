@@ -162,14 +162,16 @@ export const useTodayStats = () => {
 
         snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
           const data = doc.data();
-          const expenseTotal = data.totalAmount || 0;
-          total += expenseTotal;
 
-          // Aggregate by category from items
+          // Calculate total from items array (expenses don't have totalAmount field)
           if (data.items && Array.isArray(data.items)) {
             data.items.forEach((item: any) => {
+              const itemAmount = item.amount || 0;
+              total += itemAmount;
+
+              // Aggregate by category
               const category = item.category || 'other';
-              byCategory[category] = (byCategory[category] || 0) + item.amount;
+              byCategory[category] = (byCategory[category] || 0) + itemAmount;
             });
           }
         });

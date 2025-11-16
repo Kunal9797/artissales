@@ -20,7 +20,7 @@ const db = getFirestore();
  *   date: string  // YYYY-MM-DD (default: today)
  * }
  */
-export const getTeamStats = onRequest(async (request, response) => {
+export const getTeamStats = onRequest({cors: true}, async (request, response) => {
   try {
     // 1. Verify authentication
     const auth = await requireAuth(request);

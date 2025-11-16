@@ -258,7 +258,7 @@ export const createUserByManager = onRequest(async (request, response) => {
  *   searchTerm?: string   // Search by name/phone
  * }
  */
-export const getUsersList = onRequest(async (request, response) => {
+export const getUsersList = onRequest({cors: true}, async (request, response) => {
   try {
     // 1. Verify authentication
     const auth = await requireAuth(request);

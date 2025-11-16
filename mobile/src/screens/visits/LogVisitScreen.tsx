@@ -20,6 +20,7 @@ import { Account } from '../../hooks/useAccounts';
 import { CameraCapture } from '../../components/CameraCapture';
 import { colors, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -260,6 +261,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             photos: photoUri ? [photoUri] : [],
             geo: gpsData || undefined,
           });
+
+          // Invalidate home screen cache to show new visit immediately
+          invalidateHomeStatsCache();
 
           Alert.alert('Success', 'Visit logged successfully!', [
             {

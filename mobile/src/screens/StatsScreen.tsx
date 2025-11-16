@@ -196,10 +196,9 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
       if (response.ok && response.target) {
         const newTargets: any = {};
 
-        // Pass category-level targets directly
+        // Pass category-level targets directly (Note: backend doesn't track distributor visits)
         if (response.target.targetsByAccountType) {
           newTargets.visitsByType = {
-            distributor: response.target.targetsByAccountType.distributor,
             dealer: response.target.targetsByAccountType.dealer,
             architect: response.target.targetsByAccountType.architect,
             contractor: response.target.targetsByAccountType.contractor,

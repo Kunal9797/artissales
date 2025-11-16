@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uploadPhoto } from './storage';
 import { api } from './api';
+import { invalidateHomeStatsCache } from '../screens/HomeScreen_v2';
 
 // Optional: NetInfo for network detection (requires native rebuild)
 let NetInfo: any = null;
@@ -187,6 +188,9 @@ class UploadQueueService {
       this.queue = this.queue.filter(i => i.id !== item.id);
       await this.saveQueue();
       this.notifyListeners();
+
+      // Invalidate home screen cache to show new activity immediately
+      invalidateHomeStatsCache();
 
     } catch (error) {
       logger.error(`[UploadQueue] ❌ Error uploading ${item.type}:`, error);

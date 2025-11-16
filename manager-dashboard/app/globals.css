@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Artis Brand Colors */
+  --brand-dark: #393735;
+  --brand-gold: #C9A961;
+  --brand-accent: #D4AF37;
+
+  /* Feature Colors (match mobile app) */
+  --attendance: #10B981;
+  --visits: #3B82F6;
+  --sheets: #8B5CF6;
+  --expenses: #F59E0B;
+
+  /* Semantic Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Artis Brand Colors */
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-accent: var(--brand-accent);
+
+  /* Feature Colors */
+  --color-attendance: var(--attendance);
+  --color-visits: var(--visits);
+  --color-sheets: var(--sheets);
+  --color-expenses: var(--expenses);
+
+  /* Semantic Colors */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}

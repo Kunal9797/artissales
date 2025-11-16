@@ -18,6 +18,7 @@ import { colors, spacing, typography, shadows, featureColors } from '../../theme
 import { useTargetProgress } from '../../hooks/useTargetProgress';
 import { targetCache } from '../../services/targetCache';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -411,6 +412,9 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
                 if (user?.uid) {
                   targetCache.invalidate(user.uid, month);
                 }
+
+                // Invalidate home screen cache to show new sheets immediately
+                invalidateHomeStatsCache();
 
                 Alert.alert('Success', 'Sales submitted for approval', [
                   { text: 'OK', onPress: () => navigation.goBack() }

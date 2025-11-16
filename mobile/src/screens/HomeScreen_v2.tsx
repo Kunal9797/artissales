@@ -386,6 +386,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Refresh function for pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Invalidate cache before fetching fresh data
+    invalidateHomeStatsCache();
     await Promise.all([fetchAttendance(), fetchTodayStats(), fetchNeedsRevisionCount()]);
     setRefreshing(false);
   }, [fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount]);

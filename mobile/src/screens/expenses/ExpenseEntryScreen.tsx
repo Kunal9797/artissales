@@ -26,6 +26,7 @@ import { Card } from '../../components/ui';
 import { SubmitExpenseRequest, ExpenseItem } from '../../types';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
@@ -277,6 +278,9 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         const response = await api.submitExpense(expenseData);
 
         if (response.ok) {
+          // Invalidate home screen cache to show new expense immediately
+          invalidateHomeStatsCache();
+
           Alert.alert(
             'Success',
             `Expense report submitted successfully!\nTotal: ₹${response.totalAmount}\nItems: ${response.itemCount}\n\nYour manager will review it.`,
