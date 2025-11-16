@@ -199,7 +199,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     logger.info(`[getTeamStats] Found ${attendanceSnapshot.size} attendance records`);
 
-    // Process attendance data
+    // Process attendance data (OLD - deprecated but kept for backwards compatibility)
     const attendanceByUser: Record<string, any[]> = {};
     attendanceSnapshot.docs.forEach((doc) => {
       const data = doc.data();
@@ -210,12 +210,22 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       attendanceByUser[userId].push(data);
     });
 
-    // Count present (users with check-in)
+    // Count present (users with check-in) - OLD metric
     const presentUserIds = Object.keys(attendanceByUser).filter((userId) =>
       attendanceByUser[userId].some((a) => a.type === "check_in")
     );
     const presentCount = presentUserIds.length;
     const absentCount = totalTeamMembers - presentCount;
+
+    // Calculate active users (NEW - activity-based metric)
+    // Active = any user who logged a visit, sheet sale, or expense in the date range
+    const activeUserIds = new Set<string>();
+    visitsSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
+    sheetsSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
+    expensesSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
+
+    const activeCount = activeUserIds.size;
+    const inactiveCount = totalTeamMembers - activeCount;
 
     // Process visits data
     const totalVisits = visitsSnapshot.size;
@@ -263,10 +273,16 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       stats: {
         team: {
           total: totalTeamMembers,
+          // OLD metrics (deprecated but kept for backwards compatibility)
           present: presentCount,
           absent: absentCount,
           presentPercentage: totalTeamMembers > 0 ?
             Math.round((presentCount / totalTeamMembers) * 100) : 0,
+          // NEW metrics (activity-based)
+          active: activeCount,
+          inactive: inactiveCount,
+          activePercentage: totalTeamMembers > 0 ?
+            Math.round((activeCount / totalTeamMembers) * 100) : 0,
         },
         visits: {
           total: totalVisits,

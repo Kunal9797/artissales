@@ -140,6 +140,17 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     0
   );
 
+  // Calculate activity-based presence (NEW - replaces attendance tracking)
+  const wasActive =
+    summary.visitIds.length > 0 ||
+    totalSheetsSold > 0 ||
+    totalExpenses > 0;
+
+  const activityCount =
+    summary.visitIds.length +
+    sheetsSales.length +
+    expenses.length;
+
   // Smart approval: Auto-approve if no sheets or expenses
   const requiresApproval = totalSheetsSold > 0 || totalExpenses > 0;
   const status = requiresApproval ? "pending" : "approved";
@@ -152,6 +163,8 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     checkOutAt: summary.checkOutAt || null,
     totalVisits: summary.visitIds.length,
     visitIds: summary.visitIds,
+    wasActive, // NEW: Activity-based presence
+    activityCount, // NEW: Total activity count
     sheetsSales,
     totalSheetsSold,
     expenses,

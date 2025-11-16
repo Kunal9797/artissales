@@ -157,13 +157,22 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     0
   );
 
+  // Calculate activity-based presence (NEW - replaces attendance tracking)
+  const wasActive =
+    summary.visitIds.length > 0 ||
+    totalSheetsSold > 0 ||
+    totalExpenses > 0;
+
+  const activityCount =
+    summary.visitIds.length +
+    sheetsSales.length +
+    expenses.length;
+
   // **FIX: Skip creating DSR if user had NO activity that day**
   const hasActivity =
     summary.checkInAt ||
     summary.checkOutAt ||
-    summary.visitIds.length > 0 ||
-    totalSheetsSold > 0 ||
-    totalExpenses > 0;
+    wasActive;
 
   if (!hasActivity) {
     logger.info("Skipping DSR - no activity", {
@@ -185,6 +194,8 @@ async function saveDSRReport(summary: DailySummary): Promise<void> {
     checkOutAt: summary.checkOutAt || null,
     totalVisits: summary.visitIds.length,
     visitIds: summary.visitIds,
+    wasActive, // NEW: Activity-based presence
+    activityCount, // NEW: Total activity count
     sheetsSales,
     totalSheetsSold,
     expenses,

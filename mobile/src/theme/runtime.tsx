@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { logger } from '../utils/logger';
 import { colors } from './colors';
 import { typography } from './typography';
 import { spacing } from './spacing';

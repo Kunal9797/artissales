@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: spacing.xxl + spacing.xxl + spacing.xl,
+    marginBottom: spacing['2xl'] + spacing['2xl'] + spacing.xl,
   },
   logo: {
     width: 320,
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     ...typography.styles.body,
     color: colors.text.inverse,
     opacity: 0.8,
-    marginBottom: spacing.xxl + spacing.xxl,
+    marginBottom: spacing['2xl'] + spacing['2xl'],
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '400',

@@ -3,6 +3,9 @@ import { logger } from '../utils/logger';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, collection, query, where, onSnapshot, FirebaseFirestoreTypes, Timestamp } from '@react-native-firebase/firestore';
 
+// FEATURE FLAG: Set to false to disable attendance tracking
+const ATTENDANCE_FEATURE_ENABLED = false;
+
 export interface TodayStats {
   checkInAt?: any;
   checkOutAt?: any;
@@ -42,38 +45,45 @@ export const useTodayStats = () => {
     const startOfDay = new Date(`${today}T00:00:00`);
     const endOfDay = new Date(`${today}T23:59:59`);
 
-    // Listen to attendance
-    const attendanceRef = collection(db, 'attendance');
-    const attendanceQuery = query(
-      attendanceRef,
-      where('userId', '==', user.uid),
-      where('timestamp', '>=', startOfDay),
-      where('timestamp', '<=', endOfDay)
-    );
+    // Listen to attendance (DISABLED if feature flag is false)
+    let unsubAttendance: (() => void) | undefined;
 
-    const unsubAttendance = onSnapshot(
-      attendanceQuery,
-      (snapshot) => {
-        if (!snapshot) return;
+    if (ATTENDANCE_FEATURE_ENABLED) {
+      const attendanceRef = collection(db, 'attendance');
+      const attendanceQuery = query(
+        attendanceRef,
+        where('userId', '==', user.uid),
+        where('timestamp', '>=', startOfDay),
+        where('timestamp', '<=', endOfDay)
+      );
 
-        let checkIn: any = null;
-        let checkOut: any = null;
+      unsubAttendance = onSnapshot(
+        attendanceQuery,
+        (snapshot) => {
+          if (!snapshot) return;
 
-        snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
-          const data = doc.data();
-          if (data.type === 'check_in' && !checkIn) {
-            checkIn = data.timestamp;
-          } else if (data.type === 'check_out') {
-            checkOut = data.timestamp;
-          }
-        });
+          let checkIn: any = null;
+          let checkOut: any = null;
 
-        setStats((prev) => ({ ...prev, checkInAt: checkIn, checkOutAt: checkOut }));
-      },
-      (error) => {
-        logger.error('Attendance listener error:', error);
-      }
-    );
+          snapshot.docs.forEach((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
+            const data = doc.data();
+            if (data.type === 'check_in' && !checkIn) {
+              checkIn = data.timestamp;
+            } else if (data.type === 'check_out') {
+              checkOut = data.timestamp;
+            }
+          });
+
+          setStats((prev) => ({ ...prev, checkInAt: checkIn, checkOutAt: checkOut }));
+        },
+        (error) => {
+          logger.error('Attendance listener error:', error);
+        }
+      );
+    } else {
+      // If attendance is disabled, set to null immediately
+      setStats((prev) => ({ ...prev, checkInAt: null, checkOutAt: null }));
+    }
 
     // Listen to visits - filter by userId and today's timestamp (PERFORMANCE FIX)
     const visitsRef = collection(db, 'visits');
@@ -189,7 +199,7 @@ export const useTodayStats = () => {
     setLoading(false);
 
     return () => {
-      unsubAttendance();
+      if (unsubAttendance) unsubAttendance();
       unsubVisits();
       unsubSheets();
       unsubExpenses();

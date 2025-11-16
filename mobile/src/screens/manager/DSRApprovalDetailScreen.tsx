@@ -173,7 +173,7 @@ export const DSRApprovalDetailScreen: React.FC<DSRApprovalDetailScreenProps> = (
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>DSR Details</Text>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>DSR Details</Text>
         </View>
         <ScrollView
           style={{ flex: 1 }}

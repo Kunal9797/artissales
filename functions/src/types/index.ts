@@ -292,10 +292,16 @@ export interface DSRReport {
   date: string; // YYYY-MM-DD
 
   // Auto-compiled stats
+  /** @deprecated Use wasActive instead - will be removed in future version */
   checkInAt?: Timestamp | null;
+  /** @deprecated Use wasActive instead - will be removed in future version */
   checkOutAt?: Timestamp | null;
   totalVisits: number;
   visitIds: string[];
+
+  // Activity-based presence (NEW - replaces attendance tracking)
+  wasActive: boolean; // true if logged ANY activity (visit, sheet, or expense)
+  activityCount: number; // total activities (visits + sheets + expenses)
 
   // Sheets sales summary
   sheetsSales: SheetsSalesSummary[]; // e.g., [{catalog: "Artis", totalSheets: 50}, ...]

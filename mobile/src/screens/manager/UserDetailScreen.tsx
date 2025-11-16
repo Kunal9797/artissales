@@ -344,7 +344,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           >
             <ArrowLeft size={24} color={colors.text.inverse} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>User Details</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text.inverse }}>User Details</Text>
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg }}>
           <Skeleton card />
@@ -365,7 +365,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           >
             <ArrowLeft size={24} color={colors.text.inverse} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>User Details</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text.inverse }}>User Details</Text>
         </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
@@ -415,7 +415,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
               navigation.navigate('SetTarget', {
                 userId: userId,
-                userName: userData?.name,
+                userName: userData?.name || 'User',
                 currentMonth,
               });
             }}
@@ -489,7 +489,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           {/* Detailed Stats View - Same component as StatsScreen */}
           {stats && (
             <DetailedStatsView
-              stats={stats}
+              stats={stats as any}
               attendanceDays={attendanceDays}
               attendancePercentage={attendancePercentage}
               attendanceMarkedDates={(() => {

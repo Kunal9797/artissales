@@ -46,6 +46,9 @@ import {
   Sunrise,
 } from 'lucide-react-native';
 
+// FEATURE FLAG: Set to false to disable attendance tracking
+const ATTENDANCE_FEATURE_ENABLED = false;
+
 // Simple cache for today's stats (5-minute TTL)
 const statsCache: {
   data?: any;

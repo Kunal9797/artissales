@@ -334,7 +334,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               >
                 {(localPhotoUri || profilePhotoUrl) ? (
                   <Image
-                    source={{ uri: localPhotoUri || profilePhotoUrl }}
+                    source={{ uri: (localPhotoUri || profilePhotoUrl) as string }}
                     style={styles.avatarImage}
                   />
                 ) : (

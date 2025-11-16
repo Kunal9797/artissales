@@ -121,7 +121,7 @@ export const ManagerTabNavigator: React.FC = () => {
       />
 
       <Tab.Screen
-        name="AccountsTab"
+        name="AccountsList"
         component={AccountsListScreen}
         options={{
           title: 'Accounts',

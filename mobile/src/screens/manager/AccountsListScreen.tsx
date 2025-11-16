@@ -295,9 +295,8 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
           renderItem={renderAccountCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
-          // ✅ Performance: FlashList with estimated item size (PR5)
+          // ✅ Performance: FlashList auto-calculates item size
           // Account card height ≈ 64px (48px icon + padding)
-          estimatedItemSize={64}
         />
       )}
     </View>

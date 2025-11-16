@@ -408,7 +408,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           data={filteredAccounts}
           renderItem={renderAccount}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={100}
           contentContainerStyle={[styles.listContainer, { paddingBottom: 80 + bottomPadding }]}
         />
       )}

@@ -289,7 +289,6 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           data={filteredUsers}
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
-          estimatedItemSize={80}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={

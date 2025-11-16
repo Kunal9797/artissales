@@ -1,10 +1,10 @@
 /**
-import { logger } from '../../utils/logger';
  * AccountDetailScreen - View account details and visit history
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '../../utils/logger';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User } from 'lucide-react-native';

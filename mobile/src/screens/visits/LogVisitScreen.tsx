@@ -405,7 +405,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
                         <Text style={{ fontSize: 12, color: '#666666' }}>
                           Last visit: {typeof visitAccount.lastVisitAt === 'string'
                             ? new Date(visitAccount.lastVisitAt).toLocaleDateString()
-                            : visitAccount.lastVisitAt.toDate?.()?.toLocaleDateString?.() || 'N/A'}
+                            : (visitAccount.lastVisitAt as any)?.toDate?.()?.toLocaleDateString?.() || 'N/A'}
                         </Text>
                       </View>
                     )}

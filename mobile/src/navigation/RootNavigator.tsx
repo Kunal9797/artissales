@@ -18,6 +18,8 @@ import { DSRListScreen } from '../screens/dsr/DSRListScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
+// DISABLED FOR V1 LAUNCH - Re-enable after attendance decision finalized
+// import { HomeScreenV3 } from '../screens/HomeScreen_v3';
 import { KitchenSinkScreen as AccountDesignKitchenSink } from '../screens/design/KitchenSinkScreen';
 // Incrementally re-enabling manager stack screens as we test them
 import { AddUserScreen } from '../screens/manager/AddUserScreen';
@@ -35,6 +37,7 @@ import { ManageDownloadsScreen } from '../screens/ManageDownloadsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
+  // HomeV3: undefined; // DISABLED - New design prototype (attendance-free)
   ManagerHome: undefined;
   Attendance: undefined;
   SelectAccount: { editActivityId?: string };
@@ -100,8 +103,15 @@ export const RootNavigator: React.FC = () => {
             <Stack.Screen name="Home" component={TabNavigator} />
           )}
           {/* Sales rep screens (always available) */}
+          {/* DISABLED FOR V1 LAUNCH
+          <Stack.Screen
+            name="HomeV3"
+            component={HomeScreenV3}
+            options={{ headerShown: true, title: 'Home (New Design)' }}
+          />
+          */}
           <Stack.Screen name="SelectAccount" component={SelectAccountScreen} />
-          <Stack.Screen name="LogVisit" component={LogVisitScreen} />
+          <Stack.Screen name="LogVisit" component={LogVisitScreen as any} />
           <Stack.Screen name="ExpenseEntry" component={ExpenseEntryScreen} />
           <Stack.Screen name="SheetsEntry" component={CompactSheetsEntryScreen} />
           <Stack.Screen name="DSR" component={DSRScreen} />
