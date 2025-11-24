@@ -2,10 +2,10 @@
  * ReviewHomeScreen - Manager Approval Dashboard
  *
  * Review and approve individual sheets and expenses from team members
- * Similar UX to sales rep activity logs with approve/reject actions
+ * Swipe right to approve, swipe left to reject
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -18,6 +18,7 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import {
   FileBarChart,
@@ -26,11 +27,13 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Filter,
   ChevronDown,
   X,
   ImageIcon,
+  Search,
+  Filter,
 } from 'lucide-react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { api } from '../../services/api';
 import { Skeleton } from '../../patterns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -46,8 +49,12 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
 
   // State
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or specific userName
   const [refreshing, setRefreshing] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null); // itemId being processed
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // User filter modal
+  const [userFilterModalVisible, setUserFilterModalVisible] = useState(false);
 
   // Reject modal state
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
@@ -58,6 +65,9 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  // Track open swipeable refs to close them
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   // Fetch pending items
   const {
@@ -76,17 +86,32 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
       }
       return { items: [], counts: { sheets: 0, expenses: 0, total: 0 } };
     },
-    staleTime: 1 * 60 * 1000, // 1 minute
+    staleTime: 1 * 60 * 1000,
   });
 
   const items = pendingData?.items || [];
   const counts = pendingData?.counts || { sheets: 0, expenses: 0, total: 0 };
 
-  // Filter items by type
+  // Get unique users for filter
+  const uniqueUsers = useMemo(() => {
+    const userMap = new Map<string, string>();
+    items.forEach((item: PendingItem) => {
+      userMap.set(item.userId, item.userName);
+    });
+    return Array.from(userMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [items]);
+
+  // Filter items by type and user
   const filteredItems = useMemo(() => {
-    if (typeFilter === 'all') return items;
-    return items.filter((item: PendingItem) => item.type === typeFilter);
-  }, [items, typeFilter]);
+    let filtered = items;
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter((item: PendingItem) => item.type === typeFilter);
+    }
+    if (userFilter !== 'all') {
+      filtered = filtered.filter((item: PendingItem) => item.userName === userFilter);
+    }
+    return filtered;
+  }, [items, typeFilter, userFilter]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -94,8 +119,14 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     setRefreshing(false);
   }, [refetch]);
 
+  // Close all swipeables
+  const closeAllSwipeables = () => {
+    swipeableRefs.current.forEach((ref) => ref?.close());
+  };
+
   // Handle approve
   const handleApprove = async (item: PendingItem) => {
+    closeAllSwipeables();
     setActionLoading(item.id);
     try {
       const response = await api.approveItem({
@@ -104,7 +135,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
       });
 
       if (response.ok) {
-        // Invalidate and refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
         queryClient.invalidateQueries({ queryKey: ['teamStats'] });
       } else {
@@ -131,7 +161,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
       });
 
       if (response.ok) {
-        // Invalidate and refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
         queryClient.invalidateQueries({ queryKey: ['teamStats'] });
         setRejectModalVisible(false);
@@ -150,6 +179,7 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
 
   // Open reject modal
   const openRejectModal = (item: PendingItem) => {
+    closeAllSwipeables();
     setRejectingItem(item);
     setRejectComment('');
     setRejectModalVisible(true);
@@ -171,170 +201,149 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     });
   };
 
-  // Render item card
+  // Render right swipe action (Approve - Green)
+  const renderRightActions = (item: PendingItem, progress: Animated.AnimatedInterpolation<number>) => {
+    const translateX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={{
+          width: 80,
+          backgroundColor: '#2E7D32',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transform: [{ translateX }],
+        }}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          onPress={() => handleApprove(item)}
+        >
+          <CheckCircle size={24} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+            Approve
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Render left swipe action (Reject - Red)
+  const renderLeftActions = (item: PendingItem, progress: Animated.AnimatedInterpolation<number>) => {
+    const translateX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={{
+          width: 80,
+          backgroundColor: '#EF5350',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transform: [{ translateX }],
+        }}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          onPress={() => openRejectModal(item)}
+        >
+          <XCircle size={24} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+            Reject
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  // Render compact item card
   const renderItem = ({ item }: { item: PendingItem }) => {
     const isProcessing = actionLoading === item.id;
     const isSheets = item.type === 'sheets';
 
     return (
-      <View
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderWidth: 1,
-          borderColor: '#E0E0E0',
-          borderRadius: 8,
-          padding: 16,
-          marginBottom: 12,
-          opacity: isProcessing ? 0.6 : 1,
+      <Swipeable
+        ref={(ref) => {
+          if (ref) swipeableRefs.current.set(item.id, ref);
+        }}
+        renderRightActions={(progress) => renderRightActions(item, progress)}
+        renderLeftActions={(progress) => renderLeftActions(item, progress)}
+        rightThreshold={40}
+        leftThreshold={40}
+        overshootRight={false}
+        overshootLeft={false}
+        onSwipeableOpen={() => {
+          // Close other swipeables when one opens
+          swipeableRefs.current.forEach((ref, id) => {
+            if (id !== item.id) ref?.close();
+          });
         }}
       >
-        {/* Header Row: User + Date */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#F0F0F0',
+            opacity: isProcessing ? 0.5 : 1,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {/* Type Icon */}
             <View style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: '#F0F0F0',
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              <UserIcon size={16} color="#666666" />
+              {isSheets ? (
+                <FileBarChart size={18} color="#EF6C00" />
+              ) : (
+                <IndianRupee size={18} color="#6A1B9A" />
+              )}
             </View>
+
+            {/* Content */}
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#1A1A1A' }} numberOfLines={1}>
-                {item.userName}
-              </Text>
+              {/* Main row: Value + User */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
+                  {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
+                  {item.userName}
+                </Text>
+              </View>
+
+              {/* Detail row: Category + Date */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
+                  {isSheets ? item.catalog : item.category}
+                  {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
+                    <Text> • 📷</Text>
+                  )}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#BBBBBB' }}>
+                  {formatDate(item.date)}
+                </Text>
+              </View>
             </View>
-          </View>
 
-          {/* Date */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Clock size={14} color="#999999" />
-            <Text style={{ fontSize: 13, color: '#666666' }}>
-              {formatDate(item.date)}
-            </Text>
-          </View>
-        </View>
-
-        {/* Content Row: Type icon + Details */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          {/* Type Icon */}
-          <View style={{
-            width: 40,
-            height: 40,
-            borderRadius: 8,
-            backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            {isSheets ? (
-              <FileBarChart size={20} color="#EF6C00" />
-            ) : (
-              <IndianRupee size={20} color="#6A1B9A" />
+            {/* Loading indicator */}
+            {isProcessing && (
+              <ActivityIndicator size="small" color="#666666" />
             )}
           </View>
-
-          {/* Details */}
-          <View style={{ flex: 1 }}>
-            {isSheets ? (
-              <>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
-                  {item.sheetsCount} sheets
-                </Text>
-                <Text style={{ fontSize: 14, color: '#666666' }}>
-                  {item.catalog}
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
-                  ₹{item.amount?.toLocaleString('en-IN') || 0}
-                </Text>
-                <Text style={{ fontSize: 14, color: '#666666' }}>
-                  {item.category} • {item.description || 'No description'}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {/* Receipt photos indicator */}
-          {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                backgroundColor: '#F0F0F0',
-                borderRadius: 4,
-              }}
-              onPress={() => openPhotoViewer(item.receiptPhotos!)}
-            >
-              <ImageIcon size={14} color="#666666" />
-              <Text style={{ fontSize: 12, color: '#666666' }}>
-                {item.receiptPhotos.length}
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
-
-        {/* Action Buttons */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {/* Reject Button */}
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-              backgroundColor: '#FFEBEE',
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#FFCDD2',
-            }}
-            onPress={() => openRejectModal(item)}
-            disabled={isProcessing}
-          >
-            <XCircle size={18} color="#EF5350" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#EF5350' }}>
-              Reject
-            </Text>
-          </TouchableOpacity>
-
-          {/* Approve Button */}
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-              backgroundColor: '#E8F5E9',
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#C8E6C9',
-            }}
-            onPress={() => handleApprove(item)}
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <ActivityIndicator size="small" color="#2E7D32" />
-            ) : (
-              <>
-                <CheckCircle size={18} color="#2E7D32" />
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#2E7D32' }}>
-                  Approve
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+      </Swipeable>
     );
   };
 
@@ -353,12 +362,15 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
 
   // Render skeleton loading
   const renderSkeleton = () => (
-    <View style={{ padding: 16 }}>
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} card style={{ height: 140, marginBottom: 12 }} />
+    <View>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Skeleton key={i} style={{ height: 60, marginBottom: 1 }} />
       ))}
     </View>
   );
+
+  // Get selected user name for display
+  const selectedUserName = userFilter === 'all' ? 'All Users' : userFilter;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
@@ -369,83 +381,109 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
         paddingTop: 52,
         paddingBottom: 16,
       }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-              Review
-            </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-              {counts.total} pending items
-            </Text>
-          </View>
-        </View>
+        <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+          Review
+        </Text>
+        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
+          {counts.total} pending • Swipe to approve/reject
+        </Text>
       </View>
 
-      {/* Filter Chips */}
+      {/* Filters Row */}
       <View style={{
         flexDirection: 'row',
-        gap: 8,
+        alignItems: 'center',
         paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#E0E0E0',
+        gap: 8,
       }}>
-        {/* All */}
+        {/* User Filter Button */}
         <TouchableOpacity
           style={{
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: typeFilter === 'all' ? '#393735' : '#F0F0F0',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            backgroundColor: userFilter === 'all' ? '#F0F0F0' : '#E3F2FD',
+            borderRadius: 16,
+            borderWidth: 1,
+            borderColor: userFilter === 'all' ? '#E0E0E0' : '#90CAF9',
           }}
-          onPress={() => setTypeFilter('all')}
+          onPress={() => setUserFilterModalVisible(true)}
         >
+          <UserIcon size={14} color={userFilter === 'all' ? '#666666' : '#1976D2'} />
           <Text style={{
-            fontSize: 14,
-            fontWeight: '500',
-            color: typeFilter === 'all' ? '#FFFFFF' : '#666666',
-          }}>
-            All ({counts.total})
+            fontSize: 13,
+            color: userFilter === 'all' ? '#666666' : '#1976D2',
+            maxWidth: 80,
+          }} numberOfLines={1}>
+            {selectedUserName}
           </Text>
+          <ChevronDown size={14} color={userFilter === 'all' ? '#666666' : '#1976D2'} />
         </TouchableOpacity>
 
-        {/* Sheets - Orange */}
-        <TouchableOpacity
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: typeFilter === 'sheets' ? '#EF6C00' : '#F0F0F0',
-          }}
-          onPress={() => setTypeFilter('sheets')}
-        >
-          <Text style={{
-            fontSize: 14,
-            fontWeight: '500',
-            color: typeFilter === 'sheets' ? '#FFFFFF' : '#666666',
-          }}>
-            Sheets ({counts.sheets})
-          </Text>
-        </TouchableOpacity>
+        {/* Type Filter Chips */}
+        <View style={{ flexDirection: 'row', gap: 6, flex: 1 }}>
+          {/* All */}
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: typeFilter === 'all' ? '#393735' : '#F0F0F0',
+            }}
+            onPress={() => setTypeFilter('all')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '500',
+              color: typeFilter === 'all' ? '#FFFFFF' : '#666666',
+            }}>
+              All
+            </Text>
+          </TouchableOpacity>
 
-        {/* Expenses - Purple */}
-        <TouchableOpacity
-          style={{
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 20,
-            backgroundColor: typeFilter === 'expense' ? '#6A1B9A' : '#F0F0F0',
-          }}
-          onPress={() => setTypeFilter('expense')}
-        >
-          <Text style={{
-            fontSize: 14,
-            fontWeight: '500',
-            color: typeFilter === 'expense' ? '#FFFFFF' : '#666666',
-          }}>
-            Expenses ({counts.expenses})
-          </Text>
-        </TouchableOpacity>
+          {/* Sheets */}
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: typeFilter === 'sheets' ? '#EF6C00' : '#F0F0F0',
+            }}
+            onPress={() => setTypeFilter('sheets')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '500',
+              color: typeFilter === 'sheets' ? '#FFFFFF' : '#666666',
+            }}>
+              Sheets
+            </Text>
+          </TouchableOpacity>
+
+          {/* Expenses */}
+          <TouchableOpacity
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: typeFilter === 'expense' ? '#6A1B9A' : '#F0F0F0',
+            }}
+            onPress={() => setTypeFilter('expense')}
+          >
+            <Text style={{
+              fontSize: 13,
+              fontWeight: '500',
+              color: typeFilter === 'expense' ? '#FFFFFF' : '#666666',
+            }}>
+              Expenses
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* List */}
@@ -457,7 +495,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
-            padding: 16,
             paddingBottom: 60 + bottomPadding,
           }}
           refreshControl={
@@ -466,6 +503,84 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
           ListEmptyComponent={renderEmptyState}
         />
       )}
+
+      {/* User Filter Modal */}
+      <Modal
+        visible={userFilterModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUserFilterModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setUserFilterModalVisible(false)}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: '60%',
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#E0E0E0',
+            }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A' }}>
+                Filter by User
+              </Text>
+              <TouchableOpacity onPress={() => setUserFilterModalVisible(false)}>
+                <X size={24} color="#666666" />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={[{ id: 'all', name: 'All Users' }, ...uniqueUsers]}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#F0F0F0',
+                    backgroundColor: (item.id === 'all' ? userFilter === 'all' : userFilter === item.name) ? '#E3F2FD' : '#FFFFFF',
+                  }}
+                  onPress={() => {
+                    setUserFilter(item.id === 'all' ? 'all' : item.name);
+                    setUserFilterModalVisible(false);
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: '#F0F0F0',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      <UserIcon size={16} color="#666666" />
+                    </View>
+                    <Text style={{ fontSize: 16, color: '#1A1A1A' }}>
+                      {item.name}
+                    </Text>
+                  </View>
+                  {(item.id === 'all' ? userFilter === 'all' : userFilter === item.name) && (
+                    <CheckCircle size={20} color="#1976D2" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Reject Modal */}
       <Modal
@@ -498,7 +613,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
               }
             </Text>
 
-            {/* Comment input */}
             <TextInput
               style={{
                 borderWidth: 1,
@@ -517,7 +631,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
               multiline
             />
 
-            {/* Buttons */}
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <TouchableOpacity
                 style={{
@@ -575,7 +688,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
           justifyContent: 'center',
           alignItems: 'center',
         }}>
-          {/* Close button */}
           <TouchableOpacity
             style={{
               position: 'absolute',
@@ -594,7 +706,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
             <X size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Photo counter */}
           {viewingPhotos.length > 1 && (
             <View style={{
               position: 'absolute',
@@ -611,7 +722,6 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
             </View>
           )}
 
-          {/* Photo */}
           {viewingPhotos[currentPhotoIndex] && (
             <Image
               source={{ uri: viewingPhotos[currentPhotoIndex] }}
@@ -620,17 +730,11 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
             />
           )}
 
-          {/* Navigation arrows */}
           {viewingPhotos.length > 1 && (
             <>
               {currentPhotoIndex > 0 && (
                 <TouchableOpacity
-                  style={{
-                    position: 'absolute',
-                    left: 10,
-                    top: '50%',
-                    padding: 10,
-                  }}
+                  style={{ position: 'absolute', left: 10, top: '50%', padding: 10 }}
                   onPress={() => setCurrentPhotoIndex((i) => i - 1)}
                 >
                   <ChevronDown size={32} color="#FFFFFF" style={{ transform: [{ rotate: '90deg' }] }} />
@@ -638,12 +742,7 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
               )}
               {currentPhotoIndex < viewingPhotos.length - 1 && (
                 <TouchableOpacity
-                  style={{
-                    position: 'absolute',
-                    right: 10,
-                    top: '50%',
-                    padding: 10,
-                  }}
+                  style={{ position: 'absolute', right: 10, top: '50%', padding: 10 }}
                   onPress={() => setCurrentPhotoIndex((i) => i + 1)}
                 >
                   <ChevronDown size={32} color="#FFFFFF" style={{ transform: [{ rotate: '-90deg' }] }} />

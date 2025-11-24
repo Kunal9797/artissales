@@ -7,6 +7,7 @@ import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 import { SyncStatusIndicator } from './src/components/SyncStatusIndicator';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Initialize Firebase (must be imported before any Firebase usage)
 import './src/services/firebase';
@@ -35,17 +36,19 @@ export default function App() {
     uploadQueue.init();
   }, []);
   const AppContent = (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TenantThemeProvider>
-          <ToastProvider>
-            <AppStatusBar />
-            <RootNavigator />
-            <SyncStatusIndicator />
-          </ToastProvider>
-        </TenantThemeProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <TenantThemeProvider>
+            <ToastProvider>
+              <AppStatusBar />
+              <RootNavigator />
+              <SyncStatusIndicator />
+            </ToastProvider>
+          </TenantThemeProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 
   // Only enable runtime theme system in dev builds
