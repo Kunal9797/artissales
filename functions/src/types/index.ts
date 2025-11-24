@@ -777,3 +777,61 @@ export interface ApiError {
 }
 
 export type ApiResponse<T> = T | ApiError;
+
+// ============================================================================
+// APPROVAL TYPES (Manager Review)
+// ============================================================================
+
+export type PendingItemType = "sheets" | "expense";
+
+export interface PendingItem {
+  id: string;
+  type: PendingItemType;
+  userId: string;
+  userName: string;
+  date: string; // YYYY-MM-DD
+
+  // For sheets
+  catalog?: string;
+  sheetsCount?: number;
+
+  // For expenses
+  amount?: number;
+  category?: string;
+  description?: string;
+  receiptPhotos?: string[];
+
+  // Common
+  createdAt: string; // ISO 8601
+}
+
+export interface GetPendingItemsResponse {
+  ok: true;
+  items: PendingItem[];
+  counts: {
+    sheets: number;
+    expenses: number;
+    total: number;
+  };
+}
+
+export interface ApproveItemRequest {
+  itemId: string;
+  type: PendingItemType;
+}
+
+export interface ApproveItemResponse {
+  ok: true;
+  message: string;
+}
+
+export interface RejectItemRequest {
+  itemId: string;
+  type: PendingItemType;
+  comment?: string;
+}
+
+export interface RejectItemResponse {
+  ok: true;
+  message: string;
+}

@@ -23,6 +23,7 @@ export {getTeamStats} from "./api/managerStats";
 export {createAccount, getAccountsList, updateAccount, getAccountDetails, deleteAccount} from "./api/accounts";
 export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 export {uploadDocument, getDocuments, deleteDocument, createDocumentMetadata} from "./api/documents";
+export {getPendingItems, approveItem, rejectItem} from "./api/approvals";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";

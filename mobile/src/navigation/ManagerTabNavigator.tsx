@@ -46,6 +46,7 @@ import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
 // import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen'; // TODO: Has StyleSheet.create issue
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreenSimple';
 import { TeamScreen } from '../screens/manager/TeamScreenSimple';
+import { ReviewHomeScreen } from '../screens/manager/ReviewHomeScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -132,7 +133,7 @@ export const ManagerTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="ReviewTab"
-        component={() => <Placeholder title="Review (Coming Soon)" />}
+        component={ReviewHomeScreen}
         options={{
           title: 'Review',
           tabBarIcon: ({ color, focused }) => (

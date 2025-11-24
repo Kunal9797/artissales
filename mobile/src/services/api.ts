@@ -25,6 +25,9 @@ import {
   GetUserTargetsRequest,
   StopAutoRenewRequest,
   DeleteDocumentRequest,
+  ApproveItemRequest,
+  RejectItemRequest,
+  PendingItemType,
 } from '../types';
 
 // Use environment variable for API base URL
@@ -371,5 +374,18 @@ export const api = {
 
   deleteDocument: async (data: DeleteDocumentRequest) => {
     return callFunction('deleteDocument', data);
+  },
+
+  // Approval APIs (Manager Review)
+  getPendingItems: async () => {
+    return callFunction('getPendingItems', {});
+  },
+
+  approveItem: async (data: ApproveItemRequest) => {
+    return callFunction('approveItem', data);
+  },
+
+  rejectItem: async (data: RejectItemRequest) => {
+    return callFunction('rejectItem', data);
   },
 };
