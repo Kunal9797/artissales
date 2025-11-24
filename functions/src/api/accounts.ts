@@ -143,6 +143,23 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
         return;
       }
       normalizedPhone = normalizePhoneNumber(phone);
+
+      // 4.5 Check for duplicate phone number
+      const existingAccounts = await db.collection("accounts")
+        .where("phone", "==", normalizedPhone)
+        .limit(1)
+        .get();
+
+      if (!existingAccounts.empty) {
+        const existingAccount = existingAccounts.docs[0].data();
+        const error: ApiError = {
+          ok: false,
+          error: `An account with this phone number already exists: ${existingAccount.name}`,
+          code: "DUPLICATE_PHONE",
+        };
+        response.status(409).json(error);
+        return;
+      }
     }
 
     // 5. Validate pincode (6 digits)
@@ -500,6 +517,25 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
           return;
         }
         normalizedPhone = normalizePhoneNumber(phone);
+
+        // 5.5 Check for duplicate phone (only if phone changed)
+        if (normalizedPhone !== existingAccount?.phone) {
+          const existingAccounts = await db.collection("accounts")
+            .where("phone", "==", normalizedPhone)
+            .limit(1)
+            .get();
+
+          if (!existingAccounts.empty) {
+            const duplicateAccount = existingAccounts.docs[0].data();
+            const error: ApiError = {
+              ok: false,
+              error: `An account with this phone number already exists: ${duplicateAccount.name}`,
+              code: "DUPLICATE_PHONE",
+            };
+            response.status(409).json(error);
+            return;
+          }
+        }
       } else {
         normalizedPhone = "";
       }

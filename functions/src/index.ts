@@ -20,8 +20,6 @@ export {submitExpense, getExpense, updateExpense, deleteExpense} from "./api/exp
 export {updateProfile} from "./api/profile";
 export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
-export {reviewDSR, getPendingDSRs, getDSRDetail} from "./api/dsrReview";
-export {resubmitDSR} from "./api/resubmitDSR";
 export {createAccount, getAccountsList, updateAccount, getAccountDetails, deleteAccount} from "./api/accounts";
 export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 export {uploadDocument, getDocuments, deleteDocument, createDocumentMetadata} from "./api/documents";
@@ -31,7 +29,6 @@ export {leadWebhook} from "./webhooks/lead";
 
 // Scheduled Functions
 export {checkSLAViolations} from "./scheduled/slaEscalator";
-export {compileDSRReports} from "./scheduled/dsrCompiler";
 export {processOutboxEvents} from "./scheduled/outboxProcessor";
 export {targetAutoRenewScheduled} from "./scheduled/targetAutoRenew";
 export {autoCheckOut} from "./scheduled/autoCheckOut";
@@ -55,9 +52,7 @@ export {createNationalHeadUser} from "./utils/create-national-head";
 export {updateRoleByPhone} from "./utils/update-role-by-phone";
 
 // Keep for operational debugging
-export {triggerDSRCompiler} from "./utils/trigger-dsr";
 export {checkPendingData} from "./utils/check-pending";
-export {checkPendingDSRs} from "./utils/check-pending-dsrs";
 
 // Keep for one-time migration (can remove after migration complete)
 export {migrateToCustomClaims} from "./utils/migrate-custom-claims";

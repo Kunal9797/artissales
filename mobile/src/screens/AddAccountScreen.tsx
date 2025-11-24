@@ -135,8 +135,22 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         Alert.alert('Error', response.error || 'Failed to create account');
       }
     } catch (error: any) {
-      console.error('Error creating account:', error);
-      Alert.alert('Error', error.message || 'Failed to create account');
+      // Handle duplicate phone error with a nicer message
+      if (error.code === 'DUPLICATE_PHONE' || error.message?.includes('already exists')) {
+        // Extract account name from error message if available
+        const match = error.message?.match(/already exists: (.+)$/);
+        const existingAccountName = match ? match[1] : 'another account';
+
+        Alert.alert(
+          'Phone Number Already Registered',
+          `This phone number is already registered to "${existingAccountName}". Please use a different phone number or find the existing account.`,
+          [
+            { text: 'OK', style: 'default' }
+          ]
+        );
+      } else {
+        Alert.alert('Error', error.message || 'Failed to create account');
+      }
     } finally {
       setLoading(false);
     }

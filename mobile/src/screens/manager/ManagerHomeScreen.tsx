@@ -95,7 +95,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
         setTeamStats({
           present: response.stats.team?.present || 0,
           total: response.stats.team?.total || 0,
-          pendingApprovals: (response.stats.pending?.dsrs || 0) + (response.stats.pending?.expenses || 0),
+          pendingApprovals: (response.stats.pending?.expenses || 0) + (response.stats.pending?.sheets || 0),
           todayVisits: response.stats.visits?.total || 0,
           todaySheets: response.stats.sheets?.total || 0,
         });
@@ -108,14 +108,6 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
           newAlerts.push({
             id: 'absent',
             text: `${absent} ${absent === 1 ? 'rep hasn\'t' : 'reps haven\'t'} checked in`,
-            type: 'warning',
-          });
-        }
-
-        if (response.stats.pending?.dsrs > 0) {
-          newAlerts.push({
-            id: 'dsrs',
-            text: `${response.stats.pending.dsrs} ${response.stats.pending.dsrs === 1 ? 'DSR needs' : 'DSRs need'} review`,
             type: 'warning',
           });
         }
@@ -197,7 +189,7 @@ export const ManagerHomeScreen: React.FC<ManagerHomeScreenProps> = ({ navigation
             <KpiCard
               title="Pending"
               value={teamStats.pendingApprovals.toString()}
-              icon={<CheckCircle size={16} color={featureColors.dsr.primary} />}
+              icon={<CheckCircle size={16} color={featureColors.expenses.primary} />}
             />
           </View>
           <View style={styles.kpiRow}>

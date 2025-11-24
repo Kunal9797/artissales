@@ -271,57 +271,6 @@ export interface Expense {
 }
 
 // ============================================================================
-// DSR (DAILY SALES REPORT) TYPES
-// ============================================================================
-
-export type DSRStatus = "pending" | "approved" | "needs_revision";
-
-export interface SheetsSalesSummary {
-  catalog: CatalogType;
-  totalSheets: number;
-}
-
-export interface ExpenseSummary {
-  category: string; // ExpenseCategory or custom
-  totalAmount: number;
-}
-
-export interface DSRReport {
-  id: string; // Format: {userId}_{YYYY-MM-DD}
-  userId: string;
-  date: string; // YYYY-MM-DD
-
-  // Auto-compiled stats
-  /** @deprecated Use wasActive instead - will be removed in future version */
-  checkInAt?: Timestamp | null;
-  /** @deprecated Use wasActive instead - will be removed in future version */
-  checkOutAt?: Timestamp | null;
-  totalVisits: number;
-  visitIds: string[];
-
-  // Activity-based presence (NEW - replaces attendance tracking)
-  wasActive: boolean; // true if logged ANY activity (visit, sheet, or expense)
-  activityCount: number; // total activities (visits + sheets + expenses)
-
-  // Sheets sales summary
-  sheetsSales: SheetsSalesSummary[]; // e.g., [{catalog: "Artis", totalSheets: 50}, ...]
-  totalSheetsSold: number; // Sum across all catalogs
-
-  // Expenses summary
-  expenses: ExpenseSummary[]; // e.g., [{category: "travel", totalAmount: 500}, ...]
-  totalExpenses: number; // Sum of all expenses in INR
-
-  // Manager review
-  status: DSRStatus;
-  reviewedBy?: string; // Manager userId
-  reviewedAt?: Timestamp;
-  managerComments?: string;
-
-  // Metadata
-  generatedAt: Timestamp;
-}
-
-// ============================================================================
 // EVENT OUTBOX TYPES (Event-Driven Architecture)
 // ============================================================================
 
@@ -418,7 +367,7 @@ export interface LeadFirstTouchResponse {
 }
 
 // ============================================================================
-// MANAGER API TYPES (User Management, DSR Approval, Reports)
+// MANAGER API TYPES (User Management, Reports)
 // ============================================================================
 
 // Create User By Manager
@@ -433,18 +382,6 @@ export interface CreateUserByManagerRequest {
 export interface CreateUserByManagerResponse {
   ok: true;
   userId: string;
-  message: string;
-}
-
-// Review DSR
-export interface ReviewDSRRequest {
-  reportId: string; // DSR document ID (format: {userId}_{YYYY-MM-DD})
-  status: "approved" | "needs_revision";
-  comments?: string; // Optional manager comments
-}
-
-export interface ReviewDSRResponse {
-  ok: true;
   message: string;
 }
 

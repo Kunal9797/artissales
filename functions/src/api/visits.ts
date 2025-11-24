@@ -310,10 +310,11 @@ export const updateVisit = onRequest({cors: true}, async (request, response) => 
 
     const {id, purpose, notes, photos} = request.body;
 
-    if (!id || !purpose) {
+    // Only id is truly required - support partial updates
+    if (!id) {
       const error: ApiError = {
         ok: false,
-        error: "Missing required fields: id, purpose",
+        error: "Missing required field: id",
         code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
@@ -345,11 +346,14 @@ export const updateVisit = onRequest({cors: true}, async (request, response) => 
       return;
     }
 
-    // Update the visit
+    // Update the visit - only include provided fields (partial update support)
     const updateData: any = {
-      purpose,
       updatedAt: firestore.Timestamp.now(),
     };
+
+    if (purpose !== undefined) {
+      updateData.purpose = purpose;
+    }
 
     if (notes !== undefined) {
       updateData.notes = notes;
@@ -364,7 +368,7 @@ export const updateVisit = onRequest({cors: true}, async (request, response) => 
     logger.info("Visit updated", {
       visitId: id,
       userId: auth.uid,
-      purpose,
+      fieldsUpdated: Object.keys(updateData).filter((k) => k !== "updatedAt"),
     });
 
     response.status(200).json({ok: true, visitId: id});

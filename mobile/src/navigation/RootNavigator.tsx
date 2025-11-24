@@ -23,8 +23,6 @@ import { KitchenSinkScreen as AccountDesignKitchenSink } from '../screens/design
 import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
 import { SetTargetScreen } from '../screens/manager/SetTargetScreen';
-import { DSRApprovalDetailScreen } from '../screens/manager/DSRApprovalDetailScreen';
-// DSRApprovalListScreen removed - using ReviewHomeScreen instead (accessible via dock)
 import { AddAccountScreen } from '../screens/AddAccountScreen';
 import { EditAccountScreen } from '../screens/EditAccountScreen';
 import { AccountDetailScreen } from '../screens/manager/AccountDetailScreen';
@@ -48,7 +46,6 @@ export type RootStackParamList = {
   AccountDesignKitchenSink: undefined;
   DesignLab: undefined;
   AddUser: undefined;
-  DSRApprovalDetail: { reportId: string };
   UserList: undefined;
   UserDetail: { userId: string };
   AccountsList: undefined;
@@ -126,9 +123,6 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="AccountDetail" component={AccountDetailScreen} />
           <Stack.Screen name="AddAccount" component={AddAccountScreen} />
           <Stack.Screen name="EditAccount" component={EditAccountScreen} />
-
-          {/* Manager stack screens - Review/Approvals */}
-          <Stack.Screen name="DSRApprovalDetail" component={DSRApprovalDetailScreen} />
 
           {/* TODO: Re-enable these as we build/test them */}
           {/* <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} /> */}

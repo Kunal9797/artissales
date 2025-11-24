@@ -43,7 +43,6 @@ const AnimatedTabIcon: React.FC<{
 };
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
-import { ReviewHomeScreen } from '../screens/manager/ReviewHomeScreen';
 // import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen'; // TODO: Has StyleSheet.create issue
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreenSimple';
 import { TeamScreen } from '../screens/manager/TeamScreenSimple';
@@ -133,7 +132,7 @@ export const ManagerTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="ReviewTab"
-        component={ReviewHomeScreen}
+        component={() => <Placeholder title="Review (Coming Soon)" />}
         options={{
           title: 'Review',
           tabBarIcon: ({ color, focused }) => (

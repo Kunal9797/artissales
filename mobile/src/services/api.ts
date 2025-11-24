@@ -15,8 +15,6 @@ import {
   SubmitExpenseRequest,
   LogSheetsSaleRequest,
   CreateUserByManagerRequest,
-  ReviewDSRRequest,
-  GetPendingDSRsRequest,
   GetUsersListRequest,
   GetUserStatsRequest,
   CreateAccountRequest,
@@ -150,7 +148,8 @@ export const api = {
     return callFunction('getSheetsSales', data);
   },
 
-  updateSheetsSale: async (data: { id: string; catalog: string; sheetsCount: number }) => {
+  // Supports partial updates - only id is required, provide catalog and/or sheetsCount
+  updateSheetsSale: async (data: { id: string; catalog?: string; sheetsCount?: number }) => {
     return callFunction('updateSheetsSale', data);
   },
 
@@ -163,7 +162,8 @@ export const api = {
     return callFunction('getVisit', data);
   },
 
-  updateVisit: async (data: { id: string; purpose: string; notes?: string; photos?: string[] }) => {
+  // Supports partial updates - only id is required, provide any fields to update
+  updateVisit: async (data: { id: string; purpose?: string; notes?: string; photos?: string[] }) => {
     return callFunction('updateVisit', data);
   },
 
@@ -176,7 +176,18 @@ export const api = {
     return callFunction('getExpense', data);
   },
 
-  updateExpense: async (data: { id: string; date: string; items: any[]; receiptPhotos?: string[] }) => {
+  // Supports two modes:
+  // 1. Full update: { id, date, items[], receiptPhotos? }
+  // 2. Partial update: { id, amount?, category?, description? } - for inline edits
+  updateExpense: async (data: {
+    id: string;
+    date?: string;
+    items?: any[];
+    receiptPhotos?: string[];
+    amount?: number;
+    category?: string;
+    description?: string;
+  }) => {
     return callFunction('updateExpense', data);
   },
 
@@ -195,22 +206,6 @@ export const api = {
 
   getTeamStats: async (data: { date?: string }) => {
     return callFunction('getTeamStats', data);
-  },
-
-  reviewDSR: async (data: ReviewDSRRequest) => {
-    return callFunction('reviewDSR', data);
-  },
-
-  getPendingDSRs: async (data: GetPendingDSRsRequest) => {
-    return callFunction('getPendingDSRs', data);
-  },
-
-  getDSRDetail: async (data: { reportId: string }) => {
-    return callFunction('getDSRDetail', data);
-  },
-
-  resubmitDSR: async (data: { reportId: string }) => {
-    return callFunction('resubmitDSR', data);
   },
 
   getUsersList: async (data: GetUsersListRequest) => {

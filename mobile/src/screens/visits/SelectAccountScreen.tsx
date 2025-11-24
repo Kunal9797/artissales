@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -34,7 +34,24 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<AccountTypeFilter>('all');
 
-  // Filter accounts based on search query and type
+  // Get current user ID for sorting (use getAuth().currentUser for reliable uid access)
+  const authInstance = getAuth();
+  const currentUserId = authInstance.currentUser?.uid;
+
+  // Debug: Log user ID and accounts on mount
+  useEffect(() => {
+    if (accounts.length > 0) {
+      const userCreatedCount = accounts.filter(a => a.createdByUserId === currentUserId).length;
+      logger.info(`[SelectAccount] Current user ID: ${currentUserId}`);
+      logger.info(`[SelectAccount] Total accounts: ${accounts.length}, User created: ${userCreatedCount}`);
+      // Log first 3 accounts to see createdByUserId values
+      accounts.slice(0, 3).forEach((a, i) => {
+        logger.info(`[SelectAccount] Account ${i}: ${a.name}, createdBy: ${a.createdByUserId}, isUserCreated: ${a.createdByUserId === currentUserId}`);
+      });
+    }
+  }, [accounts, currentUserId]);
+
+  // Filter accounts based on search query and type, sort user-created accounts first
   const filteredAccounts = useMemo(() => {
     let filtered = accounts;
 
@@ -55,8 +72,21 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       );
     }
 
+    // Sort: user-created accounts first, then alphabetical
+    filtered = [...filtered].sort((a, b) => {
+      const aIsUserCreated = a.createdByUserId === currentUserId;
+      const bIsUserCreated = b.createdByUserId === currentUserId;
+
+      // User-created accounts come first
+      if (aIsUserCreated && !bIsUserCreated) return -1;
+      if (!aIsUserCreated && bIsUserCreated) return 1;
+
+      // Within same group, sort alphabetically
+      return a.name.localeCompare(b.name);
+    });
+
     return filtered;
-  }, [accounts, searchQuery, selectedType]);
+  }, [accounts, searchQuery, selectedType, currentUserId]);
 
   const handleSelectAccount = (account: Account) => {
     // Helper function to safely convert date to ISO string

@@ -23,6 +23,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
@@ -38,6 +39,7 @@ import {
   FileText,
   ChevronRight,
   CheckCircle,
+  Check,
   Clock,
   Bell,
   Sun,
@@ -45,6 +47,9 @@ import {
   Moon,
   Sunrise,
   Lock,
+  Camera,
+  X,
+  ChevronLeft,
 } from 'lucide-react-native';
 
 // FEATURE FLAG: Set to false to disable attendance tracking
@@ -130,6 +135,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     notes?: string;  // Notes/description for display in action sheet
     purpose?: string; // Visit purpose
     status?: 'pending' | 'verified' | 'rejected'; // For sheets/expenses
+    photos?: string[]; // Photo URLs for visits
   }>>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -143,6 +149,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Activity action sheet state
   const [selectedActivity, setSelectedActivity] = useState<typeof todayActivities[0] | null>(null);
   const [deletingActivity, setDeletingActivity] = useState(false);
+  const [viewingPhotoIndex, setViewingPhotoIndex] = useState<number | null>(null);
+
+  // Inline editing state
+  const [editingField, setEditingField] = useState<'count' | 'catalog' | 'amount' | 'category' | 'notes' | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false); // For sheets/expenses expanded edit mode
+  const [editValue, setEditValue] = useState<string>(''); // For count/amount
+  const [editDetail, setEditDetail] = useState<string>(''); // For catalog/category (pending, not saved until Done)
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Close modal and reset all edit states
+  const closeActivityModal = () => {
+    setSelectedActivity(null);
+    setIsEditMode(false);
+    setEditingField(null);
+    setEditValue('');
+    setEditDetail('');
+  };
 
   // Updated toast state
   const [showUpdatedToast, setShowUpdatedToast] = useState(false);
@@ -335,7 +358,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       // NOTE: Attendance tracking is disabled for V1 (ATTENDANCE_FEATURE_ENABLED = false)
       // No attendance activities are added to the feed
 
-      // Add visits (no detail on card, but store notes/purpose for action sheet)
+      // Add visits (no detail on card, but store notes/purpose/photos for action sheet)
       visitsSnapshot.forEach((doc: any) => {
         const data = doc.data();
         activities.push({
@@ -346,6 +369,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           value: data.accountName || 'Client',
           notes: data.notes || undefined,
           purpose: data.purpose ? data.purpose.replace(/_/g, ' ') : undefined,
+          photos: data.photos || [], // Store photos for viewing in action sheet
         });
       });
 
@@ -608,6 +632,128 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         },
       ]
     );
+  };
+
+  // Options for catalog and category pickers
+  const CATALOG_OPTIONS = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
+  const CATEGORY_OPTIONS = ['travel', 'food', 'accommodation', 'other'];
+
+  // Direct save handlers for catalog/category (avoid stale state issues)
+  const handleCatalogChange = async (catalog: string) => {
+    if (!selectedActivity || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await api.updateSheetsSale({ id: selectedActivity.id, catalog });
+      setTodayActivities(prev => prev.map(a =>
+        a.id === selectedActivity.id ? { ...a, detail: catalog, description: `${a.value} - ${catalog}` } : a
+      ));
+      setSelectedActivity(prev => prev ? { ...prev, detail: catalog, description: `${prev.value} - ${catalog}` } : null);
+      invalidateHomeStatsCache();
+    } catch (error: any) {
+      logger.error('Error updating catalog:', error);
+      Alert.alert('Error', error.message || 'Failed to update catalog');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleCategoryChange = async (category: string) => {
+    if (!selectedActivity || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await api.updateExpense({ id: selectedActivity.id, category });
+      const displayCategory = category.charAt(0).toUpperCase() + category.slice(1);
+      setTodayActivities(prev => prev.map(a =>
+        a.id === selectedActivity.id ? { ...a, detail: displayCategory, description: `${a.value} - ${displayCategory}` } : a
+      ));
+      setSelectedActivity(prev => prev ? { ...prev, detail: displayCategory, description: `${prev.value} - ${displayCategory}` } : null);
+      invalidateHomeStatsCache();
+    } catch (error: any) {
+      logger.error('Error updating category:', error);
+      Alert.alert('Error', error.message || 'Failed to update category');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Inline edit save handler
+  const handleInlineSave = async () => {
+    if (!selectedActivity || !editingField || savingEdit) return;
+
+    setSavingEdit(true);
+    try {
+      if (selectedActivity.type === 'sheets') {
+        if (editingField === 'count') {
+          const newCount = parseInt(editValue, 10);
+          if (isNaN(newCount) || newCount <= 0) {
+            Alert.alert('Invalid', 'Please enter a valid number');
+            setSavingEdit(false);
+            return;
+          }
+          await api.updateSheetsSale({ id: selectedActivity.id, sheetsCount: newCount });
+          // Update local state
+          setTodayActivities(prev => prev.map(a =>
+            a.id === selectedActivity.id ? { ...a, value: String(newCount), description: `${newCount} - ${a.detail}` } : a
+          ));
+          setSelectedActivity(prev => prev ? { ...prev, value: String(newCount), description: `${newCount} - ${prev.detail}` } : null);
+        } else if (editingField === 'catalog') {
+          await api.updateSheetsSale({ id: selectedActivity.id, catalog: editValue });
+          // Update local state
+          setTodayActivities(prev => prev.map(a =>
+            a.id === selectedActivity.id ? { ...a, detail: editValue, description: `${a.value} - ${editValue}` } : a
+          ));
+          setSelectedActivity(prev => prev ? { ...prev, detail: editValue, description: `${prev.value} - ${editValue}` } : null);
+        }
+      } else if (selectedActivity.type === 'expense') {
+        if (editingField === 'amount') {
+          const newAmount = parseInt(editValue, 10);
+          if (isNaN(newAmount) || newAmount <= 0) {
+            Alert.alert('Invalid', 'Please enter a valid amount');
+            setSavingEdit(false);
+            return;
+          }
+          await api.updateExpense({ id: selectedActivity.id, amount: newAmount });
+          // Update local state
+          setTodayActivities(prev => prev.map(a =>
+            a.id === selectedActivity.id ? { ...a, value: String(newAmount), description: `${newAmount} - ${a.detail}` } : a
+          ));
+          setSelectedActivity(prev => prev ? { ...prev, value: String(newAmount), description: `${newAmount} - ${prev.detail}` } : null);
+        } else if (editingField === 'category') {
+          await api.updateExpense({ id: selectedActivity.id, category: editValue });
+          // Update local state - capitalize first letter for display
+          const displayCategory = editValue.charAt(0).toUpperCase() + editValue.slice(1);
+          setTodayActivities(prev => prev.map(a =>
+            a.id === selectedActivity.id ? { ...a, detail: displayCategory, description: `${a.value} - ${displayCategory}` } : a
+          ));
+          setSelectedActivity(prev => prev ? { ...prev, detail: displayCategory, description: `${prev.value} - ${displayCategory}` } : null);
+        }
+      } else if (selectedActivity.type === 'visit') {
+        if (editingField === 'notes') {
+          await api.updateVisit({ id: selectedActivity.id, notes: editValue });
+          // Update local state
+          setTodayActivities(prev => prev.map(a =>
+            a.id === selectedActivity.id ? { ...a, notes: editValue } : a
+          ));
+          setSelectedActivity(prev => prev ? { ...prev, notes: editValue } : null);
+        }
+      }
+      setEditingField(null);
+      setEditValue('');
+
+      // Invalidate cache and show feedback
+      invalidateHomeStatsCache();
+    } catch (error: any) {
+      logger.error('Error saving edit:', error);
+      Alert.alert('Error', error.message || 'Failed to save changes');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // Cancel inline edit
+  const cancelInlineEdit = () => {
+    setEditingField(null);
+    setEditValue('');
   };
 
   // Helper function to render compact activity item
@@ -1158,12 +1304,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         visible={!!selectedActivity}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedActivity(null)}
+        onRequestClose={closeActivityModal}
       >
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
           activeOpacity={1}
-          onPress={() => setSelectedActivity(null)}
+          onPress={closeActivityModal}
         >
           <View style={{
             backgroundColor: '#FFFFFF',
@@ -1196,15 +1342,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
               const statusInfo = getStatusText();
 
+              // Check if sheets/expenses is in edit mode
+              const isSheetsOrExpense = selectedActivity.type === 'sheets' || selectedActivity.type === 'expense';
+              const showEditPanel = isSheetsOrExpense && isEditMode && canEdit;
+
               return (
                 <>
-                  {/* Header */}
+                  {/* Header - Title + Status */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text.primary }}>
-                        {selectedActivity.value || selectedActivity.description}
+                        {selectedActivity.type === 'expense' ? `₹${selectedActivity.value}` : selectedActivity.value || selectedActivity.description}
                       </Text>
-                      {selectedActivity.detail && (
+                      {selectedActivity.detail && !showEditPanel && (
                         <Text style={{ fontSize: 14, color: colors.text.secondary, marginTop: 2 }}>
                           {selectedActivity.detail}
                         </Text>
@@ -1224,6 +1374,193 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     )}
                   </View>
 
+                  {/* Edit Panel - Expanded for sheets/expenses when in edit mode */}
+                  {showEditPanel && (
+                    <View style={{
+                      backgroundColor: '#F8F8F8',
+                      borderRadius: 12,
+                      padding: 16,
+                      marginBottom: 12,
+                    }}>
+                      {/* Count/Amount Input */}
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 12, color: colors.text.tertiary, marginBottom: 6, textTransform: 'uppercase' }}>
+                          {selectedActivity.type === 'sheets' ? 'Sheet Count' : 'Amount'}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          {selectedActivity.type === 'expense' && (
+                            <Text style={{ fontSize: 20, fontWeight: '600', color: colors.text.primary }}>₹</Text>
+                          )}
+                          <TextInput
+                            style={{
+                              flex: 1,
+                              fontSize: 20,
+                              fontWeight: '600',
+                              color: colors.text.primary,
+                              backgroundColor: '#FFFFFF',
+                              borderWidth: 1,
+                              borderColor: '#E0E0E0',
+                              borderRadius: 8,
+                              paddingHorizontal: 12,
+                              paddingVertical: 10,
+                            }}
+                            value={editValue || selectedActivity.value || ''}
+                            onChangeText={setEditValue}
+                            keyboardType="numeric"
+                            placeholder={selectedActivity.type === 'sheets' ? 'Enter count' : 'Enter amount'}
+                          />
+                        </View>
+                      </View>
+
+                      {/* Catalog/Category Selection */}
+                      <View style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 12, color: colors.text.tertiary, marginBottom: 8, textTransform: 'uppercase' }}>
+                          {selectedActivity.type === 'sheets' ? 'Catalog' : 'Category'}
+                        </Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {(selectedActivity.type === 'sheets' ? CATALOG_OPTIONS : CATEGORY_OPTIONS).map((option) => {
+                            const displayOption = selectedActivity.type === 'expense'
+                              ? option.charAt(0).toUpperCase() + option.slice(1)
+                              : option;
+                            // Use editDetail (pending local state) if set, otherwise use current detail
+                            const currentDetail = editDetail || selectedActivity.detail || '';
+                            const isSelected = selectedActivity.type === 'sheets'
+                              ? currentDetail === option
+                              : currentDetail.toLowerCase() === option.toLowerCase();
+                            const featureColor = selectedActivity.type === 'sheets'
+                              ? featureColors.sheets.primary
+                              : featureColors.expenses.primary;
+
+                            return (
+                              <TouchableOpacity
+                                key={option}
+                                style={{
+                                  paddingHorizontal: 14,
+                                  paddingVertical: 8,
+                                  borderRadius: 20,
+                                  backgroundColor: isSelected ? featureColor : '#FFFFFF',
+                                  borderWidth: 1,
+                                  borderColor: isSelected ? featureColor : '#E0E0E0',
+                                }}
+                                onPress={() => {
+                                  // Just update local state - don't save to API yet
+                                  if (selectedActivity.type === 'sheets') {
+                                    setEditDetail(option);
+                                  } else {
+                                    // Store lowercase for expenses to match API format
+                                    setEditDetail(option);
+                                  }
+                                }}
+                                disabled={savingEdit}
+                              >
+                                <Text style={{
+                                  fontSize: 14,
+                                  fontWeight: '500',
+                                  color: isSelected ? '#FFFFFF' : colors.text.secondary,
+                                }}>
+                                  {displayOption}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      {/* Save & Cancel buttons */}
+                      <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <TouchableOpacity
+                          style={{
+                            flex: 1,
+                            backgroundColor: selectedActivity.type === 'sheets' ? featureColors.sheets.primary : featureColors.expenses.primary,
+                            paddingVertical: 12,
+                            borderRadius: 8,
+                            alignItems: 'center',
+                            flexDirection: 'row',
+                            justifyContent: 'center',
+                            gap: 6,
+                          }}
+                          onPress={async () => {
+                            setSavingEdit(true);
+                            try {
+                              const newValue = editValue ? parseInt(editValue, 10) : null;
+                              const valueChanged = newValue && !isNaN(newValue) && newValue > 0 && String(newValue) !== selectedActivity.value;
+                              const detailChanged = editDetail && editDetail !== selectedActivity.detail &&
+                                (selectedActivity.type === 'sheets' || editDetail.toLowerCase() !== (selectedActivity.detail || '').toLowerCase());
+
+                              if (selectedActivity.type === 'sheets') {
+                                // Save sheets changes
+                                if (valueChanged || detailChanged) {
+                                  await api.updateSheetsSale({
+                                    id: selectedActivity.id,
+                                    ...(valueChanged && { sheetsCount: newValue }),
+                                    ...(detailChanged && { catalog: editDetail }),
+                                  });
+                                  const updatedValue = valueChanged ? String(newValue) : selectedActivity.value;
+                                  const updatedDetail = detailChanged ? editDetail : selectedActivity.detail;
+                                  setTodayActivities(prev => prev.map(a =>
+                                    a.id === selectedActivity.id ? { ...a, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : a
+                                  ));
+                                  setSelectedActivity(prev => prev ? { ...prev, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : null);
+                                  invalidateHomeStatsCache();
+                                }
+                              } else {
+                                // Save expense changes
+                                if (valueChanged || detailChanged) {
+                                  await api.updateExpense({
+                                    id: selectedActivity.id,
+                                    ...(valueChanged && { amount: newValue }),
+                                    ...(detailChanged && { category: editDetail.toLowerCase() }),
+                                  });
+                                  const updatedValue = valueChanged ? String(newValue) : selectedActivity.value;
+                                  const updatedDetail = detailChanged ? (editDetail.charAt(0).toUpperCase() + editDetail.slice(1).toLowerCase()) : selectedActivity.detail;
+                                  setTodayActivities(prev => prev.map(a =>
+                                    a.id === selectedActivity.id ? { ...a, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : a
+                                  ));
+                                  setSelectedActivity(prev => prev ? { ...prev, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : null);
+                                  invalidateHomeStatsCache();
+                                }
+                              }
+                            } catch (error: any) {
+                              Alert.alert('Error', error.message || 'Failed to save');
+                            } finally {
+                              setSavingEdit(false);
+                            }
+                            setIsEditMode(false);
+                            setEditValue('');
+                            setEditDetail('');
+                          }}
+                          disabled={savingEdit}
+                        >
+                          {savingEdit ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                          ) : (
+                            <>
+                              <Check size={18} color="#FFFFFF" />
+                              <Text style={{ fontSize: 15, fontWeight: '600', color: '#FFFFFF' }}>Done</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingVertical: 12,
+                            paddingHorizontal: 20,
+                            borderRadius: 8,
+                            backgroundColor: '#F5F5F5',
+                          }}
+                          onPress={() => {
+                            // Cancel - discard all pending changes
+                            setIsEditMode(false);
+                            setEditValue('');
+                            setEditDetail('');
+                          }}
+                          disabled={savingEdit}
+                        >
+                          <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text.secondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
                   {/* Purpose (for visits) */}
                   {selectedActivity.type === 'visit' && selectedActivity.purpose && (
                     <View style={{ marginBottom: 8 }}>
@@ -1232,12 +1569,109 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     </View>
                   )}
 
-                  {/* Notes */}
-                  {selectedActivity.notes && (
+                  {/* Notes - Editable for visits */}
+                  {selectedActivity.type === 'visit' && canEdit ? (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Notes</Text>
+                      {editingField === 'notes' ? (
+                        <View style={{ gap: 8 }}>
+                          <TextInput
+                            style={{
+                              fontSize: 14,
+                              color: colors.text.primary,
+                              borderWidth: 1,
+                              borderColor: featureColors.visits.primary,
+                              borderRadius: 8,
+                              padding: 10,
+                              minHeight: 60,
+                              textAlignVertical: 'top',
+                            }}
+                            value={editValue}
+                            onChangeText={setEditValue}
+                            multiline
+                            autoFocus
+                            placeholder="Add notes..."
+                          />
+                          <View style={{ flexDirection: 'row', gap: 12 }}>
+                            <TouchableOpacity onPress={handleInlineSave} disabled={savingEdit}>
+                              {savingEdit ? (
+                                <ActivityIndicator size="small" color={featureColors.visits.primary} />
+                              ) : (
+                                <Text style={{ color: featureColors.visits.primary, fontWeight: '600' }}>Save</Text>
+                              )}
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={cancelInlineEdit}>
+                              <Text style={{ color: colors.text.tertiary }}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ) : (
+                        <TouchableOpacity onPress={() => { setEditingField('notes'); setEditValue(selectedActivity.notes || ''); }}>
+                          <Text style={{ fontSize: 14, color: selectedActivity.notes ? colors.text.secondary : colors.text.tertiary }}>
+                            {selectedActivity.notes || 'Tap to add notes'} <Edit2 size={12} color={colors.text.tertiary} />
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : selectedActivity.notes ? (
                     <View style={{ marginBottom: 12 }}>
                       <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Notes</Text>
                       <Text style={{ fontSize: 14, color: colors.text.secondary }}>{selectedActivity.notes}</Text>
                     </View>
+                  ) : null}
+
+                  {/* Photos section for visits */}
+                  {selectedActivity.type === 'visit' && canEdit && (
+                    editingField === 'notes' ? (
+                      /* Edit mode: Change Photos button */
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          backgroundColor: '#F5F5F5',
+                          paddingVertical: 14,
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          marginBottom: 12,
+                          gap: 8,
+                          borderWidth: 1,
+                          borderColor: '#E0E0E0',
+                          borderStyle: 'dashed',
+                        }}
+                        onPress={() => {
+                          closeActivityModal();
+                          navigation.navigate('LogVisit', { editActivityId: selectedActivity.id });
+                        }}
+                      >
+                        <Camera size={20} color={colors.text.secondary} />
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text.secondary }}>
+                          {selectedActivity.photos && selectedActivity.photos.length > 0
+                            ? `Change ${selectedActivity.photos.length} Photo${selectedActivity.photos.length > 1 ? 's' : ''}`
+                            : 'Add Photos'}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : selectedActivity.photos && selectedActivity.photos.length > 0 ? (
+                      /* View mode: View Photos button */
+                      <TouchableOpacity
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          backgroundColor: featureColors.visits.light,
+                          paddingVertical: 12,
+                          paddingHorizontal: 14,
+                          borderRadius: 10,
+                          marginBottom: 12,
+                          gap: 8,
+                        }}
+                        onPress={() => setViewingPhotoIndex(0)}
+                      >
+                        <Camera size={20} color={featureColors.visits.primary} />
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: featureColors.visits.primary }}>
+                          View {selectedActivity.photos.length} Photo{selectedActivity.photos.length > 1 ? 's' : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null
                   )}
 
                   {/* Time */}
@@ -1249,41 +1683,100 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   <View style={{ gap: 10 }}>
                     {canEdit && (
                       <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity
-                          style={{
-                            flex: 1,
-                            backgroundColor: colors.primary,
-                            paddingVertical: 14,
-                            borderRadius: 10,
-                            alignItems: 'center',
-                          }}
-                          onPress={() => {
-                            setSelectedActivity(null);
-                            if (selectedActivity.type === 'visit') {
-                              navigation.navigate('LogVisit', { editActivityId: selectedActivity.id });
-                            } else if (selectedActivity.type === 'sheets') {
-                              navigation.navigate('SheetsEntry', { editActivityId: selectedActivity.id });
-                            } else if (selectedActivity.type === 'expense') {
-                              navigation.navigate('ExpenseEntry', { editActivityId: selectedActivity.id });
-                            }
-                          }}
-                          disabled={deletingActivity}
-                        >
-                          <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
-                            Edit
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={{
-                            paddingVertical: 14,
-                            paddingHorizontal: 20,
-                            borderRadius: 10,
-                            alignItems: 'center',
-                            backgroundColor: '#FFEBEE',
-                          }}
-                          onPress={() => handleDeleteActivity(selectedActivity)}
-                          disabled={deletingActivity}
-                        >
+                        {/* Visits: Edit/Save button - changes based on editing state */}
+                        {selectedActivity.type === 'visit' && (
+                          editingField === 'notes' ? (
+                            /* Save button when editing notes */
+                            <TouchableOpacity
+                              style={{
+                                flex: 1,
+                                backgroundColor: featureColors.visits.primary,
+                                paddingVertical: 14,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                gap: 8,
+                              }}
+                              onPress={handleInlineSave}
+                              disabled={savingEdit || deletingActivity}
+                            >
+                              {savingEdit ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                              ) : (
+                                <>
+                                  <Check size={18} color="#FFFFFF" />
+                                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                                    Save
+                                  </Text>
+                                </>
+                              )}
+                            </TouchableOpacity>
+                          ) : (
+                            /* Edit button - enables inline notes editing */
+                            <TouchableOpacity
+                              style={{
+                                flex: 1,
+                                backgroundColor: colors.primary,
+                                paddingVertical: 14,
+                                borderRadius: 10,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                gap: 8,
+                              }}
+                              onPress={() => {
+                                setEditingField('notes');
+                                setEditValue(selectedActivity.notes || '');
+                              }}
+                              disabled={deletingActivity}
+                            >
+                              <Edit2 size={18} color="#FFFFFF" />
+                              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                                Edit
+                              </Text>
+                            </TouchableOpacity>
+                          )
+                        )}
+                        {/* Sheets/Expenses: Edit + Delete buttons when NOT in edit mode */}
+                        {isSheetsOrExpense && !isEditMode && (
+                          <TouchableOpacity
+                            style={{
+                              flex: 1,
+                              backgroundColor: colors.primary,
+                              paddingVertical: 14,
+                              borderRadius: 10,
+                              alignItems: 'center',
+                              flexDirection: 'row',
+                              justifyContent: 'center',
+                              gap: 8,
+                            }}
+                            onPress={() => {
+                              setIsEditMode(true);
+                              setEditValue(selectedActivity.value || '');
+                            }}
+                            disabled={deletingActivity}
+                          >
+                            <Edit2 size={18} color="#FFFFFF" />
+                            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                              Edit
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                        {/* Delete button - shown for all except sheets/expenses in edit mode */}
+                        {!(isSheetsOrExpense && isEditMode) && (
+                          <TouchableOpacity
+                            style={{
+                              flex: (selectedActivity.type === 'visit' || (isSheetsOrExpense && !isEditMode)) ? undefined : 1,
+                              paddingVertical: 14,
+                              paddingHorizontal: 20,
+                              borderRadius: 10,
+                              alignItems: 'center',
+                              backgroundColor: '#FFEBEE',
+                            }}
+                            onPress={() => handleDeleteActivity(selectedActivity)}
+                            disabled={deletingActivity}
+                          >
                           {deletingActivity ? (
                             <ActivityIndicator size="small" color="#C62828" />
                           ) : (
@@ -1292,6 +1785,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                             </Text>
                           )}
                         </TouchableOpacity>
+                        )}
                       </View>
                     )}
                   </View>
@@ -1300,6 +1794,83 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             })()}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Photo Viewing Modal */}
+      <Modal
+        visible={viewingPhotoIndex !== null && selectedActivity?.photos && selectedActivity.photos.length > 0}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewingPhotoIndex(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)' }}>
+          {/* Header */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            paddingTop: 50,
+            paddingBottom: 16,
+          }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+              Photo {(viewingPhotoIndex ?? 0) + 1} of {selectedActivity?.photos?.length ?? 0}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setViewingPhotoIndex(null)}
+              style={{ padding: 8 }}
+            >
+              <X size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Photo */}
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16 }}>
+            {selectedActivity?.photos && viewingPhotoIndex !== null && (
+              <Image
+                source={{ uri: selectedActivity.photos[viewingPhotoIndex] }}
+                style={{ width: '100%', height: '80%', borderRadius: 8 }}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+
+          {/* Navigation buttons (if multiple photos) */}
+          {selectedActivity?.photos && selectedActivity.photos.length > 1 && (
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'center',
+              alignItems: 'center',
+              paddingBottom: 40,
+              gap: 40,
+            }}>
+              <TouchableOpacity
+                onPress={() => setViewingPhotoIndex(Math.max(0, (viewingPhotoIndex ?? 0) - 1))}
+                disabled={viewingPhotoIndex === 0}
+                style={{
+                  opacity: viewingPhotoIndex === 0 ? 0.3 : 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 24,
+                  padding: 12,
+                }}
+              >
+                <ChevronLeft size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setViewingPhotoIndex(Math.min((selectedActivity?.photos?.length ?? 1) - 1, (viewingPhotoIndex ?? 0) + 1))}
+                disabled={viewingPhotoIndex === (selectedActivity?.photos?.length ?? 1) - 1}
+                style={{
+                  opacity: viewingPhotoIndex === (selectedActivity?.photos?.length ?? 1) - 1 ? 0.3 : 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 24,
+                  padding: 12,
+                }}
+              >
+                <ChevronRight size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </Modal>
     </View>
   );

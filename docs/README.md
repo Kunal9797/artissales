@@ -109,8 +109,9 @@ Setup guides, Firebase patterns, troubleshooting, and QA.
 ### 🚀 Implementation (8 files)
 Current implementation status, progress tracking, and completed features.
 
-- **[SESSION_CHANGES_NOV22.md](implementation/SESSION_CHANGES_NOV22.md)** - 🆕 **Nov 22** - Stats page redesign, pending sections, expense bug fixes
-- **[ACTIVITY_FEED_REFACTOR.md](implementation/ACTIVITY_FEED_REFACTOR.md)** - 🔄 **IN PROGRESS** - Activity Feed & DSR removal
+- **[SESSION_CHANGES_NOV24.md](implementation/SESSION_CHANGES_NOV24.md)** - 🆕 **Nov 24** - DSR removal, pending sorting fix, V1 cleanup
+- **[SESSION_CHANGES_NOV22.md](implementation/SESSION_CHANGES_NOV22.md)** - **Nov 22** - Stats page redesign, pending sections, expense bug fixes
+- **[ACTIVITY_FEED_REFACTOR.md](implementation/ACTIVITY_FEED_REFACTOR.md)** - ✅ **COMPLETE** - DSR removed, individual approval next
 - **[ATTENDANCE_REFACTOR_V1.md](implementation/ATTENDANCE_REFACTOR_V1.md)** - ✅ Attendance disabled for V1
 - **[MANAGER_DASHBOARD_COMPLETE.md](implementation/MANAGER_DASHBOARD_COMPLETE.md)** - ✅ Manager dashboard COMPLETE status
 - **[MANAGER_DASHBOARD_IMPLEMENTATION.md](implementation/MANAGER_DASHBOARD_IMPLEMENTATION.md)** - Manager dashboard plan

@@ -263,25 +263,36 @@ export const updateSheetsSale = onRequest(async (request, response) => {
 
     const {id, catalog, sheetsCount} = request.body;
 
-    // Validate required fields
-    if (!id || !catalog || !sheetsCount) {
+    // Only id is truly required - support partial updates
+    if (!id) {
       const error: ApiError = {
         ok: false,
-        error: "Missing required fields: id, catalog, sheetsCount",
+        error: "Missing required field: id",
         code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
       return;
     }
 
-    // Validate catalog
+    // At least one field to update must be provided
+    if (catalog === undefined && sheetsCount === undefined) {
+      const error: ApiError = {
+        ok: false,
+        error: "At least one field to update required: catalog or sheetsCount",
+        code: "VALIDATION_ERROR",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate catalog if provided
     const validCatalogs: CatalogType[] = [
       "Fine Decor",
       "Artvio",
       "Woodrica",
       "Artis 1MM",
     ];
-    if (!validCatalogs.includes(catalog)) {
+    if (catalog !== undefined && !validCatalogs.includes(catalog)) {
       const error: ApiError = {
         ok: false,
         error: "Invalid catalog",
@@ -291,8 +302,8 @@ export const updateSheetsSale = onRequest(async (request, response) => {
       return;
     }
 
-    // Validate sheets count
-    if (typeof sheetsCount !== "number" || sheetsCount <= 0) {
+    // Validate sheets count if provided
+    if (sheetsCount !== undefined && (typeof sheetsCount !== "number" || sheetsCount <= 0)) {
       const error: ApiError = {
         ok: false,
         error: "Sheets count must be a positive number",
@@ -375,12 +386,20 @@ export const updateSheetsSale = onRequest(async (request, response) => {
       }
     }
 
-    // Update the sheet sale
-    await saleRef.update({
-      catalog,
-      sheetsCount,
+    // Update the sheet sale - only include provided fields (partial update support)
+    const updateData: any = {
       updatedAt: firestore.Timestamp.now(),
-    });
+    };
+
+    if (catalog !== undefined) {
+      updateData.catalog = catalog;
+    }
+
+    if (sheetsCount !== undefined) {
+      updateData.sheetsCount = sheetsCount;
+    }
+
+    await saleRef.update(updateData);
 
     // Invalidate target cache for this user's month
     const month = saleDate.substring(0, 7); // YYYY-MM
@@ -389,8 +408,7 @@ export const updateSheetsSale = onRequest(async (request, response) => {
     logger.info("Sheet sale updated", {
       saleId: id,
       userId: auth.uid,
-      catalog,
-      sheetsCount,
+      fieldsUpdated: Object.keys(updateData).filter((k) => k !== "updatedAt"),
     });
 
     response.status(200).json({ok: true, saleId: id});

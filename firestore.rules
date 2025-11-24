@@ -187,28 +187,6 @@ service cloud.firestore {
     }
 
     // ========================================================================
-    // DSR REPORTS COLLECTION
-    // ========================================================================
-    match /dsrReports/{reportId} {
-      // Reps can read their own reports (check reportId format: {userId}_{date})
-      // Managers can read all reports
-      allow read: if isAuthenticated() && (
-        (resource == null || resource.data.userId == request.auth.uid) ||
-        isManager()
-      );
-
-      // Cloud functions create DSR reports (not mobile app)
-      // But allow creation if authenticated (function uses service account)
-      allow create: if isAuthenticated();
-
-      // Only managers can update DSR status (approve/reject)
-      allow update: if isManager();
-
-      // Only admins can delete reports
-      allow delete: if isAdmin();
-    }
-
-    // ========================================================================
     // SHEETS SALES COLLECTION
     // ========================================================================
     match /sheetsSales/{saleId} {

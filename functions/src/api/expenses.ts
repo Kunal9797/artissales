@@ -370,6 +370,9 @@ export const getExpense = onRequest({cors: true}, async (request, response) => {
 
 /**
  * Update Expense - Update an existing expense
+ * Supports two modes:
+ * 1. Full update: Provide items[] array (for full form edits)
+ * 2. Partial update: Provide amount and/or category directly (for inline edits on single-item expenses)
  */
 export const updateExpense = onRequest({cors: true}, async (request, response) => {
   try {
@@ -380,87 +383,34 @@ export const updateExpense = onRequest({cors: true}, async (request, response) =
       return;
     }
 
-    const {id, date, items, receiptPhotos} = request.body;
+    const {id, date, items, receiptPhotos, amount, category, description} = request.body;
 
-    if (!id || !date || !items) {
+    // Only id is truly required
+    if (!id) {
       const error: ApiError = {
         ok: false,
-        error: "Missing required fields: id, date, items",
+        error: "Missing required field: id",
         code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
       return;
     }
 
-    // Validate date format
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(date)) {
+    // Determine update mode: full (items array) or partial (direct fields)
+    const isPartialUpdate = !items && (amount !== undefined || category !== undefined || description !== undefined);
+    const isFullUpdate = items !== undefined;
+
+    if (!isPartialUpdate && !isFullUpdate) {
       const error: ApiError = {
         ok: false,
-        error: "Invalid date format. Expected YYYY-MM-DD",
-        code: "INVALID_DATE_FORMAT",
+        error: "Must provide either items[] array or at least one of: amount, category, description",
+        code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
       return;
     }
 
-    // Check if trying to edit/add data for a past date after 11:59 PM
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-    const nowIST = new Date(now.getTime() + istOffset);
-    const currentHour = nowIST.getUTCHours();
-    const currentMinute = nowIST.getUTCMinutes();
-    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
-
-    // If it's after 11:59 PM AND trying to edit for today or earlier
-    if (currentHour === 23 && currentMinute >= 59) {
-      if (date <= todayIST) {
-        const error: ApiError = {
-          ok: false,
-          error: "Cannot add/edit expenses for today after 11:59 PM. Day's reporting closed.",
-          code: "REPORTING_CLOSED",
-          details: {
-            currentTime: nowIST.toISOString(),
-            attemptedDate: date,
-          },
-        };
-        response.status(400).json(error);
-        return;
-      }
-    }
-
-    // If it's past midnight (00:00-05:59) trying to edit for yesterday or earlier
-    if (currentHour >= 0 && currentHour < 6) {
-      const yesterday = new Date(nowIST);
-      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-      const yesterdayIST = yesterday.toISOString().split("T")[0];
-
-      if (date <= yesterdayIST) {
-        const error: ApiError = {
-          ok: false,
-          error: "Cannot add/edit expenses for past dates. Grace period until 6 AM only for previous day.",
-          code: "REPORTING_CLOSED",
-          details: {
-            currentTime: nowIST.toISOString(),
-            attemptedDate: date,
-          },
-        };
-        response.status(400).json(error);
-        return;
-      }
-    }
-
-    // Validate items array
-    if (!Array.isArray(items) || items.length === 0) {
-      const error: ApiError = {
-        ok: false,
-        error: "At least one expense item is required",
-        code: "NO_ITEMS",
-      };
-      response.status(400).json(error);
-      return;
-    }
-
+    // Fetch expense first (needed for both modes)
     const expenseRef = db.collection("expenses").doc(id);
     const expenseDoc = await expenseRef.get();
 
@@ -486,19 +436,151 @@ export const updateExpense = onRequest({cors: true}, async (request, response) =
       return;
     }
 
-    // Calculate total amount
-    const totalAmount = items.reduce((sum: number, item: ExpenseItemRequest) => sum + item.amount, 0);
+    // Get the date to use for time validation (existing date for partial updates)
+    const dateToValidate = date || expenseData?.date;
 
-    // Update the expense
-    const updateData: any = {
-      date,
-      items,
-      totalAmount,
-      updatedAt: firestore.Timestamp.now(),
-    };
+    // Check if trying to edit data for a past date after 11:59 PM
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const nowIST = new Date(now.getTime() + istOffset);
+    const currentHour = nowIST.getUTCHours();
+    const currentMinute = nowIST.getUTCMinutes();
+    const todayIST = nowIST.toISOString().split("T")[0]; // YYYY-MM-DD
 
-    if (receiptPhotos !== undefined) {
-      updateData.receiptPhotos = receiptPhotos;
+    if (dateToValidate) {
+      // If it's after 11:59 PM AND trying to edit for today or earlier
+      if (currentHour === 23 && currentMinute >= 59) {
+        if (dateToValidate <= todayIST) {
+          const error: ApiError = {
+            ok: false,
+            error: "Cannot add/edit expenses for today after 11:59 PM. Day's reporting closed.",
+            code: "REPORTING_CLOSED",
+            details: {
+              currentTime: nowIST.toISOString(),
+              attemptedDate: dateToValidate,
+            },
+          };
+          response.status(400).json(error);
+          return;
+        }
+      }
+
+      // If it's past midnight (00:00-05:59) trying to edit for yesterday or earlier
+      if (currentHour >= 0 && currentHour < 6) {
+        const yesterday = new Date(nowIST);
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        const yesterdayIST = yesterday.toISOString().split("T")[0];
+
+        if (dateToValidate <= yesterdayIST) {
+          const error: ApiError = {
+            ok: false,
+            error: "Cannot add/edit expenses for past dates. Grace period until 6 AM only for previous day.",
+            code: "REPORTING_CLOSED",
+            details: {
+              currentTime: nowIST.toISOString(),
+              attemptedDate: dateToValidate,
+            },
+          };
+          response.status(400).json(error);
+          return;
+        }
+      }
+    }
+
+    let updateData: any;
+    let newTotalAmount: number;
+
+    if (isPartialUpdate) {
+      // PARTIAL UPDATE MODE: Update first item's amount/category directly
+      const existingItems = expenseData?.items || [];
+
+      if (existingItems.length === 0) {
+        const error: ApiError = {
+          ok: false,
+          error: "Cannot perform partial update on expense with no items",
+          code: "NO_ITEMS",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      // Update the first item
+      const updatedFirstItem = {...existingItems[0]};
+      if (amount !== undefined) {
+        if (typeof amount !== "number" || amount <= 0) {
+          const error: ApiError = {
+            ok: false,
+            error: "Amount must be a positive number",
+            code: "INVALID_AMOUNT",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        updatedFirstItem.amount = amount;
+      }
+      if (category !== undefined) {
+        const validCategories = ["travel", "food", "accommodation", "other"];
+        if (!validCategories.includes(category)) {
+          const error: ApiError = {
+            ok: false,
+            error: "Invalid category",
+            code: "INVALID_CATEGORY",
+            details: {valid: validCategories},
+          };
+          response.status(400).json(error);
+          return;
+        }
+        updatedFirstItem.category = category;
+      }
+      if (description !== undefined) {
+        updatedFirstItem.description = description;
+      }
+
+      const updatedItems = [updatedFirstItem, ...existingItems.slice(1)];
+      newTotalAmount = updatedItems.reduce((sum: number, item: any) => sum + item.amount, 0);
+
+      updateData = {
+        items: updatedItems,
+        totalAmount: newTotalAmount,
+        updatedAt: firestore.Timestamp.now(),
+      };
+    } else {
+      // FULL UPDATE MODE: Replace items array
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(date)) {
+        const error: ApiError = {
+          ok: false,
+          error: "Invalid date format. Expected YYYY-MM-DD",
+          code: "INVALID_DATE_FORMAT",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      // Validate items array
+      if (!Array.isArray(items) || items.length === 0) {
+        const error: ApiError = {
+          ok: false,
+          error: "At least one expense item is required",
+          code: "NO_ITEMS",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      newTotalAmount = items.reduce((sum: number, item: ExpenseItemRequest) => sum + item.amount, 0);
+
+      updateData = {
+        date,
+        items,
+        totalAmount: newTotalAmount,
+        updatedAt: firestore.Timestamp.now(),
+      };
+
+      if (receiptPhotos !== undefined) {
+        updateData.receiptPhotos = receiptPhotos;
+      }
     }
 
     await expenseRef.update(updateData);
@@ -506,11 +588,11 @@ export const updateExpense = onRequest({cors: true}, async (request, response) =
     logger.info("Expense updated", {
       expenseId: id,
       userId: auth.uid,
-      totalAmount,
-      itemCount: items.length,
+      totalAmount: newTotalAmount,
+      updateMode: isPartialUpdate ? "partial" : "full",
     });
 
-    response.status(200).json({ok: true, expenseId: id, totalAmount});
+    response.status(200).json({ok: true, expenseId: id, totalAmount: newTotalAmount});
   } catch (error: any) {
     logger.error("Error updating expense", {error: error.message});
     const apiError: ApiError = {
