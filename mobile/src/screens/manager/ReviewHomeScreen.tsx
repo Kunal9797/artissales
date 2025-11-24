@@ -224,14 +224,14 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
             width: 40,
             height: 40,
             borderRadius: 8,
-            backgroundColor: isSheets ? '#F3E5F5' : '#FFF3E0',
+            backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
             alignItems: 'center',
             justifyContent: 'center',
           }}>
             {isSheets ? (
-              <FileBarChart size={20} color="#7B1FA2" />
+              <FileBarChart size={20} color="#EF6C00" />
             ) : (
-              <IndianRupee size={20} color="#E65100" />
+              <IndianRupee size={20} color="#6A1B9A" />
             )}
           </View>
 
@@ -409,13 +409,13 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
           </Text>
         </TouchableOpacity>
 
-        {/* Sheets */}
+        {/* Sheets - Orange */}
         <TouchableOpacity
           style={{
             paddingHorizontal: 16,
             paddingVertical: 8,
             borderRadius: 20,
-            backgroundColor: typeFilter === 'sheets' ? '#7B1FA2' : '#F0F0F0',
+            backgroundColor: typeFilter === 'sheets' ? '#EF6C00' : '#F0F0F0',
           }}
           onPress={() => setTypeFilter('sheets')}
         >
@@ -428,13 +428,13 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
           </Text>
         </TouchableOpacity>
 
-        {/* Expenses */}
+        {/* Expenses - Purple */}
         <TouchableOpacity
           style={{
             paddingHorizontal: 16,
             paddingVertical: 8,
             borderRadius: 20,
-            backgroundColor: typeFilter === 'expense' ? '#E65100' : '#F0F0F0',
+            backgroundColor: typeFilter === 'expense' ? '#6A1B9A' : '#F0F0F0',
           }}
           onPress={() => setTypeFilter('expense')}
         >
