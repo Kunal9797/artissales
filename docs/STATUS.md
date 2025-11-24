@@ -1,8 +1,8 @@
 # Artis Sales App - Current Status
 
-**Last Updated**: October 28, 2025
+**Last Updated**: November 20, 2025
 **Version**: v1.0.2 (Live on Play Store - Internal Testing)
-**Overall Progress**: 100% Complete
+**Overall Progress**: 100% Complete (Attendance disabled via feature flag for V1)
 
 ---
 
@@ -125,11 +125,15 @@
 - ✅ HomeScreen_v2 with timeline and activity cards
 - ✅ ProfileScreen with settings
 
-#### 📍 Attendance System
-- ✅ GPS check-in/check-out with location accuracy
-- ✅ Attendance tracking in Firestore
-- ✅ **NEW**: Modal popup for check-in/out (Oct 17) - removed separate screen
-- ✅ Real-time location capture with expo-location
+#### 📍 Attendance System ⏸️ **DISABLED FOR V1**
+> **Note**: Attendance tracking disabled via feature flag for V1 launch (Nov 2025).
+> See [ADR 005](decisions/005_ATTENDANCE_DISABLED_FOR_V1.md) for rationale.
+
+- ⏸️ GPS check-in/check-out with location accuracy (code preserved, disabled)
+- ⏸️ Attendance tracking in Firestore (collection exists but unused)
+- ⏸️ Modal popup for check-in/out (hidden in UI)
+- ⏸️ Real-time location capture with expo-location (not triggered)
+- ✅ Can be re-enabled in ~1 hour by changing feature flag
 
 #### 🏢 Visit Logging
 - ✅ SelectAccountScreen with account search
@@ -239,7 +243,7 @@
 - ✅ `visits` collection with photos
 - ✅ `sheetsSales` collection
 - ✅ `expenses` collection with approval workflow
-- ✅ `attendance` collection with GPS
+- ⏸️ `attendance` collection with GPS (DISABLED - no new writes in V1)
 - ✅ `dsrReports` collection
 - ✅ `targets` collection
 - ✅ `events` collection (outbox pattern)
@@ -416,6 +420,12 @@
 
 ---
 
+## ⏸️ DEFERRED TO V1.1/V2
+
+- ⏸️ **Attendance Tracking**: GPS check-in/check-out (disabled via feature flag, see [ADR 005](decisions/005_ATTENDANCE_DISABLED_FOR_V1.md))
+- ⏸️ **Lead Routing**: Webhook, SLA escalation, mobile screens
+- ⏸️ **CSV/PDF Export**: Data export for external systems
+
 ## ❌ NOT IN SCOPE (V1)
 
 - ❌ Payroll/salary calculation
@@ -451,7 +461,7 @@
 2. ✅ StatsScreen - Performance with compact header (Oct 17)
 3. ✅ DocumentsScreen - Document library with dark header (Oct 17)
 4. ✅ ProfileScreen - With Artis logo (48px) and logout button
-5. ❌ AttendanceScreen - **REMOVED** (Oct 17) - Now modal in HomeScreen
+5. ⏸️ AttendanceScreen - **REMOVED** (Oct 17), Modal **DISABLED** (Nov 2025) via feature flag
 6. ✅ CompactSheetsEntryScreen - Sheet sales logging
 7. ✅ SelectAccountScreen - Account selection
 8. ✅ LogVisitScreen - Visit logging with photos

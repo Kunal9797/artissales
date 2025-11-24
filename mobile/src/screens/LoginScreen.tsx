@@ -173,11 +173,11 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: spacing['2xl'] + spacing['2xl'] + spacing.xl,
+    marginBottom: spacing['2xl'],
   },
   logo: {
-    width: 320,
-    height: 140,
+    width: 180,
+    height: 180,
   },
   formSection: {
     width: '100%',
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   title: {
     ...typography.styles.h1,
     color: colors.text.inverse,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     textAlign: 'center',
     fontWeight: '600',
     fontSize: 28,
@@ -195,14 +195,14 @@ const styles = StyleSheet.create({
     ...typography.styles.body,
     color: colors.text.inverse,
     opacity: 0.8,
-    marginBottom: spacing['2xl'] + spacing['2xl'],
+    marginBottom: spacing.xl,
     textAlign: 'center',
     fontSize: 15,
     fontWeight: '400',
   },
   inputContainer: {
-    marginBottom: spacing.xl,
-    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    marginTop: spacing.xl,
   },
   label: {
     ...typography.styles.label,

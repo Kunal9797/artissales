@@ -1,21 +1,37 @@
 /**
  * DetailedStatsView - Reusable component for detailed user statistics
- * Shows attendance, visits, sales, and expenses breakdown with tab navigation
+ * Shows visits, sales (sheets), and expenses breakdown with tab navigation
+ * Includes pending logs inline and top visited accounts
  * Used in both sales rep's StatsScreen and manager's UserDetailScreen
  */
 
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { Calendar as CalendarComponent } from 'react-native-calendars';
-import { Calendar as CalendarIcon } from 'lucide-react-native';
-import { colors, spacing } from '../theme';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MapPin, FileText, IndianRupee, Building2, Clock } from 'lucide-react-native';
+import { colors, spacing, featureColors } from '../theme';
 import { getCatalogDisplayName } from '../types';
+import { KpiCard } from '../patterns';
 
-type TabType = 'attendance' | 'visits' | 'sales' | 'expenses';
+// Helper to format relative time
+const formatRelativeTime = (timestamp: any): string => {
+  if (!timestamp) return '';
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : (timestamp.toDate?.() || new Date(timestamp));
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  return `${diffDays}d`;
+};
+
+type TabType = 'visits' | 'sales' | 'expenses';
 
 interface DetailedStatsProps {
   stats: {
-    attendance: {
+    attendance?: {
       total: number;
       records: any[];
     };
@@ -27,6 +43,7 @@ interface DetailedStatsProps {
         architect: number;
         contractor: number;
       };
+      records?: any[]; // For top visited accounts
     };
     sheets: {
       total: number;
@@ -36,6 +53,7 @@ interface DetailedStatsProps {
         'Woodrica': number;
         'Artis 1MM': number;
       };
+      pendingRecords?: any[]; // Pending sheets from API
     };
     expenses: {
       total: number;
@@ -45,16 +63,9 @@ interface DetailedStatsProps {
         accommodation: number;
         other: number;
       };
+      pendingRecords?: any[]; // Pending expenses from API
     };
   };
-  attendanceDays: {
-    present: number;
-    absent: number;
-    total: number;
-  };
-  attendancePercentage: number;
-  attendanceMarkedDates?: any; // Dates to mark on calendar
-  selectedMonth?: Date; // For calendar header
   targets?: {
     visitsByType?: {
       distributor?: number;
@@ -69,19 +80,54 @@ interface DetailedStatsProps {
       'Artis'?: number;
     };
   };
-  userId?: string; // To fetch targets if needed
+  userId?: string;
 }
 
 export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
   stats,
-  attendanceDays,
-  attendancePercentage,
-  attendanceMarkedDates = {},
-  selectedMonth = new Date(),
   targets = {},
 }) => {
-  const [activeTab, setActiveTab] = useState<TabType>('attendance');
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>('visits');
+
+  // Calculate top visited accounts (group by accountName since API doesn't return accountId)
+  const topVisitedAccounts = useMemo(() => {
+    if (!stats.visits?.records || stats.visits.records.length === 0) return [];
+
+    // Group by accountName and count
+    const accountCounts: Record<string, { name: string; count: number; type: string }> = {};
+    stats.visits.records.forEach((visit: any) => {
+      const name = visit.accountName;
+      if (!name) return;
+      if (!accountCounts[name]) {
+        accountCounts[name] = {
+          name: name,
+          count: 0,
+          type: visit.accountType || 'dealer',
+        };
+      }
+      accountCounts[name].count++;
+    });
+
+    // Sort by count and take top 5
+    return Object.entries(accountCounts)
+      .map(([name, data]) => ({ id: name, ...data }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [stats.visits?.records]);
+
+  // Calculate pending sheets total and records
+  const pendingSheets = useMemo(() => {
+    const records = stats.sheets?.pendingRecords || [];
+    const total = records.reduce((sum: number, r: any) => sum + (r.sheetsCount || 0), 0);
+    return { records: records.slice(0, 5), total, count: records.length };
+  }, [stats.sheets?.pendingRecords]);
+
+  // Calculate pending expenses total and records
+  const pendingExpenses = useMemo(() => {
+    const records = stats.expenses?.pendingRecords || [];
+    const total = records.reduce((sum: number, r: any) => sum + (r.amount || 0), 0);
+    return { records: records.slice(0, 5), total, count: records.length };
+  }, [stats.expenses?.pendingRecords]);
 
   const renderProgressBarWithTarget = (current: number, target: number | undefined, color: string) => {
     if (!target || target === 0) {
@@ -156,150 +202,66 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Tab Carousel - Summary Metrics */}
-      <View style={styles.summaryBar}>
+      {/* KPI Cards - Matches HomeScreen style exactly */}
+      <View style={styles.kpiRow}>
         <TouchableOpacity
-          style={[
-            styles.summaryMetric,
-            activeTab === 'attendance' && styles.summaryMetricActive,
-            activeTab === 'attendance' && { backgroundColor: colors.accent },
-          ]}
-          onPress={() => setActiveTab('attendance')}
-        >
-          <Text style={[
-            styles.summaryValue,
-            { color: activeTab === 'attendance' ? '#fff' : colors.accent }
-          ]}>
-            {attendancePercentage}%
-          </Text>
-          <Text
-            style={[
-              styles.summaryLabel,
-              activeTab === 'attendance' && { color: '#fff', opacity: 0.9 }
-            ]}
-            numberOfLines={1}
-          >
-            Attendance
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.summaryMetric,
-            activeTab === 'visits' && styles.summaryMetricActive,
-            activeTab === 'visits' && { backgroundColor: colors.info },
-          ]}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('visits')}
+          style={{
+            flex: 1,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: activeTab === 'visits' ? featureColors.visits.primary : 'transparent',
+          }}
         >
-          <Text style={[
-            styles.summaryValue,
-            { color: activeTab === 'visits' ? '#fff' : colors.info }
-          ]}>
-            {stats.visits.total}
-          </Text>
-          <Text
-            style={[
-              styles.summaryLabel,
-              activeTab === 'visits' && { color: '#fff', opacity: 0.9 }
-            ]}
-            numberOfLines={1}
-          >
-            Visits
-          </Text>
+          <KpiCard
+            title="Visits"
+            value={stats.visits.total.toString()}
+            icon={<MapPin size={20} color={featureColors.visits.primary} />}
+          />
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[
-            styles.summaryMetric,
-            activeTab === 'sales' && styles.summaryMetricActive,
-            activeTab === 'sales' && { backgroundColor: colors.success },
-          ]}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('sales')}
+          style={{
+            flex: 1,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: activeTab === 'sales' ? featureColors.sheets.primary : 'transparent',
+          }}
         >
-          <Text style={[
-            styles.summaryValue,
-            { color: activeTab === 'sales' ? '#fff' : colors.success },
-            { fontSize: stats.sheets.total > 9999 ? 16 : 18 }
-          ]}>
-            {stats.sheets.total.toLocaleString('en-IN')}
-          </Text>
-          <Text
-            style={[
-              styles.summaryLabel,
-              activeTab === 'sales' && { color: '#fff', opacity: 0.9 }
-            ]}
-            numberOfLines={1}
-          >
-            Sheets
-          </Text>
+          <KpiCard
+            title="Sheets"
+            value={stats.sheets.total.toLocaleString('en-IN')}
+            icon={<FileText size={20} color={featureColors.sheets.primary} />}
+          />
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={[
-            styles.summaryMetric,
-            activeTab === 'expenses' && styles.summaryMetricActive,
-            activeTab === 'expenses' && { backgroundColor: colors.warning },
-          ]}
+          activeOpacity={0.7}
           onPress={() => setActiveTab('expenses')}
+          style={{
+            flex: 1,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: activeTab === 'expenses' ? featureColors.expenses.primary : 'transparent',
+          }}
         >
-          <Text style={[
-            styles.summaryValue,
-            { color: activeTab === 'expenses' ? '#fff' : colors.warning }
-          ]}>
-            {stats.expenses.total === 0
-              ? '₹0'
-              : stats.expenses.total >= 1000
-                ? `₹${(stats.expenses.total / 1000).toFixed(1)}k`
-                : `₹${stats.expenses.total}`
+          <KpiCard
+            title="Expenses"
+            value={
+              stats.expenses.total === 0
+                ? '0'
+                : stats.expenses.total >= 1000
+                  ? `${(stats.expenses.total / 1000).toFixed(1)}k`
+                  : stats.expenses.total.toString()
             }
-          </Text>
-          <Text
-            style={[
-              styles.summaryLabel,
-              activeTab === 'expenses' && { color: '#fff', opacity: 0.9 }
-            ]}
-            numberOfLines={1}
-          >
-            Expenses
-          </Text>
+            icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
+          />
         </TouchableOpacity>
       </View>
 
       {/* Tab Content */}
       <View style={styles.tabContent}>
-        {/* Attendance Tab */}
-        {activeTab === 'attendance' && (
-          <View>
-            <Text style={styles.tabContentTitle}>ATTENDANCE BREAKDOWN</Text>
-            <View style={styles.progressSection}>
-              <View style={styles.progressBarBackground}>
-                <View
-                  style={[
-                    styles.progressBarFill,
-                    {
-                      width: `${attendancePercentage}%`,
-                      backgroundColor: colors.accent,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressPercentage}>{attendancePercentage}%</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Present:</Text>
-              <Text style={styles.detailValue}>{attendanceDays.present} days</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Absent:</Text>
-              <Text style={styles.detailValue}>{attendanceDays.absent} days</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>On Leave:</Text>
-              <Text style={styles.detailValue}>0 days</Text>
-            </View>
-          </View>
-        )}
-
         {/* Visits Tab */}
         {activeTab === 'visits' && (
           <View>
@@ -392,6 +354,26 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 )}
               </View>
             </View>
+
+            {/* Top Visited Accounts */}
+            {topVisitedAccounts.length > 0 && (
+              <View style={styles.pendingSection}>
+                <Text style={styles.pendingSectionTitle}>TOP VISITED ACCOUNTS</Text>
+                {topVisitedAccounts.map((account, index) => (
+                  <View key={account.id} style={styles.activityCard}>
+                    <Building2 size={20} color={colors.info} />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityValue} numberOfLines={1}>
+                        {account.name}
+                      </Text>
+                      <Text style={styles.activityMeta}>
+                        {account.type} • {account.count} {account.count === 1 ? 'visit' : 'visits'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -430,6 +412,38 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 );
               })}
             </View>
+
+            {/* Pending Sheets Section */}
+            {pendingSheets.count > 0 && (
+              <View style={styles.pendingSection}>
+                <View style={styles.pendingHeader}>
+                  <Text style={styles.pendingSectionTitle}>
+                    PENDING VERIFICATION
+                  </Text>
+                  <Text style={styles.pendingTotal}>
+                    {pendingSheets.total.toLocaleString('en-IN')} sheets
+                  </Text>
+                </View>
+                {pendingSheets.records.map((sheet: any, index: number) => (
+                  <View key={sheet.id || index} style={styles.activityCard}>
+                    <FileText size={20} color={featureColors.sheets.primary} />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityValue}>
+                        {(sheet.sheetsCount || 0).toLocaleString('en-IN')} • {getCatalogDisplayName(sheet.catalog || 'Unknown')}
+                      </Text>
+                      <Text style={styles.activityMeta}>
+                        {sheet.date || 'No date'} • {formatRelativeTime(sheet.createdAt)}
+                      </Text>
+                    </View>
+                    <Clock size={16} color="#F9A825" />
+                  </View>
+                ))}
+                {pendingSheets.count > 5 && (
+                  <Text style={styles.moreText}>+{pendingSheets.count - 5} more pending</Text>
+                )}
+              </View>
+            )}
+
           </View>
         )}
 
@@ -478,89 +492,41 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 );
               })}
             </View>
+
+            {/* Pending Expenses Section */}
+            {pendingExpenses.count > 0 && (
+              <View style={styles.pendingSection}>
+                <View style={styles.pendingHeader}>
+                  <Text style={styles.pendingSectionTitle}>
+                    PENDING APPROVAL
+                  </Text>
+                  <Text style={styles.pendingTotal}>
+                    ₹{pendingExpenses.total.toLocaleString('en-IN')}
+                  </Text>
+                </View>
+                {pendingExpenses.records.map((expense: any, index: number) => (
+                  <View key={expense.id || index} style={styles.activityCard}>
+                    <IndianRupee size={20} color={featureColors.expenses.primary} />
+                    <View style={styles.activityContent}>
+                      <Text style={styles.activityValue}>
+                        ₹{(expense.amount || 0).toLocaleString('en-IN')} • {expense.category || 'Other'}
+                      </Text>
+                      <Text style={styles.activityMeta}>
+                        {expense.date || 'No date'} • {formatRelativeTime(expense.createdAt)}
+                      </Text>
+                    </View>
+                    <Clock size={16} color="#F9A825" />
+                  </View>
+                ))}
+                {pendingExpenses.count > 5 && (
+                  <Text style={styles.moreText}>+{pendingExpenses.count - 5} more pending</Text>
+                )}
+              </View>
+            )}
+
           </View>
         )}
       </View>
-
-      {/* Permanent Calendar Section - Only show for Attendance tab */}
-      {activeTab === 'attendance' && (
-        <View style={styles.calendarSection}>
-          <Text style={styles.calendarSectionTitle}>
-            {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </Text>
-          <Text style={styles.calendarSubtitle}>
-            {attendanceDays.present} days present
-          </Text>
-          <CalendarComponent
-            current={selectedMonth.toISOString().substring(0, 10)}
-            markedDates={attendanceMarkedDates}
-            theme={{
-              backgroundColor: '#ffffff',
-              calendarBackground: '#ffffff',
-              textSectionTitleColor: '#393735',
-              selectedDayBackgroundColor: '#C9A961',
-              selectedDayTextColor: '#ffffff',
-              todayTextColor: '#C9A961',
-              dayTextColor: '#1A1A1A',
-              textDisabledColor: '#E0E0E0',
-              dotColor: '#2E7D32',
-              selectedDotColor: '#ffffff',
-              monthTextColor: '#393735',
-              textMonthFontWeight: '700',
-            }}
-            enableSwipeMonths={false}
-            hideArrows={true}
-          />
-        </View>
-      )}
-
-      {/* Attendance Calendar Modal */}
-      <Modal visible={showCalendar} transparent animationType="slide" onRequestClose={() => setShowCalendar(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                Attendance - {selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </Text>
-              <TouchableOpacity onPress={() => setShowCalendar(false)}>
-                <Text style={styles.modalClose}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSubtitle}>
-              {attendanceDays.present} days present • Green = present
-            </Text>
-
-            <CalendarComponent
-              current={selectedMonth.toISOString().substring(0, 10)}
-              markedDates={attendanceMarkedDates}
-              theme={{
-                backgroundColor: '#ffffff',
-                calendarBackground: '#ffffff',
-                textSectionTitleColor: '#393735',
-                selectedDayBackgroundColor: '#C9A961',
-                selectedDayTextColor: '#ffffff',
-                todayTextColor: '#C9A961',
-                dayTextColor: '#1A1A1A',
-                textDisabledColor: '#E0E0E0',
-                dotColor: '#2E7D32',
-                selectedDotColor: '#ffffff',
-                monthTextColor: '#393735',
-                textMonthFontWeight: '700',
-              }}
-              enableSwipeMonths={false}
-              hideArrows={true}
-            />
-
-            <TouchableOpacity
-              onPress={() => setShowCalendar(false)}
-              style={styles.modalCloseButton}
-            >
-              <Text style={styles.modalCloseButtonText}>Close</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -569,49 +535,11 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.md,
   },
-  // Tab Carousel
-  summaryBar: {
+  // KPI Row - Matches HomeScreen exactly
+  kpiRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  summaryMetric: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#E8E8E8',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  summaryMetricActive: {
-    borderWidth: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    transform: [{ scale: 1.02 }],
-  },
-  summaryValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.text.secondary,
-    textAlign: 'center',
-    letterSpacing: 0.2,
-    numberOfLines: 1,
+    gap: 8,
+    marginBottom: 16,
   },
   // Tab Content
   tabContent: {
@@ -652,33 +580,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
-  },
-  calendarButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 8,
-  },
-  calendarButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.accent,
-  },
-  progressSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  progressPercentage: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.accent,
-    minWidth: 50,
-    textAlign: 'right',
   },
   detailRow: {
     flexDirection: 'row',
@@ -848,71 +749,57 @@ const styles = StyleSheet.create({
   achievementTextWarning: {
     color: colors.warning,
   },
-  // Permanent Calendar Section
-  calendarSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginTop: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+  // Pending/Activity Sections
+  pendingSection: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
-  calendarSectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
-  calendarSubtitle: {
-    fontSize: 13,
-    color: colors.text.secondary,
-    marginBottom: 16,
-  },
-  // Calendar Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 20,
-  },
-  modalHeader: {
+  pendingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  modalTitle: {
+  pendingSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text.secondary,
+    letterSpacing: 0.5,
+  },
+  pendingTotal: {
     fontSize: 20,
     fontWeight: '700',
+    color: '#F9A825',
+  },
+  moreText: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityValue: {
+    fontSize: 15,
+    fontWeight: '600',
     color: colors.text.primary,
   },
-  modalClose: {
-    fontSize: 28,
-    color: '#666',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  modalCloseButton: {
-    backgroundColor: '#393735',
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  modalCloseButtonText: {
-    color: '#FFF',
-    textAlign: 'center',
-    fontSize: 16,
-    fontWeight: '600',
+  activityMeta: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginTop: 2,
   },
 });

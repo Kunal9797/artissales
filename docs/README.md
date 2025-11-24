@@ -1,6 +1,6 @@
 # Artis Field Sales App - Documentation
 
-**Last Updated**: November 1, 2025 (added VERSION_UPDATE_GUIDE.md)
+**Last Updated**: November 22, 2025 (added ACTIVITY_FEED_REFACTOR.md)
 
 This directory contains all project documentation organized by category. All mobile app docs have been unified here for easy access.
 
@@ -39,6 +39,8 @@ docs/
 │   └── QA_SUMMARY.md                # DS v0.1 QA findings
 │
 ├── implementation/                   # Implementation status & plans
+│   ├── ACTIVITY_FEED_REFACTOR.md     # 🔄 Activity Feed & DSR removal (IN PROGRESS)
+│   ├── ATTENDANCE_REFACTOR_V1.md     # Attendance disabled for V1
 │   ├── MANAGER_DASHBOARD_IMPLEMENTATION.md
 │   ├── ACCOUNT_MANAGEMENT_IMPLEMENTATION_STATUS.md
 │   ├── ACCOUNT_MANAGEMENT_FINAL_STATUS.md
@@ -104,9 +106,12 @@ Setup guides, Firebase patterns, troubleshooting, and QA.
 - **[NEXT_STEPS.md](development/NEXT_STEPS.md)** - Firebase setup and first-time dev guide
 - **[QA_SUMMARY.md](development/QA_SUMMARY.md)** - DS v0.1 QA findings and fixes
 
-### 🚀 Implementation (6 files)
+### 🚀 Implementation (8 files)
 Current implementation status, progress tracking, and completed features.
 
+- **[SESSION_CHANGES_NOV22.md](implementation/SESSION_CHANGES_NOV22.md)** - 🆕 **Nov 22** - Stats page redesign, pending sections, expense bug fixes
+- **[ACTIVITY_FEED_REFACTOR.md](implementation/ACTIVITY_FEED_REFACTOR.md)** - 🔄 **IN PROGRESS** - Activity Feed & DSR removal
+- **[ATTENDANCE_REFACTOR_V1.md](implementation/ATTENDANCE_REFACTOR_V1.md)** - ✅ Attendance disabled for V1
 - **[MANAGER_DASHBOARD_COMPLETE.md](implementation/MANAGER_DASHBOARD_COMPLETE.md)** - ✅ Manager dashboard COMPLETE status
 - **[MANAGER_DASHBOARD_IMPLEMENTATION.md](implementation/MANAGER_DASHBOARD_IMPLEMENTATION.md)** - Manager dashboard plan
 - **[SALES_REP_COMPLETE.md](implementation/SALES_REP_COMPLETE.md)** - Sales rep features status

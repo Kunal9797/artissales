@@ -44,6 +44,7 @@ import {
   Edit2,
   Moon,
   Sunrise,
+  Lock,
 } from 'lucide-react-native';
 
 // FEATURE FLAG: Set to false to disable attendance tracking
@@ -124,13 +125,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     type: 'visit' | 'sheets' | 'expense' | 'attendance';
     time: Date;
     description: string;
+    value?: string;  // Main number/value to highlight (e.g., "10 sheets", "₹500")
+    detail?: string; // Secondary info (e.g., "Fine Decor", "Travel")
+    notes?: string;  // Notes/description for display in action sheet
+    purpose?: string; // Visit purpose
+    status?: 'pending' | 'verified' | 'rejected'; // For sheets/expenses
   }>>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [needsRevisionCount, setNeedsRevisionCount] = useState(0);
+
+  // Pagination state for activity feed
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Activity filter state
+  const [activityFilter, setActivityFilter] = useState<'all' | 'visit' | 'sheets' | 'expense'>('all');
+
+  // Activity action sheet state
+  const [selectedActivity, setSelectedActivity] = useState<typeof todayActivities[0] | null>(null);
+  const [deletingActivity, setDeletingActivity] = useState(false);
+
+  // Updated toast state
+  const [showUpdatedToast, setShowUpdatedToast] = useState(false);
+  const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('');
 
   // Fetch attendance data
   const fetchAttendance = useCallback(async () => {
-    if (!user?.uid) return;
+    if (!user?.uid || !ATTENDANCE_FEATURE_ENABLED) return;
 
     try {
       const firestore = getFirestore();
@@ -196,79 +216,109 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid]);
 
-  // Fetch today's stats and activities
-  const fetchTodayStats = useCallback(async () => {
+  // Refs for pagination (to avoid dependency issues)
+  const lastVisibleVisitRef = React.useRef<any>(null);
+  const lastVisibleSheetRef = React.useRef<any>(null);
+  const lastVisibleExpenseRef = React.useRef<any>(null);
+
+  // Fetch activity feed (last 30 items, paginated)
+  const fetchActivities = useCallback(async (loadMore: boolean = false) => {
     if (!user?.uid) return;
 
     try {
-      const todayString = new Date().toISOString().substring(0, 10);
-
-      // Check cache first
-      const cachedData = getCachedStats(user.uid, todayString);
-      if (cachedData) {
-        logger.log('[HomeScreen] Using cached stats');
-        setTodayStats(cachedData.stats);
-        setTodayActivities(cachedData.activities);
-        return;
-      }
-
       const firestore = getFirestore();
+      const { query, collection, where, getDocs, orderBy, limit, startAfter } = await import('@react-native-firebase/firestore');
 
-      // Get start of today (00:00:00)
+      // Fetch visits - ordered by timestamp, limit 30
+      let visitsQuery = query(
+        collection(firestore, 'visits'),
+        where('userId', '==', user.uid),
+        orderBy('timestamp', 'desc'),
+        limit(30)
+      );
+      if (loadMore && lastVisibleVisitRef.current) {
+        visitsQuery = query(
+          collection(firestore, 'visits'),
+          where('userId', '==', user.uid),
+          orderBy('timestamp', 'desc'),
+          startAfter(lastVisibleVisitRef.current),
+          limit(30)
+        );
+      }
+      const visitsSnapshot = await getDocs(visitsQuery);
+
+      // Fetch sheets - ordered by createdAt, limit 30
+      let sheetsQuery = query(
+        collection(firestore, 'sheetsSales'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(30)
+      );
+      if (loadMore && lastVisibleSheetRef.current) {
+        sheetsQuery = query(
+          collection(firestore, 'sheetsSales'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastVisibleSheetRef.current),
+          limit(30)
+        );
+      }
+      const sheetsSnapshot = await getDocs(sheetsQuery);
+
+      // Fetch expenses - ordered by createdAt, limit 30
+      let expensesQuery = query(
+        collection(firestore, 'expenses'),
+        where('userId', '==', user.uid),
+        orderBy('createdAt', 'desc'),
+        limit(30)
+      );
+      if (loadMore && lastVisibleExpenseRef.current) {
+        expensesQuery = query(
+          collection(firestore, 'expenses'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc'),
+          startAfter(lastVisibleExpenseRef.current),
+          limit(30)
+        );
+      }
+      const expensesSnapshot = await getDocs(expensesQuery);
+
+      // Calculate today's stats (for KPI cards - still shows today's counts)
+      const todayString = new Date().toISOString().substring(0, 10);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
-
-      // Fetch visits - using timestamp field (not date)
-      const visitsQuery = query(
-        collection(firestore, 'visits'),
-        where('userId', '==', user.uid),
-        where('timestamp', '>=', today)
-      );
-      const visitsSnapshot = await getDocs(visitsQuery);
-
-      // Fetch sheets - using date field
-      const sheetsQuery = query(
-        collection(firestore, 'sheetsSales'),
-        where('userId', '==', user.uid),
-        where('date', '==', todayString)
-      );
-      const sheetsSnapshot = await getDocs(sheetsQuery);
+      let todayVisits = 0;
       let totalSheets = 0;
-      sheetsSnapshot.forEach((doc: any) => {
-        totalSheets += doc.data().sheetsCount || 0;
+      let totalExpenses = 0;
+
+      // Count today's items from the fetched results
+      visitsSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        const visitTime = data.timestamp?.toDate();
+        if (visitTime && visitTime >= today) {
+          todayVisits++;
+        }
       });
 
-      // Fetch expenses - using date field
-      const expensesQuery = query(
-        collection(firestore, 'expenses'),
-        where('userId', '==', user.uid),
-        where('date', '==', todayString)
-      );
-      const expensesSnapshot = await getDocs(expensesQuery);
+      sheetsSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        if (data.date === todayString) {
+          totalSheets += data.sheetsCount || 0;
+        }
+      });
 
-      // Calculate total expense amount from all items
-      let totalExpenses = 0;
       expensesSnapshot.forEach((doc: any) => {
         const data = doc.data();
-        if (data.items && Array.isArray(data.items)) {
+        if (data.date === todayString && data.items && Array.isArray(data.items)) {
           data.items.forEach((item: any) => {
             totalExpenses += item.amount || 0;
           });
         }
       });
 
-      // Fetch attendance for today - to include in timeline
-      const attendanceQuery = query(
-        collection(firestore, 'attendance'),
-        where('userId', '==', user.uid),
-        where('timestamp', '>=', today)
-      );
-      const attendanceSnapshot = await getDocs(attendanceQuery);
-
       setTodayStats({
-        visits: visitsSnapshot.size,
+        visits: todayVisits,
         sheets: totalSheets,
         expenses: totalExpenses,
       });
@@ -279,41 +329,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         type: 'visit' | 'sheets' | 'expense' | 'attendance';
         time: Date;
         description: string;
+        status?: 'pending' | 'verified' | 'rejected';
       }> = [];
 
-      // Add attendance (check-in/check-out)
-      attendanceSnapshot.forEach((doc: any) => {
-        const data = doc.data();
-        const time = data.timestamp?.toDate() || new Date();
-        activities.push({
-          id: doc.id,
-          type: 'attendance',
-          time,
-          description: data.type === 'check_in'
-            ? `Checked in at ${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
-            : `Checked out at ${time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
-        });
-      });
+      // NOTE: Attendance tracking is disabled for V1 (ATTENDANCE_FEATURE_ENABLED = false)
+      // No attendance activities are added to the feed
 
-      // Add visits
+      // Add visits (no detail on card, but store notes/purpose for action sheet)
       visitsSnapshot.forEach((doc: any) => {
         const data = doc.data();
         activities.push({
           id: doc.id,
           type: 'visit',
           time: data.timestamp?.toDate() || new Date(),
-          description: `Visited ${data.accountName || 'a client'}`,
+          description: data.accountName || 'Client visit',
+          value: data.accountName || 'Client',
+          notes: data.notes || undefined,
+          purpose: data.purpose ? data.purpose.replace(/_/g, ' ') : undefined,
         });
       });
 
-      // Add sheets sales
+      // Add sheets sales (just number + catalog, no "sheets" text)
       sheetsSnapshot.forEach((doc: any) => {
         const data = doc.data();
         activities.push({
           id: doc.id,
           type: 'sheets',
           time: data.createdAt?.toDate() || new Date(),
-          description: `Logged ${data.sheetsCount} sheets - ${data.catalog}`,
+          description: `${data.sheetsCount} - ${data.catalog}`,
+          value: String(data.sheetsCount),
+          detail: data.catalog,
+          notes: data.notes || undefined,
+          status: data.verified ? 'verified' : 'pending',
         });
       });
 
@@ -326,7 +373,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           : 0;
 
         // Get primary category from first item (capitalize first letter)
-        let categoryLabel = 'expense';
+        let categoryLabel = 'Expense';
         if (data.items && data.items.length > 0) {
           const firstItem = data.items[0];
           if (firstItem.category === 'other' && firstItem.categoryOther) {
@@ -337,63 +384,81 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           }
         }
 
+        // Get description from first item if available
+        const expenseNotes = data.items && data.items.length > 0 && data.items[0].description
+          ? data.items[0].description
+          : undefined;
+
         activities.push({
           id: doc.id,
           type: 'expense',
           time: data.createdAt?.toDate() || new Date(),
-          description: `Reported ₹${totalAmount} - ${categoryLabel}`,
+          description: `${totalAmount} - ${categoryLabel}`,
+          value: String(totalAmount),
+          detail: categoryLabel,
+          notes: expenseNotes,
+          status: data.status || 'pending', // 'pending' | 'verified' | 'rejected'
         });
       });
 
       // Sort by time (most recent first)
       activities.sort((a, b) => b.time.getTime() - a.time.getTime());
-      setTodayActivities(activities);
 
-      // Cache the results
-      setCachedStats(user.uid, todayString, {
-        stats: {
-          visits: visitsSnapshot.size,
-          sheets: totalSheets,
-          expenses: totalExpenses,
-        },
-        activities,
-      });
+      // Update activities (append if loadMore, replace if initial)
+      if (loadMore) {
+        setTodayActivities(prev => [...prev, ...activities]);
+      } else {
+        setTodayActivities(activities);
+      }
+
+      // Store last visible documents for pagination (using refs to avoid re-renders)
+      if (visitsSnapshot.docs.length > 0) {
+        lastVisibleVisitRef.current = visitsSnapshot.docs[visitsSnapshot.docs.length - 1];
+      }
+      if (sheetsSnapshot.docs.length > 0) {
+        lastVisibleSheetRef.current = sheetsSnapshot.docs[sheetsSnapshot.docs.length - 1];
+      }
+      if (expensesSnapshot.docs.length > 0) {
+        lastVisibleExpenseRef.current = expensesSnapshot.docs[expensesSnapshot.docs.length - 1];
+      }
+
+      // Check if there's more data (if all collections returned < 30, we're done)
+      const hasMoreData = visitsSnapshot.docs.length === 30 ||
+                          sheetsSnapshot.docs.length === 30 ||
+                          expensesSnapshot.docs.length === 30;
+      setHasMore(hasMoreData);
 
     } catch (error) {
-      logger.error('Error fetching today stats:', error);
+      logger.error('Error fetching activities:', error);
     }
-  }, [user?.uid]);
+  }, [user?.uid]); // Only depend on user.uid - refs don't need to be in deps
 
-  // Fetch DSRs needing revision
-  const fetchNeedsRevisionCount = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      const firestore = getFirestore();
-      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
-
-      // Query DSRs with status = 'needs_revision' for this user
-      const dsrQuery = query(
-        collection(firestore, 'dsrReports'),
-        where('userId', '==', user.uid),
-        where('status', '==', 'needs_revision')
-      );
-      const dsrSnapshot = await getDocs(dsrQuery);
-      setNeedsRevisionCount(dsrSnapshot.size);
-    } catch (error) {
-      logger.error('Error fetching needs revision count:', error);
-      setNeedsRevisionCount(0);
-    }
-  }, [user?.uid]);
+  // Load more activities for pagination
+  const loadMoreActivities = useCallback(async () => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    await fetchActivities(true);
+    setLoadingMore(false);
+  }, [hasMore, loadingMore, fetchActivities]);
 
   // Refresh function for pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Invalidate cache before fetching fresh data
-    invalidateHomeStatsCache();
-    await Promise.all([fetchAttendance(), fetchTodayStats(), fetchNeedsRevisionCount()]);
+    // Reset pagination refs
+    lastVisibleVisitRef.current = null;
+    lastVisibleSheetRef.current = null;
+    lastVisibleExpenseRef.current = null;
+    setHasMore(true);
+    // Fetch fresh data
+    await Promise.all([fetchAttendance(), fetchActivities(false)]);
     setRefreshing(false);
-  }, [fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount]);
+
+    // Show "Updated" toast with current time
+    const now = new Date();
+    setLastUpdatedTime(now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+    setShowUpdatedToast(true);
+    setTimeout(() => setShowUpdatedToast(false), 2000);
+  }, [fetchAttendance, fetchActivities]);
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -405,7 +470,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            const role = userData?.role || 'rep';
             setUserName(userData?.name || 'User');
 
             // Managers are routed via RootNavigator based on role
@@ -430,24 +494,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       // Run all queries in parallel for faster loading
       Promise.all([
         fetchAttendance(),
-        fetchTodayStats(),
-        fetchNeedsRevisionCount(),
+        fetchActivities(false),
       ]);
     }
-  }, [user?.uid, fetchAttendance, fetchTodayStats, fetchNeedsRevisionCount]);
+  }, [user?.uid, fetchAttendance, fetchActivities]);
 
 
-  // Helper function to get relative time ("2 hours ago")
-  const getRelativeTime = (date: Date): string => {
+  // Helper function to get date/time display with "Today" indicator
+  const getActivityTimeDisplay = (date: Date): { primary: string; secondary: string; isToday: boolean } => {
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
+    const activityDate = new Date(date);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    // Check if it's today
+    const isToday = activityDate.toDateString() === now.toDateString();
+
+    if (isToday) {
+      // For today: show relative time as primary, no secondary
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+
+      let relativeTime = 'Just now';
+      if (diffMins >= 1 && diffMins < 60) relativeTime = `${diffMins}m ago`;
+      else if (diffHours >= 1 && diffHours < 24) relativeTime = `${diffHours}h ago`;
+
+      return { primary: relativeTime, secondary: '', isToday: true };
+    } else {
+      // For older: show date as primary, time as secondary
+      const dateStr = activityDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const timeStr = activityDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return { primary: dateStr, secondary: timeStr, isToday: false };
+    }
   };
 
   // Helper to calculate working duration
@@ -494,50 +571,199 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const greeting = getGreeting();
 
-  return (
-    <View style={styles.container}>
-      {/* Dark Header with Greeting - Matching Manager Style */}
-      <View style={{
-        backgroundColor: '#393735',
-        paddingHorizontal: 24,
-        paddingTop: 52,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-        position: 'relative',
-      }}>
-        {/* Artis Logo - Translucent background (behind text) */}
-        <View style={{
-          position: 'absolute',
-          right: 16,
-          top: 40,
-          opacity: 0.15,
-          zIndex: 0,
-        }}>
-          <Image
-            source={require('../../assets/images/artislogo_blackbgrd.png')}
-            style={{ width: 80, height: 80 }}
-            resizeMode="contain"
-          />
-        </View>
+  // Delete activity handler
+  const handleDeleteActivity = async (activity: typeof todayActivities[0]) => {
+    Alert.alert(
+      'Delete Activity',
+      'Are you sure you want to delete this entry?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingActivity(true);
+            try {
+              if (activity.type === 'visit') {
+                await api.deleteVisit({ id: activity.id });
+              } else if (activity.type === 'sheets') {
+                await api.deleteSheetsSale({ id: activity.id });
+              } else if (activity.type === 'expense') {
+                await api.deleteExpense({ id: activity.id });
+              }
 
-        {/* Greeting content - overlays logo */}
-        <View style={{ zIndex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {greeting.icon === 'sunrise' && <Sunrise size={20} color="#C9A961" />}
-            {greeting.icon === 'sun' && <Sun size={20} color="#C9A961" />}
-            {greeting.icon === 'moon' && <Moon size={20} color="#C9A961" />}
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
-              {greeting.text}, {userName ? userName.charAt(0).toUpperCase() + userName.slice(1) : 'User'}!
+              // Remove from local state immediately
+              setTodayActivities(prev => prev.filter(a => a.id !== activity.id));
+              setSelectedActivity(null);
+
+              // Invalidate cache and refresh stats
+              invalidateHomeStatsCache();
+            } catch (error: any) {
+              logger.error('Error deleting activity:', error);
+              Alert.alert('Error', error.message || 'Failed to delete');
+            } finally {
+              setDeletingActivity(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Helper function to render compact activity item
+  const renderActivityItem = (activity: typeof todayActivities[0], isLast: boolean, index: number) => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const isToday = activity.time >= todayStart;
+
+    // Icon directly without background (larger size)
+    const getActivityIcon = () => {
+      switch (activity.type) {
+        case 'visit':
+          return <MapPin size={24} color={featureColors.visits.primary} />;
+        case 'sheets':
+          return <FileText size={24} color={featureColors.sheets.primary} />;
+        case 'expense':
+          return <IndianRupee size={24} color={featureColors.expenses.primary} />;
+        default:
+          return <CheckCircle size={24} color={featureColors.attendance.primary} />;
+      }
+    };
+
+    // Status icon (only for sheets/expenses)
+    const getStatusIcon = () => {
+      if (activity.type !== 'sheets' && activity.type !== 'expense') return null;
+      const status = activity.status || 'pending';
+
+      switch (status) {
+        case 'pending':
+          return <Clock size={16} color="#F9A825" />;
+        case 'verified':
+        case 'approved':
+          return <CheckCircle size={16} color="#2E7D32" />;
+        case 'rejected':
+          return (
+            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: '#C62828' }}>✕</Text>
+            </View>
+          );
+        default:
+          return <Clock size={16} color="#F9A825" />;
+      }
+    };
+
+    // Compact time format
+    const getCompactTime = () => {
+      const diffMs = now.getTime() - activity.time.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffMins < 1) return 'now';
+      if (diffMins < 60) return `${diffMins}m`;
+      if (diffHours < 24) return `${diffHours}h`;
+      if (diffDays < 7) return `${diffDays}d`;
+      return activity.time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    return (
+      <TouchableOpacity
+        key={activity.id}
+        activeOpacity={0.7}
+        onPress={() => setSelectedActivity(activity)}
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 10,
+          paddingVertical: 14,
+          paddingHorizontal: 14,
+          marginBottom: 8,
+          borderWidth: 1,
+          borderColor: colors.border.light,
+        }}
+      >
+        {/* Single row: Icon + Value • Detail • Time + Status */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {/* Icon without background */}
+          {getActivityIcon()}
+
+          {/* Content: Value • Detail • Time */}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Text style={{
+              fontSize: (activity.type === 'sheets' || activity.type === 'expense') ? 19 : 17,
+              fontWeight: '600',
+              color: colors.text.primary
+            }}>
+              {activity.value || activity.description}
+            </Text>
+            {activity.detail && (
+              <Text style={{ fontSize: 15, color: colors.text.secondary, marginLeft: 6 }}>
+                • {activity.detail}
+              </Text>
+            )}
+            <Text style={{ fontSize: 13, color: colors.text.tertiary, marginLeft: 6 }}>
+              • {getCompactTime()}
             </Text>
           </View>
-          <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-            {attendanceStatus.isCheckedIn
-              ? `Checked in at ${attendanceStatus.checkInTime}`
-              : 'Not checked in yet'}
+
+          {/* Status icon for sheets/expenses */}
+          {getStatusIcon()}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {/* Minimal Header */}
+      <View style={{
+        backgroundColor: '#393735',
+        paddingHorizontal: 20,
+        paddingTop: 50,
+        paddingBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        {/* Time icon + Welcome, Name */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {greeting.icon === 'sunrise' && <Sunrise size={22} color="#C9A961" />}
+          {greeting.icon === 'sun' && <Sun size={22} color="#C9A961" />}
+          {greeting.icon === 'moon' && <Moon size={22} color="#C9A961" />}
+          <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>
+            Welcome, {userName ? userName.charAt(0).toUpperCase() + userName.slice(1) : 'User'}
           </Text>
         </View>
+
+        {/* Artis Logo - Larger, faded */}
+        <Image
+          source={require('../../assets/images/artislogo_blackbgrd.png')}
+          style={{ width: 56, height: 56, opacity: 0.4 }}
+          resizeMode="contain"
+        />
       </View>
+
+      {/* Updated Toast */}
+      {showUpdatedToast && (
+        <View style={{
+          position: 'absolute',
+          top: 130,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+          zIndex: 100,
+        }}>
+          <View style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderRadius: 20,
+          }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+              Updated {lastUpdatedTime}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -552,9 +778,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }
       >
 
-        {/* Attendance Status Card - Compact Design */}
-        <Card elevation="md" style={styles.attendanceCard}>
-          {attendanceStatus.isCheckedIn ? (
+        {/* Attendance Status Card - Compact Design (DISABLED via feature flag) */}
+        {ATTENDANCE_FEATURE_ENABLED && (
+          <Card elevation="md" style={styles.attendanceCard}>
+            {attendanceStatus.isCheckedIn ? (
             // State 1: Currently checked in - Show working duration and Check Out button
             <>
               <View style={styles.attendanceRow}>
@@ -616,150 +843,167 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </View>
             </>
           )}
-        </Card>
+          </Card>
+        )}
 
-        {/* DSR Reports Button */}
-        <TouchableOpacity
-          style={styles.dsrButton}
-          onPress={() => navigation.navigate('DSRList')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.dsrButtonContent}>
-            <FileText size={20} color={colors.accent} />
-            <Text style={styles.dsrButtonText}>DSR Reports</Text>
-            {needsRevisionCount > 0 && (
-              <View style={styles.dsrBadgeContainer}>
-                <Badge variant="error">{needsRevisionCount}</Badge>
-              </View>
-            )}
-          </View>
-          <ChevronRight size={20} color={colors.text.tertiary} />
-        </TouchableOpacity>
-
-        {/* Today's Activities - KPI Cards in a row */}
+        {/* KPI Cards - Today's Stats (Tappable as filters) */}
         <View style={styles.kpiSection}>
-          <Text style={styles.sectionTitle}>Today's Activities</Text>
+          <Text style={styles.sectionTitle}>Today's Activity</Text>
           <View style={styles.kpiRow}>
-            <KpiCard
-              title="Visits"
-              value={todayStats.visits.toString()}
-              icon={<MapPin size={20} color={featureColors.visits.primary} />}
-            />
-            <KpiCard
-              title="Sheets"
-              value={todayStats.sheets.toString()}
-              icon={<FileText size={20} color={featureColors.sheets.primary} />}
-            />
-            <KpiCard
-              title="Expenses"
-              value={todayStats.expenses.toString()}
-              icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
-            />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActivityFilter(activityFilter === 'visit' ? 'all' : 'visit')}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: activityFilter === 'visit' ? featureColors.visits.primary : 'transparent',
+              }}
+            >
+              <KpiCard
+                title="Visits"
+                value={todayStats.visits.toString()}
+                icon={<MapPin size={20} color={featureColors.visits.primary} />}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActivityFilter(activityFilter === 'sheets' ? 'all' : 'sheets')}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: activityFilter === 'sheets' ? featureColors.sheets.primary : 'transparent',
+              }}
+            >
+              <KpiCard
+                title="Sheets"
+                value={todayStats.sheets.toString()}
+                icon={<FileText size={20} color={featureColors.sheets.primary} />}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setActivityFilter(activityFilter === 'expense' ? 'all' : 'expense')}
+              style={{
+                flex: 1,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: activityFilter === 'expense' ? featureColors.expenses.primary : 'transparent',
+              }}
+            >
+              <KpiCard
+                title="Expenses"
+                value={todayStats.expenses.toString()}
+                icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
+              />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Activity Timeline with connecting lines */}
         {todayActivities.length > 0 ? (
-          <View style={styles.timelineContainer}>
-            {todayActivities.map((activity, index) => {
-              const isLast = index === todayActivities.length - 1;
+          <View>
+            {(() => {
+              // Filter activities based on selected filter
+              const filteredActivities = activityFilter === 'all'
+                ? todayActivities
+                : todayActivities.filter(a => a.type === activityFilter);
 
-              const getActivityIcon = () => {
-                switch (activity.type) {
-                  case 'visit':
-                    return <MapPin size={16} color={featureColors.visits.primary} />;
-                  case 'sheets':
-                    return <FileText size={16} color={featureColors.sheets.primary} />;
-                  case 'expense':
-                    return <IndianRupee size={16} color={featureColors.expenses.primary} />;
-                  default:
-                    return <CheckCircle size={16} color={featureColors.attendance.primary} />;
-                }
-              };
-
-              const getActivityColor = () => {
-                switch (activity.type) {
-                  case 'visit':
-                    return featureColors.visits.primary;
-                  case 'sheets':
-                    return featureColors.sheets.primary;
-                  case 'expense':
-                    return featureColors.expenses.primary;
-                  default:
-                    return featureColors.attendance.primary;
-                }
-              };
-
-              const getDotColor = () => {
-                switch (activity.type) {
-                  case 'visit':
-                    return featureColors.visits.light;
-                  case 'sheets':
-                    return featureColors.sheets.light;
-                  case 'expense':
-                    return featureColors.expenses.light;
-                  default:
-                    return featureColors.attendance.light;
-                }
-              };
+              // Separate today's and older activities
+              const now = new Date();
+              const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const todayItems = filteredActivities.filter(a => a.time >= todayStart);
+              const olderItems = filteredActivities.filter(a => a.time < todayStart);
 
               return (
-                <View key={activity.id} style={styles.timelineItem}>
-                  {/* Timeline line and dot */}
-                  <View style={styles.timelineLine}>
-                    <View style={[styles.timelineDot, { backgroundColor: getDotColor(), borderColor: getActivityColor() }]} />
-                    {!isLast && <View style={styles.timelineConnector} />}
-                  </View>
-
-                  {/* Content */}
-                  <Card elevation="sm" style={styles.activityCard}>
-                    <View style={styles.activityRow}>
-                      <View style={[styles.activityIconContainer, { backgroundColor: getDotColor() }]}>
-                        {getActivityIcon()}
-                      </View>
-                      <View style={styles.activityContent}>
-                        <Text style={styles.activityDescription}>{activity.description}</Text>
-                        <Text style={styles.activityTime}>{getRelativeTime(activity.time)}</Text>
-                      </View>
-                      {/* Edit Action - Only for editable activities (not attendance) */}
-                      {(activity.type === 'visit' || activity.type === 'sheets' || activity.type === 'expense') && (
-                        <TouchableOpacity
-                          style={styles.editButton}
-                          onPress={() => {
-                            // Navigate to the appropriate screen based on activity type
-                            switch (activity.type) {
-                              case 'visit':
-                                // For visits, go directly to LogVisit (account will be fetched via API)
-                                navigation.navigate('LogVisit', { editActivityId: activity.id });
-                                break;
-                              case 'sheets':
-                                navigation.navigate('SheetsEntry', { editActivityId: activity.id });
-                                break;
-                              case 'expense':
-                                navigation.navigate('ExpenseEntry', { editActivityId: activity.id });
-                                break;
-                            }
-                          }}
-                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        >
-                          <Edit2 size={18} color={colors.text.secondary} />
-                        </TouchableOpacity>
-                      )}
+                <>
+                  {/* No activities today - show faded message */}
+                  {todayItems.length === 0 && olderItems.length > 0 && (
+                    <View style={{
+                      backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                      borderRadius: 12,
+                      paddingVertical: 20,
+                      paddingHorizontal: 16,
+                      marginBottom: 8,
+                      alignItems: 'center',
+                      borderWidth: 1,
+                      borderColor: colors.border.light,
+                      borderStyle: 'dashed',
+                    }}>
+                      <Text style={{ fontSize: 14, color: colors.text.tertiary, textAlign: 'center' }}>
+                        No activities logged today
+                      </Text>
                     </View>
-                  </Card>
-                </View>
+                  )}
+
+                  {/* Today's Activities (no label needed - anything above "Earlier" is today) */}
+                  {todayItems.map((activity, index) => {
+                    const isLast = index === todayItems.length - 1 && olderItems.length === 0;
+                    return renderActivityItem(activity, isLast, index);
+                  })}
+
+                  {/* Earlier separator (only shown when there are older items) */}
+                  {olderItems.length > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 }}>
+                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Earlier
+                      </Text>
+                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+                    </View>
+                  )}
+
+                  {/* Older Activities */}
+                  {olderItems.map((activity, index) => {
+                    const isLast = index === olderItems.length - 1;
+                    return renderActivityItem(activity, isLast, index + todayItems.length);
+                  })}
+
+                  {/* Empty state for filtered results */}
+                  {filteredActivities.length === 0 && (
+                    <View style={{ padding: 24, alignItems: 'center' }}>
+                      <Text style={{ color: colors.text.tertiary }}>No {activityFilter} activities found</Text>
+                    </View>
+                  )}
+                </>
               );
-            })}
+            })()}
+            {/* Moved outside the IIFE */}
           </View>
         ) : (
           <Card elevation="sm" style={styles.timelineCard}>
             <View style={styles.emptyTimeline}>
               <Clock size={20} color={colors.text.tertiary} />
               <Text style={styles.emptyTimelineText}>
-                Your daily activities will appear here as you log visits, sheets, and expenses
+                Your activities will appear here as you log visits, sheets, and expenses
               </Text>
             </View>
           </Card>
+        )}
+
+        {/* Load More Button */}
+        {hasMore && todayActivities.length > 0 && (
+          <TouchableOpacity
+            style={{
+              marginTop: spacing.md,
+              padding: spacing.md,
+              backgroundColor: colors.surface,
+              borderRadius: spacing.borderRadius.md,
+              borderWidth: 1,
+              borderColor: colors.border.light,
+              alignItems: 'center',
+            }}
+            onPress={loadMoreActivities}
+            disabled={loadingMore}
+          >
+            {loadingMore ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                Load More
+              </Text>
+            )}
+          </TouchableOpacity>
         )}
 
         {/* Pending Action Items */}
@@ -907,6 +1151,155 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Activity Action Sheet Modal */}
+      <Modal
+        visible={!!selectedActivity}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedActivity(null)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setSelectedActivity(null)}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+            paddingBottom: 32,
+          }}>
+            {selectedActivity && (() => {
+              const now = new Date();
+              // Visits editable within 48 hours, sheets/expenses editable if pending
+              const hoursSinceActivity = (now.getTime() - selectedActivity.time.getTime()) / (1000 * 60 * 60);
+              const canEdit = selectedActivity.type === 'visit'
+                ? hoursSinceActivity <= 48
+                : (selectedActivity.type === 'sheets' || selectedActivity.type === 'expense')
+                  ? selectedActivity.status === 'pending'
+                  : false;
+
+              const getStatusText = () => {
+                if (selectedActivity.type === 'visit') return null;
+                const status = selectedActivity.status || 'pending';
+                const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
+                  pending: { label: 'Pending Review', color: '#F9A825', bg: '#FFF8E1' },
+                  verified: { label: 'Verified', color: '#2E7D32', bg: '#E8F5E9' },
+                  approved: { label: 'Approved', color: '#2E7D32', bg: '#E8F5E9' },
+                  rejected: { label: 'Rejected', color: '#C62828', bg: '#FFEBEE' },
+                };
+                return statusConfig[status] || statusConfig.pending;
+              };
+
+              const statusInfo = getStatusText();
+
+              return (
+                <>
+                  {/* Header */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text.primary }}>
+                        {selectedActivity.value || selectedActivity.description}
+                      </Text>
+                      {selectedActivity.detail && (
+                        <Text style={{ fontSize: 14, color: colors.text.secondary, marginTop: 2 }}>
+                          {selectedActivity.detail}
+                        </Text>
+                      )}
+                    </View>
+                    {statusInfo && (
+                      <View style={{
+                        backgroundColor: statusInfo.bg,
+                        paddingHorizontal: 10,
+                        paddingVertical: 4,
+                        borderRadius: 12,
+                      }}>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: statusInfo.color }}>
+                          {statusInfo.label}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Purpose (for visits) */}
+                  {selectedActivity.type === 'visit' && selectedActivity.purpose && (
+                    <View style={{ marginBottom: 8 }}>
+                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Purpose</Text>
+                      <Text style={{ fontSize: 14, color: colors.text.secondary }}>{selectedActivity.purpose}</Text>
+                    </View>
+                  )}
+
+                  {/* Notes */}
+                  {selectedActivity.notes && (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Notes</Text>
+                      <Text style={{ fontSize: 14, color: colors.text.secondary }}>{selectedActivity.notes}</Text>
+                    </View>
+                  )}
+
+                  {/* Time */}
+                  <Text style={{ fontSize: 13, color: colors.text.tertiary, marginBottom: 16 }}>
+                    {selectedActivity.time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {selectedActivity.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </Text>
+
+                  {/* Actions */}
+                  <View style={{ gap: 10 }}>
+                    {canEdit && (
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <TouchableOpacity
+                          style={{
+                            flex: 1,
+                            backgroundColor: colors.primary,
+                            paddingVertical: 14,
+                            borderRadius: 10,
+                            alignItems: 'center',
+                          }}
+                          onPress={() => {
+                            setSelectedActivity(null);
+                            if (selectedActivity.type === 'visit') {
+                              navigation.navigate('LogVisit', { editActivityId: selectedActivity.id });
+                            } else if (selectedActivity.type === 'sheets') {
+                              navigation.navigate('SheetsEntry', { editActivityId: selectedActivity.id });
+                            } else if (selectedActivity.type === 'expense') {
+                              navigation.navigate('ExpenseEntry', { editActivityId: selectedActivity.id });
+                            }
+                          }}
+                          disabled={deletingActivity}
+                        >
+                          <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+                            Edit
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={{
+                            paddingVertical: 14,
+                            paddingHorizontal: 20,
+                            borderRadius: 10,
+                            alignItems: 'center',
+                            backgroundColor: '#FFEBEE',
+                          }}
+                          onPress={() => handleDeleteActivity(selectedActivity)}
+                          disabled={deletingActivity}
+                        >
+                          {deletingActivity ? (
+                            <ActivityIndicator size="small" color="#C62828" />
+                          ) : (
+                            <Text style={{ fontSize: 16, fontWeight: '600', color: '#C62828' }}>
+                              Delete
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                </>
+              );
+            })()}
+          </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );

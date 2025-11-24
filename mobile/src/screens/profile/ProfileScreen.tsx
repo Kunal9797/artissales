@@ -4,22 +4,22 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   Alert,
   ActivityIndicator,
   RefreshControl,
   Image,
+  Linking,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
-import { getFirestore, doc, onSnapshot } from '@react-native-firebase/firestore';
+import { getFirestore, doc, onSnapshot, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
-import { User as UserIcon, Mail, Phone, MapPin, Briefcase, Camera } from 'lucide-react-native';
+import { User as UserIcon, Mail, Phone, Camera, MapPin, Briefcase, PhoneCall } from 'lucide-react-native';
 import { uploadProfilePhoto, deleteProfilePhoto, cacheProfilePhotoLocally, getLocalProfilePhoto } from '../../services/storage';
 import { selectPhoto } from '../../utils/photoUtils';
 import { colors, spacing, typography } from '../../theme';
-import { Card, Badge } from '../../components/ui';
+import { Card } from '../../components/ui';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
@@ -39,16 +39,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const [role, setRole] = useState('');
   const [territory, setTerritory] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  // Track original values to detect changes
-  const [originalName, setOriginalName] = useState('');
-  const [originalEmail, setOriginalEmail] = useState('');
+  // Quick call contacts
+  const [managerInfo, setManagerInfo] = useState<{ name: string; phone: string } | null>(null);
+  const [distributorInfo, setDistributorInfo] = useState<{ name: string; phone: string } | null>(null);
 
   // Load local cached photo on mount
   useEffect(() => {
@@ -71,18 +70,48 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     const userDocRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(
       userDocRef,
-      (doc) => {
-        if (doc.exists()) {
-          const data = doc.data();
-          const userName = data?.name || '';
-          const userEmail = data?.email || '';
-          setName(userName);
-          setEmail(userEmail);
-          setOriginalName(userName);
-          setOriginalEmail(userEmail);
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setName(data?.name || '');
+          setEmail(data?.email || '');
           setRole(data?.role || 'rep');
           setTerritory(data?.territory || 'Not assigned');
           setProfilePhotoUrl(data?.profilePhotoUrl || null);
+
+          // Fetch manager info if reportsToUserId exists
+          if (data?.reportsToUserId) {
+            try {
+              const managerDocRef = doc(db, 'users', data.reportsToUserId);
+              const managerDoc = await getDoc(managerDocRef);
+              if (managerDoc.exists()) {
+                const managerData = managerDoc.data();
+                setManagerInfo({
+                  name: managerData?.name || 'Manager',
+                  phone: managerData?.phone || '',
+                });
+              }
+            } catch (err) {
+              logger.error('Failed to fetch manager info:', err);
+            }
+          }
+
+          // Fetch assigned distributor info if exists
+          if (data?.assignedDistributorId) {
+            try {
+              const distDocRef = doc(db, 'accounts', data.assignedDistributorId);
+              const distDoc = await getDoc(distDocRef);
+              if (distDoc.exists()) {
+                const distData = distDoc.data();
+                setDistributorInfo({
+                  name: distData?.name || 'Distributor',
+                  phone: distData?.phone || '',
+                });
+              }
+            } catch (err) {
+              logger.error('Failed to fetch distributor info:', err);
+            }
+          }
         }
         setLoading(false);
       },
@@ -95,9 +124,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     return () => unsubscribe();
   }, [user]);
 
-  // Check if there are changes
-  const hasChanges = name !== originalName || email !== originalEmail;
-
   const getRoleDisplay = (roleValue: string): string => {
     const roleMap: { [key: string]: string } = {
       rep: 'Sales Representative',
@@ -109,41 +135,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     return roleMap[roleValue] || roleValue;
   };
 
-  const handleSave = async () => {
-    // Validation
-    if (!name.trim()) {
-      Alert.alert('Error', 'Name is required');
+  const handleCall = (phone: string, contactName: string) => {
+    if (!phone) {
+      Alert.alert('No Phone Number', `No phone number available for ${contactName}`);
       return;
     }
-
-    if (name.trim().length < 2) {
-      Alert.alert('Error', 'Name must be at least 2 characters');
-      return;
-    }
-
-    if (email && email.trim().length > 0) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        Alert.alert('Error', 'Invalid email format');
-        return;
-      }
-    }
-
-    setSaving(true);
-
-    try {
-      await api.updateProfile({
-        name: name.trim(),
-        email: email.trim() || undefined,
+    const phoneUrl = `tel:${phone}`;
+    Linking.canOpenURL(phoneUrl)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(phoneUrl);
+        } else {
+          Alert.alert('Error', 'Phone calls are not supported on this device');
+        }
+      })
+      .catch((err) => {
+        logger.error('Failed to make call:', err);
+        Alert.alert('Error', 'Failed to initiate call');
       });
-
-      Alert.alert('Success', 'Profile updated successfully!');
-    } catch (error: any) {
-      logger.error('Profile update error:', error);
-      Alert.alert('Error', error.message || 'Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleChangePhoto = async () => {
@@ -319,9 +328,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           />
         }
       >
-        {/* Profile Info Card */}
+        {/* Profile Card */}
         <Card elevation="md" style={styles.profileCard}>
-          <View style={styles.avatarSection}>
+          {/* Top row: Photo + Name */}
+          <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <TouchableOpacity
                 style={[
@@ -338,112 +348,85 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                     style={styles.avatarImage}
                   />
                 ) : (
-                  <UserIcon size={56} color="#C9A961" />
+                  <UserIcon size={32} color="#C9A961" />
                 )}
                 {uploadingPhoto && (
                   <View style={styles.avatarLoading}>
-                    <ActivityIndicator color="#fff" size="large" />
+                    <ActivityIndicator color="#fff" size="small" />
                   </View>
                 )}
               </TouchableOpacity>
 
               {/* Camera badge overlay */}
               <View style={styles.cameraBadge}>
-                <Camera size={16} color="#393735" />
+                <Camera size={12} color="#393735" />
               </View>
             </View>
 
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{name || 'User'}</Text>
-              <Badge variant="neutral" style={styles.roleBadge}>{getRoleDisplay(role)}</Badge>
             </View>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Details list */}
+          <View style={styles.detailRow}>
+            <Mail size={18} color={colors.text.tertiary} />
+            <Text style={styles.detailText}>{email || 'No email set'}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Phone size={18} color={colors.text.tertiary} />
+            <Text style={styles.detailText}>{user?.phoneNumber}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Briefcase size={18} color={colors.text.tertiary} />
+            <Text style={styles.detailText}>{getRoleDisplay(role)}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <MapPin size={18} color={colors.text.tertiary} />
+            <Text style={styles.detailText}>{territory}</Text>
           </View>
         </Card>
 
-        {/* Editable Fields Card */}
-        <Card elevation="sm" style={styles.card}>
-          <Text style={styles.cardTitle}>Personal Information</Text>
+        {/* Quick Call Actions */}
+        {(managerInfo || distributorInfo) && (
+          <Card elevation="sm" style={styles.quickActionsCard}>
+            <Text style={styles.quickActionsTitle}>Quick Actions</Text>
 
-          {/* Name Field */}
-          <View style={styles.field}>
-            <View style={styles.labelRow}>
-              <UserIcon size={16} color={colors.text.secondary} />
-              <Text style={styles.label}>Full Name</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              placeholderTextColor={colors.text.tertiary}
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
-          </View>
+            {managerInfo && (
+              <TouchableOpacity
+                style={styles.callButton}
+                onPress={() => handleCall(managerInfo.phone, managerInfo.name)}
+                activeOpacity={0.7}
+              >
+                <PhoneCall size={20} color="#FFFFFF" />
+                <View style={styles.callButtonText}>
+                  <Text style={styles.callButtonLabel}>Call Manager</Text>
+                  <Text style={styles.callButtonName}>{managerInfo.name}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
-          {/* Email Field */}
-          <View style={styles.field}>
-            <View style={styles.labelRow}>
-              <Mail size={16} color={colors.text.secondary} />
-              <Text style={styles.label}>Email</Text>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email (optional)"
-              placeholderTextColor={colors.text.tertiary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-
-          {/* Save Button */}
-          {hasChanges && (
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </Card>
-
-        {/* Account Details Card */}
-        <Card elevation="sm" style={styles.card}>
-          <Text style={styles.cardTitle}>Account Details</Text>
-
-          {/* Phone (Read-only) */}
-          <View style={styles.infoRow}>
-            <Phone size={20} color={colors.text.secondary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Phone Number</Text>
-              <Text style={styles.infoValue}>{user?.phoneNumber}</Text>
-            </View>
-          </View>
-
-          {/* Territory */}
-          <View style={styles.infoRow}>
-            <MapPin size={20} color={colors.text.secondary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Territory</Text>
-              <Text style={styles.infoValue}>{territory}</Text>
-            </View>
-          </View>
-
-          {/* Role */}
-          <View style={styles.infoRow}>
-            <Briefcase size={20} color={colors.text.secondary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Role</Text>
-              <Text style={styles.infoValue}>{getRoleDisplay(role)}</Text>
-            </View>
-          </View>
-        </Card>
+            {distributorInfo && (
+              <TouchableOpacity
+                style={[styles.callButton, styles.callButtonSecondary]}
+                onPress={() => handleCall(distributorInfo.phone, distributorInfo.name)}
+                activeOpacity={0.7}
+              >
+                <PhoneCall size={20} color="#393735" />
+                <View style={styles.callButtonText}>
+                  <Text style={[styles.callButtonLabel, styles.callButtonLabelSecondary]}>Call Distributor</Text>
+                  <Text style={[styles.callButtonName, styles.callButtonNameSecondary]}>{distributorInfo.name}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </Card>
+        )}
 
         {/* Sign Out button moved to header */}
       </ScrollView>
@@ -494,151 +477,131 @@ const styles = StyleSheet.create({
     padding: spacing.screenPadding,
     // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
   },
-  // Profile Card
+  // Compact Profile Card
   profileCard: {
-    padding: spacing.lg,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
-  avatarSection: {
+  profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
   },
   avatarContainer: {
     position: 'relative',
-    width: 120,
-    height: 120,
+    width: 64,
+    height: 64,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: colors.border.default,
     overflow: 'hidden',
   },
   avatarWithPhoto: {
     borderColor: '#C9A961',
-    borderWidth: 3,
+    borderWidth: 2,
   },
   avatarImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   avatarLoading: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 60,
+    borderRadius: 32,
   },
   cameraBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    bottom: -2,
+    right: -2,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#C9A961',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
   },
   profileInfo: {
     flex: 1,
-    gap: spacing.sm,
     justifyContent: 'center',
-    alignItems: 'center',
   },
   profileName: {
-    ...typography.styles.h2,
+    fontSize: 20,
+    fontWeight: '600' as const,
     color: colors.text.primary,
-    textAlign: 'center',
   },
-  roleBadge: {
-    alignSelf: 'center',
+  divider: {
+    height: 1,
+    backgroundColor: colors.border.light,
+    marginVertical: spacing.md,
   },
-  // Cards
-  card: {
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    ...typography.styles.h4,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  // Form Fields
-  field: {
-    marginBottom: spacing.md,
-  },
-  labelRow: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  detailText: {
+    fontSize: 15,
+    color: colors.text.primary,
+  },
+  // Quick Actions Card
+  quickActionsCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  quickActionsTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  callButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#C9A961',
+    padding: spacing.md,
+    borderRadius: 8,
     marginBottom: spacing.sm,
   },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.text.secondary,
-  },
-  input: {
+  callButtonSecondary: {
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
+    marginBottom: 0,
   },
-  // Info Rows
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  infoContent: {
+  callButtonText: {
     flex: 1,
   },
-  infoLabel: {
-    fontSize: typography.fontSize.xs,
+  callButtonLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 2,
+  },
+  callButtonLabelSecondary: {
     color: colors.text.tertiary,
-    marginBottom: spacing.xs / 2,
   },
-  infoValue: {
-    ...typography.styles.body,
+  callButtonName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
+  },
+  callButtonNameSecondary: {
     color: colors.text.primary,
-    fontWeight: typography.fontWeight.medium,
-  },
-  // Save Button
-  saveButton: {
-    backgroundColor: colors.success,
-    padding: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  saveButtonDisabled: {
-    backgroundColor: colors.text.tertiary,
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.inverse,
   },
   // Sign Out Button
   signOutButton: {

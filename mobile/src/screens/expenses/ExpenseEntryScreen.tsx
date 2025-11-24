@@ -46,13 +46,6 @@ const CATEGORIES: { value: ExpenseCategory; label: string; icon: any; color: str
   { value: 'other', label: 'Other', icon: FileText, color: '#607D8B' },
 ];
 
-// Temp item being edited
-interface TempExpenseItem {
-  category: ExpenseCategory;
-  categoryOther: string;
-  amount: string;
-  description: string;
-}
 
 export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   navigation,
@@ -68,26 +61,20 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   const isEditMode = !!editActivityId;
 
   const [date, setDate] = useState(today);
-  const [items, setItems] = useState<ExpenseItem[]>([]);
-  const [receiptPhotos, setReceiptPhotos] = useState<string[]>([]);
-  const [receiptPhotoUrls, setReceiptPhotoUrls] = useState<string[]>([]);
+  const [receiptPhoto, setReceiptPhoto] = useState<string | null>(null);
+  const [receiptPhotoUrl, setReceiptPhotoUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Current item being added/edited
-  const [currentItem, setCurrentItem] = useState<TempExpenseItem>({
-    category: 'travel',
-    categoryOther: '',
-    amount: '',
-    description: '',
-  });
+  // Single expense form
+  const [category, setCategory] = useState<ExpenseCategory>('travel');
+  const [categoryOther, setCategoryOther] = useState('');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('');
 
   const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [uploadingReceipts, setUploadingReceipts] = useState(false);
-  const [showItemsExpanded, setShowItemsExpanded] = useState(true);
-  const [justAdded, setJustAdded] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
   const [amountError, setAmountError] = useState<string>('');
-  const [formCollapsed, setFormCollapsed] = useState(false);
 
   // Fetch existing expense data in edit mode
   useEffect(() => {
@@ -99,10 +86,17 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
           if (response) {
             setDate(response.date);
-            setItems(response.items || []);
+            // Load first item's data
+            if (response.items && response.items.length > 0) {
+              const item = response.items[0];
+              setCategory(item.category);
+              setCategoryOther(item.categoryOther || '');
+              setAmount(item.amount.toString());
+              setDescription(item.description || '');
+            }
             if (response.receiptPhotos && response.receiptPhotos.length > 0) {
-              setReceiptPhotoUrls(response.receiptPhotos);
-              setReceiptPhotos(response.receiptPhotos); // Use URLs as local paths for display
+              setReceiptPhotoUrl(response.receiptPhotos[0]);
+              setReceiptPhoto(response.receiptPhotos[0]);
             }
           }
         } catch (error) {
@@ -118,186 +112,90 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
   const handlePhotoTaken = async (uri: string) => {
     setShowCamera(false);
-    setReceiptPhotos([...receiptPhotos, uri]);
+    setReceiptPhoto(uri);
 
-    // Upload photo to Firebase Storage in background (non-blocking)
-    setUploadingReceipts(true);
-
-    // Upload asynchronously without blocking UI
+    // Upload photo to Firebase Storage in background
+    setUploadingReceipt(true);
     uploadPhoto(uri, 'expenses')
       .then((downloadUrl) => {
-        setReceiptPhotoUrls(prev => [...prev, downloadUrl]);
+        setReceiptPhotoUrl(downloadUrl);
         logger.log('[Expense] Receipt uploaded:', downloadUrl);
-        setUploadingReceipts(false);
+        setUploadingReceipt(false);
       })
       .catch((error) => {
         logger.error('[Expense] Error uploading receipt:', error);
         Alert.alert('Error', 'Failed to upload receipt photo. Please try again.');
-        // Remove the local photo if upload failed
-        setReceiptPhotos(prev => prev.filter(p => p !== uri));
-        setUploadingReceipts(false);
+        setReceiptPhoto(null);
+        setUploadingReceipt(false);
       });
   };
 
-  const handleRemoveReceipt = (index: number) => {
-    setReceiptPhotos(receiptPhotos.filter((_, i) => i !== index));
-    setReceiptPhotoUrls(receiptPhotoUrls.filter((_, i) => i !== index));
-  };
-
-  const handleAddItem = () => {
-    // Validation
-    if (!currentItem.amount || currentItem.amount.trim() === '') {
-      Alert.alert('Validation Error', 'Please enter an amount');
-      return;
-    }
-
-    const amountNum = parseFloat(currentItem.amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid amount greater than 0');
-      return;
-    }
-
-    if (currentItem.category === 'other' && !currentItem.categoryOther.trim()) {
-      Alert.alert('Validation Error', 'Please specify the category name for "Other"');
-      return;
-    }
-
-    if (!currentItem.description || currentItem.description.trim() === '') {
-      Alert.alert('Validation Error', 'Please enter a description');
-      return;
-    }
-
-    // Add item to list
-    const newItem: ExpenseItem = {
-      amount: amountNum,
-      category: currentItem.category,
-      ...(currentItem.category === 'other' && { categoryOther: currentItem.categoryOther.trim() }),
-      description: currentItem.description.trim(),
-    };
-
-    setItems([...items, newItem]);
-
-    // Auto-collapse items list after 2+ items to save space
-    if (items.length >= 1) {
-      setShowItemsExpanded(false);
-    }
-
-    // Collapse add expense form after first item
-    if (items.length >= 0) {
-      setFormCollapsed(true);
-    }
-
-    // Visual feedback - brief success animation on button
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 800);
-
-    // Reset current item and clear amount error
-    setCurrentItem({
-      category: 'travel',
-      categoryOther: '',
-      amount: '',
-      description: '',
-    });
-    setAmountError('');
-  };
-
-  const handleRemoveItem = (index: number) => {
-    Alert.alert(
-      'Remove Item',
-      'Are you sure you want to remove this expense item?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => setItems(items.filter((_, i) => i !== index)),
-        },
-      ]
-    );
-  };
-
-  const getTotalAmount = () => {
-    return items.reduce((sum, item) => sum + item.amount, 0);
+  const handleRemoveReceipt = () => {
+    setReceiptPhoto(null);
+    setReceiptPhotoUrl(null);
   };
 
   const handleSubmit = async () => {
-    console.log('[Expense] handleSubmit called');
-    console.log('[Expense] Items:', items);
-    console.log('[Expense] Date:', date);
-    console.log('[Expense] Receipt photos:', receiptPhotoUrls);
-
     // Validation
-    if (items.length === 0) {
-      console.log('[Expense] Validation failed: no items');
-      Alert.alert('Validation Error', 'Please add at least one expense item');
+    if (!amount || amount.trim() === '') {
+      Alert.alert('Error', 'Please enter an amount');
       return;
     }
 
-    // Check if photos are still uploading
-    if (receiptPhotos.length > receiptPhotoUrls.length) {
-      Alert.alert(
-        'Photos Uploading',
-        'Please wait for receipt photos to finish uploading before submitting.',
-        [{ text: 'OK' }]
-      );
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
-    console.log('[Expense] Validation passed, starting submission');
+    if (category === 'other' && !categoryOther.trim()) {
+      Alert.alert('Error', 'Please specify the category name');
+      return;
+    }
 
+    // Check if photo is still uploading
+    if (receiptPhoto && !receiptPhotoUrl) {
+      Alert.alert('Please Wait', 'Receipt photo is still uploading...');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      setSubmitting(true);
-      console.log('[Expense] setSubmitting(true) called');
+      // Build single expense item
+      const expenseItem: ExpenseItem = {
+        amount: amountNum,
+        category,
+        ...(category === 'other' && { categoryOther: categoryOther.trim() }),
+        description: description.trim() || '',
+      };
 
       if (isEditMode && editActivityId) {
-        console.log('[Expense] Edit mode detected');
         // Update existing expense
-        const updateData = {
+        await api.updateExpense({
           id: editActivityId,
           date,
-          items,
-          ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
-        };
-
-        logger.log('[Expense] Updating expense report:', updateData);
-        await api.updateExpense(updateData);
-
-        Alert.alert('Success', 'Expense report updated successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+          items: [expenseItem],
+          ...(receiptPhotoUrl && { receiptPhotos: [receiptPhotoUrl] }),
+        });
       } else {
         // Create new expense
         const expenseData: SubmitExpenseRequest = {
           date,
-          items,
-          ...(receiptPhotoUrls.length > 0 && { receiptPhotos: receiptPhotoUrls }),
+          items: [expenseItem],
+          ...(receiptPhotoUrl && { receiptPhotos: [receiptPhotoUrl] }),
         };
 
-        logger.log('[Expense] Submitting expense report:', expenseData);
-
-        const response = await api.submitExpense(expenseData);
-
-        if (response.ok) {
-          // Invalidate home screen cache to show new expense immediately
-          invalidateHomeStatsCache();
-
-          Alert.alert(
-            'Success',
-            `Expense report submitted successfully!\nTotal: ₹${response.totalAmount}\nItems: ${response.itemCount}\n\nYour manager will review it.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.goBack(),
-              },
-            ]
-          );
-        } else {
-          Alert.alert('Error', response.error || 'Failed to submit expense');
-        }
+        await api.submitExpense(expenseData);
       }
+
+      // Invalidate home screen cache
+      invalidateHomeStatsCache();
+
+      // Navigate back immediately
+      navigation.goBack();
     } catch (error: any) {
       logger.error('[Expense] Submit error:', error);
-      Alert.alert('Error', error.message || 'Failed to submit expense');
+      Alert.alert('Error', error.message || 'Failed to save expense');
     } finally {
       setSubmitting(false);
     }
@@ -378,27 +276,15 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         keyboardShouldPersistTaps="handled"
       >
 
-      {/* Add New Item Section */}
+      {/* Single Expense Form */}
       <View style={styles.addItemSection}>
-        <TouchableOpacity
-          style={styles.collapsibleHeader}
-          onPress={() => setFormCollapsed(!formCollapsed)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.sectionTitle}>
-            {formCollapsed ? '▶ ' : '▼ '}
-            {items.length === 0 ? 'Add First Expense Item' : 'Add Another Expense'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Category Picker - Always Visible */}
+        {/* Category Picker */}
         <View style={styles.field}>
-          <Text style={styles.label}>Category *</Text>
+          <Text style={styles.label}>Category</Text>
           <View style={styles.categoryGridContainer}>
             {CATEGORIES.map((cat) => {
               const IconComponent = cat.icon;
-              // Only show as selected if form is expanded
-              const isSelected = currentItem.category === cat.value && !formCollapsed;
+              const isSelected = category === cat.value;
               return (
                 <TouchableOpacity
                   key={cat.value}
@@ -406,13 +292,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
                     styles.categoryPill,
                     isSelected && { ...styles.categoryPillSelected, borderColor: cat.color, backgroundColor: `${cat.color}15` },
                   ]}
-                  onPress={() => {
-                    setCurrentItem({ ...currentItem, category: cat.value });
-                    // Auto-expand form when category clicked in collapsed state
-                    if (formCollapsed) {
-                      setFormCollapsed(false);
-                    }
-                  }}
+                  onPress={() => setCategory(cat.value)}
                 >
                   <IconComponent
                     size={20}
@@ -432,181 +312,93 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           </View>
         </View>
 
-        {/* Conditional Form Fields - Only show when not collapsed */}
-        {!formCollapsed && (
-          <>
-            {/* Category Other Input (shown when "other" selected) */}
-            {currentItem.category === 'other' && (
-              <View style={styles.field}>
-                <Text style={styles.label}>Category Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Internet, Office supplies, etc."
-                  placeholderTextColor="#999"
-                  value={currentItem.categoryOther}
-                  onChangeText={(text) => setCurrentItem({ ...currentItem, categoryOther: text })}
-                />
-              </View>
-            )}
-
-            {/* Amount Input */}
-            <View style={styles.fieldCompact}>
-              <Text style={styles.label}>Amount (₹) *</Text>
-              <TextInput
-                style={[
-                  styles.input,
-                  amountError && styles.inputError
-                ]}
-                placeholder="e.g., 250"
-                placeholderTextColor="#999"
-                keyboardType="decimal-pad"
-                value={currentItem.amount}
-                onChangeText={(text) => {
-                  setCurrentItem({ ...currentItem, amount: text });
-
-                  // Real-time validation - check if entire string is a valid number
-                  if (text.trim() === '') {
-                    setAmountError('');
-                  } else {
-                    // Use regex to check if the entire string is a valid number
-                    const isValidNumber = /^\d+\.?\d*$/.test(text.trim());
-                    const numValue = parseFloat(text);
-
-                    if (!isValidNumber || isNaN(numValue) || numValue <= 0) {
-                      setAmountError('Amount must be a number');
-                    } else {
-                      setAmountError('');
-                    }
-                  }
-                }}
-              />
-              {amountError && (
-                <Text style={styles.errorText}>{amountError}</Text>
-              )}
-            </View>
-
-            {/* Description Input */}
-            <View style={styles.fieldCompact}>
-              <Text style={styles.label}>Description *</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Brief description"
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={2}
-                value={currentItem.description}
-                onChangeText={(text) => setCurrentItem({ ...currentItem, description: text })}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.addItemButton,
-                justAdded && styles.addItemButtonSuccess,
-                (!!amountError || !currentItem.amount.trim()) && styles.addItemButtonDisabled
-              ]}
-              onPress={handleAddItem}
-              disabled={!!amountError || !currentItem.amount.trim()}
-            >
-              <Text style={styles.addItemButtonText}>
-                {justAdded ? '✓ Added!' : '+ Add This Item'}
-              </Text>
-            </TouchableOpacity>
-          </>
+        {/* Category Other Input (shown when "other" selected) */}
+        {category === 'other' && (
+          <View style={styles.field}>
+            <Text style={styles.label}>Category Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Internet, Office supplies"
+              placeholderTextColor="#999"
+              value={categoryOther}
+              onChangeText={setCategoryOther}
+            />
+          </View>
         )}
-      </View>
 
-      {/* Receipt Photos (Optional - Collapsed by default if items exist) */}
-      {items.length > 0 && (
+        {/* Amount Input */}
         <View style={styles.fieldCompact}>
-          <Text style={styles.label}>Receipt Photos (Optional)</Text>
-          {receiptPhotos.length > 0 && (
-            <View style={styles.photosGrid}>
-              {receiptPhotos.map((photo, index) => (
-                <View key={index} style={styles.photoPreviewContainer}>
-                  <Image source={{ uri: photo }} style={styles.photoPreview} />
-                  {uploadingReceipts && index === receiptPhotos.length - 1 && (
-                    <View style={styles.uploadingOverlay}>
-                      <ActivityIndicator size="small" color="#fff" />
-                    </View>
-                  )}
-                  <TouchableOpacity
-                    style={styles.removePhotoButton}
-                    onPress={() => handleRemoveReceipt(index)}
-                  >
-                    <Text style={styles.removePhotoButtonText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-          <TouchableOpacity
-            style={styles.addPhotoButton}
-            onPress={() => setShowCamera(true)}
-          >
-            <Camera size={20} color={colors.primary} />
-            <Text style={styles.addPhotoButtonText}>
-              {receiptPhotos.length > 0 ? 'Add Another' : 'Add Receipt'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.label}>Amount (₹)</Text>
+          <TextInput
+            style={[styles.input, amountError && styles.inputError]}
+            placeholder="Enter amount"
+            placeholderTextColor="#999"
+            keyboardType="decimal-pad"
+            value={amount}
+            onChangeText={(text) => {
+              setAmount(text);
+              if (text.trim() === '') {
+                setAmountError('');
+              } else {
+                const isValidNumber = /^\d+\.?\d*$/.test(text.trim());
+                const numValue = parseFloat(text);
+                if (!isValidNumber || isNaN(numValue) || numValue <= 0) {
+                  setAmountError('Enter a valid amount');
+                } else {
+                  setAmountError('');
+                }
+              }
+            }}
+          />
+          {amountError && <Text style={styles.errorText}>{amountError}</Text>}
         </View>
-      )}
 
-      {/* Added Items List - Moved to bottom for better UX */}
-      {items.length > 0 && (
-        <View style={styles.field}>
-          <TouchableOpacity
-            style={styles.itemsSummaryHeader}
-            onPress={() => setShowItemsExpanded(!showItemsExpanded)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.summaryBadge}>
-              <Text style={styles.summaryBadgeText}>
-                {items.length} {items.length === 1 ? 'item' : 'items'} • ₹{getTotalAmount().toFixed(0)}
-              </Text>
-            </View>
-            <Text style={styles.expandCollapseText}>
-              {showItemsExpanded ? '▼ Hide' : '▶ Show'}
-            </Text>
-          </TouchableOpacity>
+        {/* Description Input (Optional) */}
+        <View style={styles.fieldCompact}>
+          <Text style={styles.label}>Description (Optional)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Brief description"
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={2}
+            value={description}
+            onChangeText={setDescription}
+          />
+        </View>
 
-          {showItemsExpanded && (
-            <>
-              {items.map((item, index) => (
-                <View key={index} style={styles.itemCard}>
-                  <View style={styles.itemHeader}>
-                    <View style={styles.itemCategoryRow}>
-                      {(() => {
-                        const cat = CATEGORIES.find(c => c.value === item.category);
-                        const IconComponent = cat?.icon;
-                        return IconComponent ? <IconComponent size={16} color={cat.color} /> : null;
-                      })()}
-                      <Text style={styles.itemCategory}>
-                        {CATEGORIES.find(c => c.value === item.category)?.label}
-                        {item.category === 'other' && item.categoryOther && ` - ${item.categoryOther}`}
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleRemoveItem(index)}>
-                      <Text style={styles.removeItemButton}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.itemAmount}>₹{item.amount.toFixed(2)}</Text>
-                  <Text style={styles.itemDescription}>{item.description}</Text>
+        {/* Receipt Photo (Optional) */}
+        <View style={styles.fieldCompact}>
+          <Text style={styles.label}>Receipt (Optional)</Text>
+          {receiptPhoto ? (
+            <View style={styles.photoPreviewContainer}>
+              <Image source={{ uri: receiptPhoto }} style={styles.photoPreview} />
+              {uploadingReceipt && (
+                <View style={styles.uploadingOverlay}>
+                  <ActivityIndicator size="small" color="#fff" />
                 </View>
-              ))}
-            </>
+              )}
+              <TouchableOpacity style={styles.removePhotoButton} onPress={handleRemoveReceipt}>
+                <Text style={styles.removePhotoButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.addPhotoButton} onPress={() => setShowCamera(true)}>
+              <Camera size={20} color={featureColors.expenses.primary} />
+              <Text style={styles.addPhotoButtonText}>Add Receipt Photo</Text>
+            </TouchableOpacity>
           )}
         </View>
-      )}
+      </View>
       </ScrollView>
 
-      {/* Sticky Footer - Always Visible */}
+      {/* Sticky Footer */}
       <View style={[styles.stickyFooter, { paddingBottom: bottomPadding }]}>
         {isEditMode ? (
           // Edit Mode: Delete + Update buttons
           <View style={styles.footerButtonRow}>
             <TouchableOpacity
-              style={[styles.deleteButtonCompact, deleting && styles.deleteButtonDisabled]}
+              style={[styles.deleteButtonCompact, deleting && styles.buttonDisabled]}
               onPress={handleDelete}
               disabled={deleting || submitting}
             >
@@ -617,52 +409,35 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.submitButtonCompact,
-                (submitting || uploadingReceipts) && styles.submitButtonDisabled
-              ]}
+              style={[styles.submitButtonCompact, styles.submitButtonFlex, submitting && styles.buttonDisabled]}
               onPress={handleSubmit}
-              disabled={submitting || uploadingReceipts}
+              disabled={submitting || deleting}
             >
               {submitting ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.submitButtonText}>
-                  Update Report
-                </Text>
+                <Text style={styles.submitButtonText}>Update</Text>
               )}
             </TouchableOpacity>
           </View>
         ) : (
-          // Create Mode: Cancel + Submit buttons
-          <View style={styles.footerButtonRow}>
-            <TouchableOpacity
-              style={styles.cancelButtonCompact}
-              onPress={() => navigation.goBack()}
-              disabled={submitting}
-            >
-              <Text style={styles.cancelButtonCompactText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.submitButtonCompact,
-                (submitting || uploadingReceipts || items.length === 0) && styles.submitButtonDisabled
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting || uploadingReceipts || items.length === 0}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.submitButtonText}>
-                  {items.length === 0
-                    ? 'Add Items First'
-                    : `Submit (${items.length} • ₹${getTotalAmount().toFixed(0)})`
-                  }
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+          // Create Mode: Submit button
+          <TouchableOpacity
+            style={[
+              styles.submitButtonCompact,
+              (!amount || !!amountError || submitting || uploadingReceipt) && styles.buttonDisabled
+            ]}
+            onPress={handleSubmit}
+            disabled={!amount || !!amountError || submitting || uploadingReceipt}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>
+                {!amount ? 'Enter Amount' : uploadingReceipt ? 'Uploading...' : 'Log Expense'}
+              </Text>
+            )}
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -1002,16 +777,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   submitButtonCompact: {
-    flex: 1,
     backgroundColor: featureColors.expenses.primary,
     borderRadius: spacing.borderRadius.lg,
     paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
     ...shadows.sm,
   },
-  submitButtonDisabled: {
+  submitButtonFlex: {
+    flex: 1,
+  },
+  buttonDisabled: {
     backgroundColor: colors.border.default,
     opacity: 0.6,
   },
@@ -1037,17 +815,15 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semiBold,
   },
   deleteButtonCompact: {
-    flex: 0.4,
+    flex: 0.35,
     backgroundColor: colors.error,
     borderRadius: spacing.borderRadius.lg,
     paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
     ...shadows.sm,
-  },
-  deleteButtonDisabled: {
-    opacity: 0.6,
   },
   deleteButtonText: {
     color: colors.surface,

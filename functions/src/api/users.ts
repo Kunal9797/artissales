@@ -447,14 +447,9 @@ export const getUserStats = onRequest(async (request, response) => {
     const end = new Date(endDate + "T23:59:59Z");
 
     // 3-6. Run all queries in parallel for better performance
-    const [attendanceSnap, visitsSnap, sheetsSnap, expensesSnap] =
+    // Note: Attendance query removed - feature disabled for V1 (see ADR 005)
+    const [visitsSnap, sheetsSnap, expensesSnap] =
       await Promise.all([
-        db.collection("attendance")
-          .where("userId", "==", userId)
-          .where("timestamp", ">=", start)
-          .where("timestamp", "<=", end)
-          .orderBy("timestamp", "desc")
-          .get(),
         db.collection("visits")
           .where("userId", "==", userId)
           .where("timestamp", ">=", start)
@@ -465,25 +460,18 @@ export const getUserStats = onRequest(async (request, response) => {
           .where("userId", "==", userId)
           .where("date", ">=", startDate)
           .where("date", "<=", endDate)
+          .orderBy("date", "desc")
           .get(),
         db.collection("expenses")
           .where("userId", "==", userId)
           .where("date", ">=", startDate)
           .where("date", "<=", endDate)
+          .orderBy("date", "desc")
           .get(),
       ]);
 
-    // Process attendance
-    const attendance = attendanceSnap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        type: data.type,
-        timestamp: data.timestamp?.toDate().toISOString(),
-        geo: data.geo ?
-          {lat: data.geo.latitude, lng: data.geo.longitude} : null,
-      };
-    });
+    // Attendance disabled for V1 - return empty array (see ADR 005)
+    const attendance: any[] = [];
 
     // Process visits
     const visits = visitsSnap.docs.map((doc) => {
@@ -513,11 +501,24 @@ export const getUserStats = onRequest(async (request, response) => {
       "Woodrica": 0,
       "Artis 1MM": 0,
     };
+    const pendingSheets: any[] = [];
 
     sheetsSnap.docs.forEach((doc) => {
       const data = doc.data();
 
-      // Only count verified sheets (approved by manager)
+      // Collect pending sheets for display
+      if (data.verified !== true && data.status !== "rejected") {
+        pendingSheets.push({
+          id: doc.id,
+          catalog: data.catalog,
+          sheetsCount: data.sheetsCount || 0,
+          date: data.date, // YYYY-MM-DD for debugging
+          createdAt: data.createdAt?.toDate().toISOString(),
+          status: data.verified ? "verified" : "pending",
+        });
+      }
+
+      // Only count verified sheets in totals (approved by manager)
       if (data.verified !== true) {
         return;
       }
@@ -542,11 +543,42 @@ export const getUserStats = onRequest(async (request, response) => {
       accommodation: 0,
       other: 0,
     };
+    const pendingExpenses: any[] = [];
 
     expensesSnap.docs.forEach((doc) => {
       const data = doc.data();
 
-      // Only count approved expenses
+      // Collect pending expenses for display
+      if (data.status === "pending") {
+        // Handle both old format (amount/category) and new format (items array)
+        let amount = 0;
+        let category = "other";
+        let description = "";
+
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          // NEW FORMAT: items array - sum all items, use first item's category
+          amount = data.items.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+          category = data.items[0].category || "other";
+          description = data.items[0].description || "";
+        } else {
+          // OLD FORMAT: single amount/category fields
+          amount = data.amount || 0;
+          category = data.category || "other";
+          description = data.description || "";
+        }
+
+        pendingExpenses.push({
+          id: doc.id,
+          amount,
+          category,
+          description,
+          date: data.date, // YYYY-MM-DD for debugging
+          createdAt: data.createdAt?.toDate().toISOString(),
+          status: data.status,
+        });
+      }
+
+      // Only count approved expenses in totals
       if (data.status !== "approved") {
         return;
       }
@@ -616,11 +648,13 @@ export const getUserStats = onRequest(async (request, response) => {
         sheets: {
           total: totalSheets,
           byCatalog: sheetsByCatalog,
+          pendingRecords: pendingSheets,
         },
         expenses: {
           total: totalExpenses,
           byStatus: expensesByStatus,
           byCategory: expensesByCategory,
+          pendingRecords: pendingExpenses,
         },
       },
     });

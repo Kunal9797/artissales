@@ -13,8 +13,6 @@ import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
 import { LogVisitScreen } from '../screens/visits/LogVisitScreen';
 import { ExpenseEntryScreen } from '../screens/expenses/ExpenseEntryScreen';
 import { CompactSheetsEntryScreen } from '../screens/sheets/CompactSheetsEntryScreen';
-import { DSRScreen } from '../screens/dsr/DSRScreen';
-import { DSRListScreen } from '../screens/dsr/DSRListScreen';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { KitchenSinkScreen } from '../screens/KitchenSinkScreen';
 import { DesignLabScreen } from '../screens/DesignLabScreen';
@@ -34,6 +32,7 @@ import { AccountDetailScreen } from '../screens/manager/AccountDetailScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { UploadDocumentScreen } from '../screens/UploadDocumentScreen';
 import { ManageDownloadsScreen } from '../screens/ManageDownloadsScreen';
+import { AttendanceHistoryScreen } from '../screens/AttendanceHistoryScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -44,8 +43,6 @@ export type RootStackParamList = {
   LogVisit: { account?: { id: string; name: string; type: string }; editActivityId?: string };
   ExpenseEntry: { editActivityId?: string };
   SheetsEntry: { editActivityId?: string };
-  DSR: { date?: string };
-  DSRList: undefined;
   Profile: undefined;
   KitchenSink: undefined;
   AccountDesignKitchenSink: undefined;
@@ -63,6 +60,7 @@ export type RootStackParamList = {
   Documents: undefined;
   UploadDocument: { onUploadSuccess?: () => void };
   ManageDownloads: { onDelete?: () => void };
+  AttendanceHistory: undefined;
   Login: undefined;
   OTP: undefined;
 };
@@ -114,8 +112,6 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="LogVisit" component={LogVisitScreen as any} />
           <Stack.Screen name="ExpenseEntry" component={ExpenseEntryScreen} />
           <Stack.Screen name="SheetsEntry" component={CompactSheetsEntryScreen} />
-          <Stack.Screen name="DSR" component={DSRScreen} />
-          <Stack.Screen name="DSRList" component={DSRListScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
           <Stack.Screen name="AccountDesignKitchenSink" component={AccountDesignKitchenSink} />
@@ -139,6 +135,9 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />
           <Stack.Screen name="ManageDownloads" component={ManageDownloadsScreen} />
+
+          {/* Activity History (replaces attendance tracking) */}
+          <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
         </Stack.Navigator>
       ) : (
         // User is not authenticated

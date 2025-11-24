@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import { Plus, X, ChevronLeft, FileText } from 'lucide-react-native';
+import { ChevronLeft, FileText } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
@@ -31,12 +31,6 @@ interface CompactSheetsEntryScreenProps {
 
 type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis 1MM';
 
-interface TodayEntry {
-  catalog: CatalogType;
-  sheetsCount: number;
-  id?: string; // For edit mode
-}
-
 export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> = ({ navigation, route }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
@@ -54,20 +48,14 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
   // Use cached target progress hook
   const { progress: targetProgress, loading: loadingTargets } = useTargetProgress(user?.uid, month);
 
-  // Quick add state
+  // Form state
   const [selectedCatalog, setSelectedCatalog] = useState<CatalogType | null>(null);
   const [sheetsInput, setSheetsInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Today's entries
-  const [todayEntries, setTodayEntries] = useState<TodayEntry[]>([]);
-
   // Notes for manager
   const [managerNotes, setManagerNotes] = useState('');
-
-  // Send for approval loading state
-  const [sendingForApproval, setSendingForApproval] = useState(false);
 
   // Fetch existing sheet data in edit mode
   useEffect(() => {
@@ -100,7 +88,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
     return ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
   };
 
-  const handleQuickAdd = async () => {
+  const handleSubmit = async () => {
     if (!selectedCatalog) {
       Alert.alert('Error', 'Please select a catalog');
       return;
@@ -112,44 +100,40 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
       return;
     }
 
-    if (isEditMode && editActivityId) {
-      // Edit mode: Save immediately to backend
-      setSubmitting(true);
-      try {
+    setSubmitting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      if (isEditMode && editActivityId) {
+        // Edit mode: Update existing entry
         await api.updateSheetsSale({
           id: editActivityId,
           catalog: selectedCatalog,
           sheetsCount: count,
         });
-
-        Alert.alert('Success', 'Sheet sale updated successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
-      } catch (error: any) {
-        logger.error('Error updating sheet sale:', error);
-        Alert.alert('Error', error.message || 'Failed to update sheet sale');
-      } finally {
-        setSubmitting(false);
-      }
-    } else {
-      // Add mode: Just add to local state (don't save to backend yet)
-      const existingIndex = todayEntries.findIndex(e => e.catalog === selectedCatalog);
-      if (existingIndex >= 0) {
-        // Update existing entry by adding to it
-        const updated = [...todayEntries];
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          sheetsCount: updated[existingIndex].sheetsCount + count,
-        };
-        setTodayEntries(updated);
       } else {
-        // Add new entry
-        setTodayEntries([...todayEntries, { catalog: selectedCatalog, sheetsCount: count }]);
+        // Create mode: Save new entry directly
+        await api.logSheetsSale({
+          date: today,
+          catalog: selectedCatalog,
+          sheetsCount: count,
+          notes: managerNotes || undefined,
+        });
       }
 
-      // Reset form
-      setSelectedCatalog(null);
-      setSheetsInput('');
+      // Invalidate caches
+      if (user?.uid) {
+        targetCache.invalidate(user.uid, month);
+      }
+      invalidateHomeStatsCache();
+
+      // Navigate back (toast shown implicitly by quick return)
+      navigation.goBack();
+    } catch (error: any) {
+      logger.error('Error saving sheet sale:', error);
+      Alert.alert('Error', error.message || 'Failed to save sheet sale');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -279,67 +263,28 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
             ))}
           </View>
 
-          {/* Sheets Input + Add Button */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TextInput
-              style={{
-                flex: 1,
-                backgroundColor: '#F5F5F5',
-                borderWidth: 1,
-                borderColor: '#E0E0E0',
-                borderRadius: 6,
-                padding: 12,
-                fontSize: 16,
-                fontWeight: '600',
-                color: '#1A1A1A',
-              }}
-              placeholder="Number of sheets"
-              placeholderTextColor="#999999"
-              value={sheetsInput}
-              onChangeText={setSheetsInput}
-              keyboardType="numeric"
-              editable={!submitting}
-            />
-            <TouchableOpacity
-              style={{
-                width: 48,
-                height: 48,
-                backgroundColor: submitting ? '#E0E0E0' : featureColors.sheets.primary,
-                borderRadius: 6,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onPress={handleQuickAdd}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Plus size={20} color="#FFFFFF" strokeWidth={2.5} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Delete Button (Edit Mode Only) */}
-          {isEditMode && (
-            <TouchableOpacity
-              style={{
-                backgroundColor: deleting ? '#FFCDD2' : '#FF3B30',
-                borderRadius: 6,
-                paddingVertical: 12,
-                alignItems: 'center',
-                marginTop: 12,
-              }}
-              onPress={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF' }}>Delete Entry</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          {/* Sheets Input */}
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+            Number of Sheets
+          </Text>
+          <TextInput
+            style={{
+              backgroundColor: '#F5F5F5',
+              borderWidth: 1,
+              borderColor: '#E0E0E0',
+              borderRadius: 6,
+              padding: 12,
+              fontSize: 18,
+              fontWeight: '600',
+              color: '#1A1A1A',
+            }}
+            placeholder="Enter count"
+            placeholderTextColor="#999999"
+            value={sheetsInput}
+            onChangeText={setSheetsInput}
+            keyboardType="numeric"
+            editable={!submitting}
+          />
         </View>
 
         {/* Optional Notes for Manager */}
@@ -374,68 +319,51 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         </View>
       </ScrollView>
 
-      {/* Sticky Bottom Section - Today's Entries + Submit */}
-      {todayEntries.length > 0 && (
-        <View style={[styles.stickyFooter, { paddingBottom: bottomPadding }]}>
-          <View style={styles.todaySection}>
-            <Text style={styles.todaySectionTitle}>Today's Entries ({todayEntries.length})</Text>
-            <ScrollView style={styles.entriesScroll} showsVerticalScrollIndicator={false}>
-              {todayEntries.map((entry, index) => (
-                <View key={index} style={styles.entryRow}>
-                  <Text style={styles.entryDot}>•</Text>
-                  <Text style={styles.entryText}>
-                    {entry.catalog}: {entry.sheetsCount.toLocaleString()} sheets
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
+      {/* Sticky Footer - Submit/Delete Buttons */}
+      <View style={[styles.stickyFooter, { paddingBottom: bottomPadding }]}>
+        {isEditMode ? (
+          // Edit Mode: Delete + Update buttons
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <TouchableOpacity
+              style={[styles.deleteButton, deleting && styles.buttonDisabled]}
+              onPress={handleDelete}
+              disabled={deleting || submitting}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.deleteButtonText}>Delete</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitButton, styles.submitButtonFlex, submitting && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={submitting || deleting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Update</Text>
+              )}
+            </TouchableOpacity>
           </View>
-
+        ) : (
+          // Create Mode: Submit button (full width)
           <TouchableOpacity
-            style={[styles.submitButton, sendingForApproval && styles.submitButtonDisabled]}
-            onPress={async () => {
-              setSendingForApproval(true);
-              try {
-                const today = new Date().toISOString().split('T')[0];
-
-                // Save all entries to backend
-                for (const entry of todayEntries) {
-                  await api.logSheetsSale({
-                    date: today,
-                    catalog: entry.catalog,
-                    sheetsCount: entry.sheetsCount,
-                    notes: managerNotes || undefined,
-                  });
-                }
-
-                // Invalidate target cache since new sales were logged
-                if (user?.uid) {
-                  targetCache.invalidate(user.uid, month);
-                }
-
-                // Invalidate home screen cache to show new sheets immediately
-                invalidateHomeStatsCache();
-
-                Alert.alert('Success', 'Sales submitted for approval', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-              } catch (error: any) {
-                logger.error('Error submitting sales:', error);
-                Alert.alert('Error', error.message || 'Failed to submit sales');
-              } finally {
-                setSendingForApproval(false);
-              }
-            }}
-            disabled={sendingForApproval}
+            style={[styles.submitButton, (!selectedCatalog || !sheetsInput || submitting) && styles.buttonDisabled]}
+            onPress={handleSubmit}
+            disabled={!selectedCatalog || !sheetsInput || submitting}
           >
-            {sendingForApproval ? (
+            {submitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={styles.submitButtonText}>Send for Approval</Text>
+              <Text style={styles.submitButtonText}>
+                {!selectedCatalog ? 'Select Catalog' : !sheetsInput ? 'Enter Count' : 'Log Sheets'}
+              </Text>
             )}
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 };
@@ -452,56 +380,50 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   stickyFooter: {
-    backgroundColor: colors.background,
-    borderTopWidth: 2,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
     borderTopColor: colors.border.default,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
-    // paddingBottom set dynamically via useBottomSafeArea hook (inline style)
-  },
-  todaySection: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    marginBottom: spacing.md,
-  },
-  todaySectionTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text.secondary,
-    marginBottom: spacing.sm,
-  },
-  entriesScroll: {
-    maxHeight: 120, // Limit height for scrollability
-  },
-  entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  entryDot: {
-    fontSize: typography.fontSize.base,
-    color: colors.accent,
-    marginRight: spacing.sm,
-  },
-  entryText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   submitButton: {
     backgroundColor: featureColors.sheets.primary,
     borderRadius: spacing.borderRadius.md,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
+    justifyContent: 'center',
     minHeight: 48,
     ...shadows.sm,
   },
-  submitButtonDisabled: {
+  submitButtonFlex: {
+    flex: 1,
+  },
+  buttonDisabled: {
     backgroundColor: '#E0E0E0',
+    opacity: 0.6,
   },
   submitButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.surface,
+  },
+  deleteButton: {
+    flex: 0.35,
+    backgroundColor: colors.error,
+    borderRadius: spacing.borderRadius.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  deleteButtonText: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.bold,
     color: colors.surface,

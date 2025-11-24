@@ -18,17 +18,15 @@ import {
   RefreshControl,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore } from '@react-native-firebase/firestore';
 import { DetailedStatsView } from '../components/DetailedStatsView';
-import { colors, spacing, typography, featureColors } from '../theme';
+import { colors, spacing, typography } from '../theme';
 import { api } from '../services/api';
 import { Skeleton } from '../patterns';
 import { logger } from '../utils/logger';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 import {
   Calendar,
-  FileText,
-  IndianRupee,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
@@ -52,59 +50,15 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   // State for monthly stats
   const [refreshing, setRefreshing] = useState(false);
 
-  // State for pending items
-  const [pendingCounts, setPendingCounts] = useState({
-    pendingExpenses: 0,
-    unverifiedSheets: 0,
-  });
-  const [loadingPending, setLoadingPending] = useState(false);
-
   // State for targets
   const [targets, setTargets] = useState<{ visits?: number; sheets?: number }>({});
-
-  // Fetch pending items count from DSR reports
-  const fetchPendingCounts = useCallback(async () => {
-    if (!user?.uid) return;
-
-    try {
-      setLoadingPending(true);
-      const firestore = getFirestore();
-      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
-
-      // Fetch pending DSR reports and sum their totals
-      const dsrQuery = query(
-        collection(firestore, 'dsrReports'),
-        where('userId', '==', user.uid),
-        where('status', '==', 'pending')
-      );
-      const dsrSnapshot = await getDocs(dsrQuery);
-
-      let totalPendingExpenseAmount = 0;
-      let totalPendingSheets = 0;
-
-      dsrSnapshot.forEach(doc => {
-        const data = doc.data();
-        totalPendingExpenseAmount += data.totalExpenses || 0;
-        totalPendingSheets += data.totalSheetsSold || 0;
-      });
-
-      setPendingCounts({
-        pendingExpenses: totalPendingExpenseAmount,  // Actual rupee amount
-        unverifiedSheets: totalPendingSheets,  // Actual sheet count
-      });
-    } catch (error) {
-      logger.error('Error fetching pending counts:', error);
-    } finally {
-      setLoadingPending(false);
-    }
-  }, [user?.uid]);
 
   // Pull-to-refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([refetchStats(), fetchPendingCounts()]);
+    await refetchStats();
     setRefreshing(false);
-  }, [refetchStats, fetchPendingCounts]);
+  }, [refetchStats]);
 
   // Navigate to previous month
   const goToPreviousMonth = () => {
@@ -163,21 +117,6 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Extract attendance days from stats data
-  const attendanceDays = useMemo(() => {
-    if (!statsData?.attendance?.records) return new Set<string>();
-
-    const attendanceDaysSet = new Set<string>();
-    statsData.attendance.records.forEach((record: any) => {
-      if (record.type === 'check_in' && record.timestamp) {
-        const date = record.timestamp.toDate?.() || new Date(record.timestamp);
-        const dateStr = date.toISOString().substring(0, 10);
-        attendanceDaysSet.add(dateStr);
-      }
-    });
-    return attendanceDaysSet;
-  }, [statsData]);
-
   const detailedStats = statsData;
 
   // Fetch targets
@@ -225,11 +164,10 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid, currentMonth]);
 
-  // Fetch pending counts and targets on mount and when month changes
+  // Fetch targets on mount and when month changes
   // Stats are automatically fetched by React Query
   useEffect(() => {
     if (user?.uid) {
-      fetchPendingCounts();
       fetchTargets();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,31 +175,51 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Dark Header - Compact */}
+      {/* Dark Header */}
       <View style={{
         backgroundColor: '#393735',
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         paddingTop: 52,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        paddingBottom: 16,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Title Row */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Calendar size={20} color="#C9A961" />
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>Performance</Text>
+            <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>Performance</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <TouchableOpacity onPress={goToPreviousMonth} style={{ padding: 4 }}>
-              <ChevronLeft size={20} color="#C9A961" />
-            </TouchableOpacity>
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', minWidth: 60, textAlign: 'center' }}>
-              {selectedDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
-            </Text>
-            <TouchableOpacity onPress={goToNextMonth} style={{ padding: 4 }}>
-              <ChevronRight size={20} color="#C9A961" />
-            </TouchableOpacity>
-          </View>
+          {/* Activity History Calendar Button */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('AttendanceHistory')}
+            style={{
+              padding: 8,
+              backgroundColor: 'rgba(201, 169, 97, 0.15)',
+              borderRadius: 8,
+            }}
+          >
+            <CalendarDays size={20} color="#C9A961" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Month Picker Row - Compact */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(255, 255, 255, 0.08)',
+          borderRadius: 8,
+          paddingVertical: 6,
+          paddingHorizontal: 12,
+        }}>
+          <TouchableOpacity onPress={goToPreviousMonth} style={{ padding: 4 }}>
+            <ChevronLeft size={18} color="#C9A961" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1, textAlign: 'center' }}>
+            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </Text>
+          <TouchableOpacity onPress={goToNextMonth} style={{ padding: 4 }}>
+            <ChevronRight size={18} color="#C9A961" />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -294,90 +252,10 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         ) : detailedStats ? (
           <DetailedStatsView
             stats={detailedStats}
-            attendanceDays={{
-              present: attendanceDays.size,
-              absent: (() => {
-                const now = new Date();
-                const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
-                                      selectedDate.getMonth() === now.getMonth();
-                // If viewing current month, count days from 1st to today
-                // If viewing past month, count all days in that month
-                const totalDaysToConsider = isCurrentMonth
-                  ? now.getDate()
-                  : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
-                return Math.max(0, totalDaysToConsider - attendanceDays.size);
-              })(),
-              total: (() => {
-                const now = new Date();
-                const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
-                                      selectedDate.getMonth() === now.getMonth();
-                return isCurrentMonth
-                  ? now.getDate()
-                  : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
-              })(),
-            }}
-            attendancePercentage={(() => {
-              const now = new Date();
-              const isCurrentMonth = selectedDate.getFullYear() === now.getFullYear() &&
-                                    selectedDate.getMonth() === now.getMonth();
-              const totalDaysToConsider = isCurrentMonth
-                ? now.getDate()
-                : new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
-              return attendanceDays.size > 0
-                ? Math.round((attendanceDays.size / totalDaysToConsider) * 100)
-                : 0;
-            })()}
-            attendanceMarkedDates={Object.fromEntries(
-              Array.from(attendanceDays).map(date => [
-                date,
-                { marked: true, dotColor: '#2E7D32', selected: false }
-              ])
-            )}
-            selectedMonth={selectedDate}
             targets={targets}
             userId={user?.uid}
           />
         ) : null}
-
-        {/* Pending Approvals Section - Moved after summary, more compact */}
-        {(pendingCounts.pendingExpenses > 0 || pendingCounts.unverifiedSheets > 0) && (
-          <>
-            <Text style={styles.sectionTitle}>Pending Approvals</Text>
-            <View style={{ gap: 8 }}>
-              {pendingCounts.pendingExpenses > 0 && (
-                <View style={styles.pendingItem}>
-                  <View style={[styles.pendingIconContainer, { backgroundColor: featureColors.expenses.light }]}>
-                    <IndianRupee size={20} color={featureColors.expenses.primary} />
-                  </View>
-                  <View style={styles.pendingContent}>
-                    <Text style={styles.pendingTitle}>
-                      {pendingCounts.pendingExpenses} Expense {pendingCounts.pendingExpenses === 1 ? 'Report' : 'Reports'}
-                    </Text>
-                    <Text style={styles.pendingSubtitle}>Waiting for manager approval</Text>
-                  </View>
-                </View>
-              )}
-
-              {pendingCounts.pendingExpenses > 0 && pendingCounts.unverifiedSheets > 0 && (
-                <View style={styles.pendingDivider} />
-              )}
-
-              {pendingCounts.unverifiedSheets > 0 && (
-                <View style={styles.pendingItem}>
-                  <View style={[styles.pendingIconContainer, { backgroundColor: featureColors.sheets.light }]}>
-                    <FileText size={20} color={featureColors.sheets.primary} />
-                  </View>
-                  <View style={styles.pendingContent}>
-                    <Text style={styles.pendingTitle}>
-                      {pendingCounts.unverifiedSheets} Sheet {pendingCounts.unverifiedSheets === 1 ? 'Sale' : 'Sales'}
-                    </Text>
-                    <Text style={styles.pendingSubtitle}>Awaiting verification</Text>
-                  </View>
-                </View>
-              )}
-            </View>
-          </>
-        )}
 
       </ScrollView>
     </View>
@@ -436,82 +314,5 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.screenPadding,
     // paddingBottom set dynamically via useBottomSafeArea hook (60 + bottomPadding)
-  },
-  sectionTitle: {
-    ...typography.styles.h3,
-    color: colors.text.primary,
-    marginBottom: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  loadingContainer: {
-    paddingVertical: spacing.xl * 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kpiGrid: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  kpiRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  // Insight Card
-  insightCard: {
-    padding: spacing.lg,
-    backgroundColor: featureColors.visits.light,
-    borderLeftWidth: 4,
-    borderLeftColor: featureColors.visits.primary,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  insightTitle: {
-    ...typography.styles.h4,
-    color: colors.text.primary,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  insightText: {
-    ...typography.styles.body,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-  // Pending Approvals Section
-  pendingCard: {
-    marginBottom: spacing.md,
-  },
-  pendingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  pendingIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.borderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pendingContent: {
-    flex: 1,
-  },
-  pendingTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs / 2,
-  },
-  pendingSubtitle: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  pendingDivider: {
-    height: 1,
-    backgroundColor: colors.border.light,
-    marginHorizontal: spacing.md,
   },
 });

@@ -56,16 +56,23 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
 ## V1 Scope
 
 ###  Goals (Must Have)
-1. **Attendance**: GPS-stamped check-in/check-out (accuracy d 50-100m)
-2. **Lead Routing**: Webhook from website � auto-assign by pincode � 4-hour SLA
-3. **Visit Logging**: Track distributor/dealer/architect visits with **mandatory photo of counter** (no GPS), notes
-4. **Daily Sheets Sales**: Track laminate sheets sold per catalog (Fine Decor, Artvio, Woodrica, Artis)
-5. **Expense Reporting**: Sales reps can log daily expenses (travel, food, etc.) with receipts
-6. **DSR Auto-compile**: Daily Sales Report from day's events; manager approval
-7. **Manager Dashboard**: Team attendance, visit stats, monthly reports (visits by type, sheets sold), CSV/PDF export
-8. **Offline Support**: All writes queue locally, sync when online
+1. **Visit Logging**: Track distributor/dealer/architect visits with **mandatory photo of counter** (no GPS), notes
+2. **Daily Sheets Sales**: Track laminate sheets sold per catalog (Fine Decor, Artvio, Woodrica, Artis 1MM)
+3. **Expense Reporting**: Sales reps can log daily expenses (travel, food, etc.) with receipts
+4. **DSR Auto-compile**: Daily Sales Report from day's events; manager approval
+5. **Manager Dashboard**: Visit stats, monthly reports (visits by type, sheets sold), team oversight
+6. **Target Management**: Set and track monthly sales targets
+7. **Account Management**: Manage distributors, dealers, architects
+8. **User Management**: Add/edit sales reps and managers
+9. **Document Library**: Share documents with offline access
+10. **Offline Support**: All writes queue locally, sync when online
 
-### L Non-Goals (V1)
+### ⏸️ Deferred Features (V1.1/V2)
+- **Attendance Tracking**: GPS-stamped check-in/check-out (disabled via feature flag, see [ADR 005](docs/decisions/005_ATTENDANCE_DISABLED_FOR_V1.md))
+- **Lead Routing**: Webhook from website → auto-assign by pincode → 4-hour SLA
+- **CSV/PDF Export**: Data export for external systems
+
+### ❌ Non-Goals (V1)
 - Payroll/salary
 - Sales incentive calculation (post-V1, after sales verification workflow)
 - Continuous GPS tracking (battery drain)
@@ -237,7 +244,10 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
 // - date + status
 ```
 
-#### `attendance/{attendanceId}`
+#### `attendance/{attendanceId}` ⏸️ **DISABLED FOR V1**
+> **Note**: Attendance tracking is **disabled for V1** via feature flag. Collection exists but receives no new writes.
+> See [ADR 005](docs/decisions/005_ATTENDANCE_DISABLED_FOR_V1.md) for details.
+
 ```typescript
 {
   id: string;
@@ -256,6 +266,9 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
 // Indexes:
 // - userId + timestamp (descending)
 // - timestamp (for daily queries)
+
+// V1 Status: Collection exists but is UNUSED
+// Feature Flag: ATTENDANCE_FEATURE_ENABLED = false (mobile/src/screens/HomeScreen_v2.tsx:50)
 ```
 
 #### `dsrReports/{reportId}` (Daily Sales Report)
@@ -266,8 +279,8 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
   date: string;                  // YYYY-MM-DD
 
   // Auto-compiled stats
-  checkInAt?: Timestamp;
-  checkOutAt?: Timestamp;
+  checkInAt?: Timestamp;         // V1: Always null (attendance disabled)
+  checkOutAt?: Timestamp;        // V1: Always null (attendance disabled)
   totalVisits: number;
   visitIds: string[];
   leadsContacted: number;
@@ -286,6 +299,8 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
 // Indexes:
 // - userId + date
 // - date + status
+
+// V1 Note: checkInAt/checkOutAt are null since attendance is disabled
 ```
 
 #### `events/{eventId}` (Outbox Pattern)
@@ -294,6 +309,8 @@ Building an Android-first, offline-capable field sales tracking app for **Artis 
   id: string;
   eventType: 'LeadCreated' | 'LeadAssigned' | 'LeadSLAExpired' |
              'VisitStarted' | 'VisitEnded' | 'AttendanceCheckedIn' | 'AttendanceCheckedOut';
+             // V1: LeadCreated/LeadAssigned/LeadSLAExpired unused (lead routing deferred)
+             // V1: AttendanceCheckedIn/AttendanceCheckedOut unused (attendance disabled)
   payload: Record<string, any>;
   createdAt: Timestamp;
   processedAt?: Timestamp;
