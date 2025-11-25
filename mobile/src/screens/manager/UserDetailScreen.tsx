@@ -11,6 +11,8 @@ import {
   Modal,
   TextInput,
   Alert,
+  Switch,
+  FlatList,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -28,6 +30,9 @@ import {
   Edit,
   X,
   Target as TargetIcon,
+  ChevronDown,
+  ChevronRight,
+  Activity,
 } from 'lucide-react-native';
 import { Calendar, DateData } from 'react-native-calendars';
 import { colors, spacing, typography } from '../../theme';
@@ -35,6 +40,7 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { api } from '../../services/api';
 import { DetailedStatsView } from '../../components/DetailedStatsView';
 import { Skeleton } from '../../patterns';
+import { AccountListItem } from '../../types';
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -53,6 +59,8 @@ interface UserData {
   phone: string;
   role: string;
   territory: string;
+  primaryDistributorId?: string;
+  isActive?: boolean;
 }
 
 interface UserStats {
@@ -77,6 +85,7 @@ interface UserStats {
       'Woodrica': number;
       'Artis': number;
     };
+    records?: any[];
   };
   expenses: {
     total: number;
@@ -91,6 +100,7 @@ interface UserStats {
       accommodation: number;
       other: number;
     };
+    records?: any[];
   };
 }
 
@@ -111,10 +121,19 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editTerritory, setEditTerritory] = useState('');
+  const [editDistributorId, setEditDistributorId] = useState<string | null>(null);
+  const [editDistributorName, setEditDistributorName] = useState<string>('');
+  const [editIsActive, setEditIsActive] = useState(true);
   const [saving, setSaving] = useState(false);
   const [targets, setTargets] = useState<any>({});
+
+  // Distributor picker states
+  const [distributors, setDistributors] = useState<AccountListItem[]>([]);
+  const [showDistributorModal, setShowDistributorModal] = useState(false);
+  const [loadingDistributors, setLoadingDistributors] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -302,16 +321,109 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
     return { present, absent, total };
   };
 
-  // Handle edit user details
-  const handleEditPress = () => {
+  // Calculate activity-based active days (days with visits, sheets, or expenses)
+  const getActiveDays = () => {
+    if (!stats) return { activeDays: 0, totalDays: 0, percentage: 0 };
+
+    const { startDate, endDate } = getDateRange(timeRange);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const now = new Date();
+
+    // For current period, only count up to today
+    const effectiveEnd = end > now ? now : end;
+    const totalDays = Math.ceil((effectiveEnd.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    const uniqueDays = new Set<string>();
+
+    // Extract visit dates
+    if (stats.visits?.records) {
+      stats.visits.records.forEach((record: any) => {
+        if (record.timestamp) {
+          const date = record.timestamp.toDate?.() || new Date(record.timestamp);
+          uniqueDays.add(date.toISOString().substring(0, 10));
+        }
+      });
+    }
+
+    // Extract sheets dates
+    if (stats.sheets?.records) {
+      stats.sheets.records.forEach((record: any) => {
+        const dateField = record.createdAt || record.date;
+        if (dateField) {
+          const date = dateField.toDate?.() || new Date(dateField);
+          const dateStr = typeof dateField === 'string' ? dateField.substring(0, 10) : date.toISOString().substring(0, 10);
+          uniqueDays.add(dateStr);
+        }
+      });
+    }
+
+    // Extract expense dates
+    if (stats.expenses?.records) {
+      stats.expenses.records.forEach((record: any) => {
+        const dateField = record.createdAt || record.date;
+        if (dateField) {
+          const date = dateField.toDate?.() || new Date(dateField);
+          const dateStr = typeof dateField === 'string' ? dateField.substring(0, 10) : date.toISOString().substring(0, 10);
+          uniqueDays.add(dateStr);
+        }
+      });
+    }
+
+    const activeDays = uniqueDays.size;
+    const percentage = totalDays > 0 ? Math.round((activeDays / totalDays) * 100) : 0;
+
+    return { activeDays, totalDays, percentage };
+  };
+
+  // Load distributors for picker
+  const loadDistributors = async () => {
+    try {
+      setLoadingDistributors(true);
+      const response = await api.getAccountsList({ type: 'distributor' });
+      if (response.ok) {
+        setDistributors(response.accounts);
+      }
+    } catch (error) {
+      logger.error('Error loading distributors:', error);
+    } finally {
+      setLoadingDistributors(false);
+    }
+  };
+
+  const handleEditPress = async () => {
+    setEditName(userData?.name || '');
     setEditPhone(userData?.phone || '');
     setEditTerritory(userData?.territory || '');
+    setEditDistributorId(userData?.primaryDistributorId || null);
+    setEditIsActive(userData?.isActive !== false); // default to true if undefined
     setShowEditModal(true);
+
+    // Load distributors in background
+    loadDistributors();
+
+    // If user has a distributor assigned, try to get its name
+    if (userData?.primaryDistributorId) {
+      try {
+        const response = await api.getAccountDetails({ accountId: userData.primaryDistributorId });
+        if (response.ok && response.account) {
+          setEditDistributorName(response.account.name);
+        }
+      } catch (error) {
+        logger.error('Error loading distributor name:', error);
+      }
+    } else {
+      setEditDistributorName('');
+    }
   };
 
   const handleSaveEdit = async () => {
-    if (!editPhone.trim() || !editTerritory.trim()) {
-      Alert.alert('Error', 'Phone and territory are required');
+    if (!editName.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+    if (!editPhone.trim()) {
+      Alert.alert('Error', 'Phone is required');
       return;
     }
 
@@ -319,8 +431,11 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
       setSaving(true);
       await api.updateUser({
         userId,
+        name: editName.trim(),
         phone: editPhone.trim(),
-        territory: editTerritory.trim(),
+        territory: editTerritory.trim() || undefined,
+        primaryDistributorId: editDistributorId,
+        isActive: editIsActive,
       });
 
       Alert.alert('Success', 'User details updated successfully');
@@ -379,50 +494,56 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
   const attendanceDays = getAttendanceDays();
   const attendancePercentage = getAttendancePercentage();
+  const activityStats = getActiveDays();
 
   return (
     <View style={styles.container}>
-      {/* Header - Dark style matching other tabs */}
-      <View style={{
-        backgroundColor: '#393735',
-        paddingHorizontal: 24,
-        paddingTop: 52,
-        paddingBottom: 20,
-      }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 }}>
+      {/* Header - Dark style with back, name, and icon buttons */}
+      <View style={styles.headerContainer}>
+        <View style={styles.headerRow}>
+          {/* Back Button */}
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => navigation.goBack()}
+          >
+            <ArrowLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          {/* Name and Role */}
+          <View style={styles.headerNameSection}>
+            <Text style={styles.headerName}>
               {userData?.name || 'User'}
             </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+            <Text style={styles.headerSubtitle}>
               {formatRoleLabel(userData?.role || '')} • {userData?.territory}
             </Text>
           </View>
 
-          {/* Set Target Button - Aligned to top */}
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: '#C9A961',
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 8,
-              marginTop: -4, // Align with title baseline
-            }}
-            onPress={() => {
-              const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-              navigation.navigate('SetTarget', {
-                userId: userId,
-                userName: userData?.name || 'User',
-                currentMonth,
-              });
-            }}
-          >
-            <TargetIcon size={18} color="#393735" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Target</Text>
-          </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.headerActions}>
+            {/* Edit Icon Button */}
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={handleEditPress}
+            >
+              <Edit size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {/* Target Icon Button */}
+            <TouchableOpacity
+              style={styles.headerIconButton}
+              onPress={() => {
+                const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+                navigation.navigate('SetTarget', {
+                  userId: userId,
+                  userName: userData?.name || 'User',
+                  currentMonth,
+                });
+              }}
+            >
+              <TargetIcon size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -435,56 +556,64 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         }
       >
         <View style={styles.content}>
-          {/* Edit Details Button */}
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              padding: 12,
-              backgroundColor: '#F8F8F8',
-              borderRadius: 8,
-              borderWidth: 1,
-              borderColor: '#E0E0E0',
-              marginBottom: 16,
-            }}
-            onPress={handleEditPress}
-          >
-            <Edit size={18} color="#666666" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#666666' }}>
-              Edit Phone & Territory
-            </Text>
-          </TouchableOpacity>
-
-          {/* Date Range Selector */}
-          <View style={styles.dateRangeContainer}>
-            {(['today', 'week', 'month', 'custom'] as TimeRange[]).map((range) => (
-              <TouchableOpacity
-                key={range}
-                style={[
-                  styles.dateRangePill,
-                  timeRange === range && styles.dateRangePillActive,
-                ]}
-                onPress={() => {
-                  if (range === 'custom') {
-                    setShowCustomDatePicker(true);
-                  } else {
-                    setTimeRange(range);
-                  }
-                }}
-              >
-                <Text
+          {/* Date Range Selector - iOS Segmented Control Style */}
+          <View style={styles.segmentedControl}>
+            {(['today', 'week', 'month', 'custom'] as TimeRange[]).map((range, index) => {
+              const isSelected = timeRange === range;
+              const isFirst = index === 0;
+              const isLast = index === 3;
+              return (
+                <TouchableOpacity
+                  key={range}
                   style={[
-                    styles.dateRangePillText,
-                    timeRange === range && styles.dateRangePillTextActive,
+                    styles.segmentedButton,
+                    isFirst && styles.segmentedButtonFirst,
+                    isLast && styles.segmentedButtonLast,
+                    isSelected && styles.segmentedButtonActive,
                   ]}
+                  onPress={() => {
+                    if (range === 'custom') {
+                      setShowCustomDatePicker(true);
+                    } else {
+                      setTimeRange(range);
+                    }
+                  }}
+                  activeOpacity={0.7}
                 >
-                  {formatTimeRangeLabel(range)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.segmentedButtonText,
+                      isSelected && styles.segmentedButtonTextActive,
+                    ]}
+                  >
+                    {formatTimeRangeLabel(range)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+
+          {/* Activity Summary Card - Tap to see full calendar */}
+          {stats && (
+            <TouchableOpacity
+              style={styles.activityCard}
+              onPress={() => navigation.navigate('AttendanceHistory', { userId, userName: userData?.name })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.activityCardLeft}>
+                <View style={styles.activityIconContainer}>
+                  <Activity size={20} color="#2E7D32" />
+                </View>
+                <View>
+                  <Text style={styles.activityCardLabel}>Activity</Text>
+                  <Text style={styles.activityCardValue}>
+                    {activityStats.activeDays} Active Days ({activityStats.percentage}%)
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
+          )}
 
           {/* Detailed Stats View - Same component as StatsScreen */}
           {stats && (
@@ -519,6 +648,13 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               })()}
               targets={targets}
               userId={userId}
+              onViewPending={(type) => {
+                // Navigate to Review tab with this user pre-filtered
+                navigation.navigate('Home', {
+                  screen: 'ReviewTab',
+                  params: { filterUserId: userId, filterUserName: userData?.name },
+                });
+              }}
             />
           )}
         </View>
@@ -679,28 +815,102 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.input}
-                value={editPhone}
-                onChangeText={setEditPhone}
-                placeholder="Enter phone number"
-                keyboardType="phone-pad"
-                editable={!saving}
-              />
-            </View>
+            <ScrollView style={styles.editModalScroll} showsVerticalScrollIndicator={false}>
+              {/* Name Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Name</Text>
+                <View style={styles.inputWithIcon}>
+                  <User size={18} color={colors.text.tertiary} />
+                  <TextInput
+                    style={styles.inputField}
+                    value={editName}
+                    onChangeText={setEditName}
+                    placeholder="Enter name"
+                    editable={!saving}
+                  />
+                </View>
+              </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Territory</Text>
-              <TextInput
-                style={styles.input}
-                value={editTerritory}
-                onChangeText={setEditTerritory}
-                placeholder="Enter territory"
-                editable={!saving}
-              />
-            </View>
+              {/* Phone Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Phone Number</Text>
+                <View style={styles.inputWithIcon}>
+                  <Phone size={18} color={colors.text.tertiary} />
+                  <TextInput
+                    style={styles.inputField}
+                    value={editPhone}
+                    onChangeText={setEditPhone}
+                    placeholder="Enter phone number"
+                    keyboardType="phone-pad"
+                    editable={!saving}
+                  />
+                </View>
+              </View>
+
+              {/* Territory Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Territory</Text>
+                <View style={styles.inputWithIcon}>
+                  <MapPin size={18} color={colors.text.tertiary} />
+                  <TextInput
+                    style={styles.inputField}
+                    value={editTerritory}
+                    onChangeText={setEditTerritory}
+                    placeholder="Enter territory"
+                    editable={!saving}
+                  />
+                </View>
+              </View>
+
+              {/* Distributor Picker */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Assigned Distributor</Text>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => setShowDistributorModal(true)}
+                  disabled={saving}
+                >
+                  <Building2 size={18} color={colors.text.tertiary} />
+                  <Text style={editDistributorName ? styles.dropdownText : styles.dropdownPlaceholder}>
+                    {editDistributorName || 'Select distributor...'}
+                  </Text>
+                  <ChevronDown size={18} color={colors.text.tertiary} />
+                </TouchableOpacity>
+                {editDistributorId && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditDistributorId(null);
+                      setEditDistributorName('');
+                    }}
+                    style={styles.clearButton}
+                  >
+                    <Text style={styles.clearButtonText}>Clear selection</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Active Status Toggle */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Account Status</Text>
+                <View style={styles.switchRow}>
+                  <View style={styles.switchLabelContainer}>
+                    <Text style={[styles.switchLabel, { color: editIsActive ? colors.success : colors.error }]}>
+                      {editIsActive ? 'Active' : 'Inactive'}
+                    </Text>
+                    <Text style={styles.switchSubLabel}>
+                      {editIsActive ? 'User can access the app' : 'User is blocked from the app'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={editIsActive}
+                    onValueChange={setEditIsActive}
+                    trackColor={{ false: colors.error + '40', true: colors.success + '40' }}
+                    thumbColor={editIsActive ? colors.success : colors.error}
+                    disabled={saving}
+                  />
+                </View>
+              </View>
+            </ScrollView>
 
             <View style={styles.editModalButtons}>
               <TouchableOpacity
@@ -718,10 +928,62 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                 {saving ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save</Text>
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Distributor Selection Modal */}
+      <Modal
+        visible={showDistributorModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDistributorModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.distributorModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Select Distributor</Text>
+              <TouchableOpacity onPress={() => setShowDistributorModal(false)}>
+                <X size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingDistributors ? (
+              <View style={styles.distributorLoading}>
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={styles.distributorLoadingText}>Loading distributors...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={distributors}
+                keyExtractor={(item) => item.id}
+                style={styles.distributorList}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.distributorItem}
+                    onPress={() => {
+                      setEditDistributorId(item.id);
+                      setEditDistributorName(item.name);
+                      setShowDistributorModal(false);
+                    }}
+                  >
+                    <Text style={styles.distributorName}>{item.name}</Text>
+                    <Text style={styles.distributorMeta}>
+                      {item.city}, {item.state}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.distributorEmpty}>
+                    <Text style={styles.distributorEmptyText}>No distributors found</Text>
+                  </View>
+                }
+              />
+            )}
           </View>
         </View>
       </Modal>
@@ -734,6 +996,48 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  // New header styles
+  headerContainer: {
+    backgroundColor: '#393735',
+    paddingHorizontal: 20,
+    paddingTop: 52,
+    paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerBackButton: {
+    padding: 4,
+    marginRight: 12,
+  },
+  headerNameSection: {
+    flex: 1,
+  },
+  headerName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Legacy styles (kept for compatibility)
   header: {
     backgroundColor: colors.primary,
     paddingTop: 50,
@@ -834,35 +1138,78 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.screenPadding,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: 12,
+    paddingBottom: spacing.screenPadding,
   },
-  dateRangeContainer: {
+  // Pill-style date picker
+  segmentedControl: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.xs,
-    marginBottom: spacing.lg,
+    gap: 8,
+    marginBottom: 12,
   },
-  dateRangePill: {
+  segmentedButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: '#f5f5f5',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    justifyContent: 'center',
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
   },
-  dateRangePillActive: {
-    backgroundColor: colors.accent + '15',
-    borderColor: colors.accent,
+  segmentedButtonFirst: {
+    // No special styling needed for pill style
   },
-  dateRangePillText: {
-    fontSize: typography.fontSize.xs,
+  segmentedButtonLast: {
+    // No special styling needed for pill style
+  },
+  segmentedButtonActive: {
+    backgroundColor: colors.accent,
+  },
+  segmentedButtonText: {
+    fontSize: 13,
     color: colors.text.secondary,
-    fontWeight: typography.fontWeight.semiBold,
+    fontWeight: '500',
   },
-  dateRangePillTextActive: {
-    color: colors.accent,
-    fontWeight: typography.fontWeight.bold,
+  segmentedButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  activityCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  activityCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8F5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityCardLabel: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: 2,
+  },
+  activityCardValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
   },
   loadingContainer: {
     flex: 1,
@@ -1067,5 +1414,121 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.inverse,
+  },
+  // Enhanced edit modal styles
+  editModalScroll: {
+    maxHeight: 400,
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  inputField: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  dropdownButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+  },
+  dropdownPlaceholder: {
+    flex: 1,
+    fontSize: typography.fontSize.base,
+    color: colors.text.tertiary,
+  },
+  clearButton: {
+    marginTop: spacing.xs,
+  },
+  clearButtonText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.accent,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  switchLabelContainer: {
+    flex: 1,
+  },
+  switchLabel: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  switchSubLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginTop: 2,
+  },
+  // Distributor modal styles
+  distributorModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.xl,
+    width: '85%',
+    maxWidth: 400,
+    maxHeight: '60%',
+  },
+  distributorLoading: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  distributorLoadingText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+  },
+  distributorList: {
+    maxHeight: 300,
+  },
+  distributorItem: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+  },
+  distributorName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.primary,
+  },
+  distributorMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  distributorEmpty: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  distributorEmptyText: {
+    fontSize: typography.fontSize.base,
+    color: colors.text.secondary,
   },
 });

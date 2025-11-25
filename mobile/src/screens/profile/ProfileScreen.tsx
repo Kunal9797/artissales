@@ -11,11 +11,13 @@ import {
   RefreshControl,
   Image,
   Linking,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
-import { User as UserIcon, Mail, Phone, Camera, MapPin, Briefcase, PhoneCall } from 'lucide-react-native';
+import { User as UserIcon, Mail, Phone, Camera, MapPin, Briefcase, PhoneCall, Edit, X } from 'lucide-react-native';
 import { uploadProfilePhoto, deleteProfilePhoto, cacheProfilePhotoLocally, getLocalProfilePhoto } from '../../services/storage';
 import { selectPhoto } from '../../utils/photoUtils';
 import { colors, spacing, typography } from '../../theme';
@@ -48,6 +50,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   // Quick call contacts
   const [managerInfo, setManagerInfo] = useState<{ name: string; phone: string } | null>(null);
   const [distributorInfo, setDistributorInfo] = useState<{ name: string; phone: string } | null>(null);
+
+  // Edit modal state (managers only)
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editTerritory, setEditTerritory] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Check if current user is a manager
+  const isManager = ['area_manager', 'zonal_head', 'national_head', 'admin'].includes(role);
 
   // Load local cached photo on mount
   useEffect(() => {
@@ -224,6 +236,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     }, 500);
   }, []);
 
+  // Edit profile handlers (managers only)
+  const handleEditPress = () => {
+    setEditName(name || '');
+    setEditPhone(user?.phoneNumber || '');
+    setEditTerritory(territory || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) {
+      Alert.alert('Error', 'Name is required');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.updateProfile({
+        name: editName.trim(),
+        territory: editTerritory.trim(),
+      });
+      Alert.alert('Success', 'Profile updated');
+      setShowEditModal(false);
+    } catch (err: any) {
+      logger.error('Profile update error:', err);
+      Alert.alert('Error', err.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSignOut = () => {
     Alert.alert(
       'Sign Out',
@@ -391,6 +432,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             <MapPin size={18} color={colors.text.tertiary} />
             <Text style={styles.detailText}>{territory}</Text>
           </View>
+
+          {/* Edit button for managers */}
+          {isManager && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.editDetailsButton}
+                onPress={handleEditPress}
+                activeOpacity={0.7}
+              >
+                <Edit size={18} color="#666666" />
+                <Text style={styles.editDetailsText}>Edit Details</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </Card>
 
         {/* Quick Call Actions */}
@@ -430,6 +486,79 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
         {/* Sign Out button moved to header */}
       </ScrollView>
+
+      {/* Edit Profile Modal (managers only) */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Edit Profile</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <X size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Name</Text>
+              <TextInput
+                style={styles.input}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter your name"
+                editable={!saving}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput
+                style={[styles.input, styles.inputDisabled]}
+                value={editPhone}
+                editable={false}
+                placeholder="Phone number"
+              />
+              <Text style={styles.inputHint}>Phone number cannot be changed</Text>
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Territory</Text>
+              <TextInput
+                style={styles.input}
+                value={editTerritory}
+                onChangeText={setEditTerritory}
+                placeholder="Enter territory"
+                editable={!saving}
+              />
+            </View>
+
+            <View style={styles.editModalButtons}>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.cancelButton]}
+                onPress={() => setShowEditModal(false)}
+                disabled={saving}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editModalButton, styles.saveButton]}
+                onPress={handleSaveEdit}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -620,5 +749,99 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.error,
+  },
+  // Edit Details Button (managers)
+  editDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  editDetailsText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: '#666666',
+  },
+  // Edit Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.xl,
+    width: '85%',
+    maxWidth: 400,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  editModalTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+  },
+  inputContainer: {
+    marginBottom: spacing.lg,
+  },
+  inputLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    fontSize: typography.fontSize.base,
+    color: colors.text.primary,
+    backgroundColor: colors.background,
+  },
+  inputDisabled: {
+    backgroundColor: '#F5F5F5',
+    color: colors.text.tertiary,
+  },
+  inputHint: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs / 2,
+  },
+  editModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  editModalButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  cancelButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+  },
+  saveButton: {
+    backgroundColor: '#C9A961',
+  },
+  saveButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semiBold,
+    color: '#FFFFFF',
   },
 });

@@ -14,6 +14,7 @@ interface UpdateProfileRequest {
   name?: string;
   email?: string;
   profilePhotoUrl?: string;
+  territory?: string;
 }
 
 /**
@@ -32,10 +33,10 @@ export const updateProfile = onRequest(async (request, response) => {
     const body = request.body as UpdateProfileRequest;
 
     // Validate: at least one field must be provided
-    if (body.name === undefined && body.email === undefined && body.profilePhotoUrl === undefined) {
+    if (body.name === undefined && body.email === undefined && body.profilePhotoUrl === undefined && body.territory === undefined) {
       const error: ApiError = {
         ok: false,
-        error: "At least one field (name, email, or profilePhotoUrl) must be provided",
+        error: "At least one field (name, email, profilePhotoUrl, or territory) must be provided",
         code: "VALIDATION_ERROR",
       };
       response.status(400).json(error);
@@ -123,6 +124,10 @@ export const updateProfile = onRequest(async (request, response) => {
 
     if (body.profilePhotoUrl !== undefined) {
       updateData.profilePhotoUrl = body.profilePhotoUrl.trim() || null; // null if empty string
+    }
+
+    if (body.territory !== undefined) {
+      updateData.territory = body.territory.trim() || null; // null if empty string
     }
 
     // Update user document

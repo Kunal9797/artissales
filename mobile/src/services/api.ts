@@ -198,7 +198,7 @@ export const api = {
     return callFunction('deleteExpense', data);
   },
 
-  updateProfile: async (data: { name?: string; email?: string; profilePhotoUrl?: string }) => {
+  updateProfile: async (data: { name?: string; email?: string; profilePhotoUrl?: string; territory?: string }) => {
     return callFunction('updateProfile', data);
   },
 
@@ -211,6 +211,11 @@ export const api = {
     return callFunction('getTeamStats', data);
   },
 
+  // Lightweight manager dashboard API (optimized for home screen)
+  getManagerDashboard: async (data?: { date?: string }) => {
+    return callFunction('getManagerDashboard', data || {});
+  },
+
   getUsersList: async (data: GetUsersListRequest) => {
     return callFunction('getUsersList', data);
   },
@@ -219,7 +224,14 @@ export const api = {
     return callFunction('getUserStats', data);
   },
 
-  updateUser: async (data: { userId: string; phone?: string; territory?: string }) => {
+  updateUser: async (data: {
+    userId: string;
+    name?: string;
+    phone?: string;
+    territory?: string;
+    primaryDistributorId?: string | null;
+    isActive?: boolean;
+  }) => {
     return callFunction('updateUser', data);
   },
 

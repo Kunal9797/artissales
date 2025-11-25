@@ -212,28 +212,24 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
     } catch (error: any) {
       logger.error('[AddUserScreen] Error creating user:', error);
 
-      // Extract meaningful error message
-      let errorMessage = 'Failed to create user. Please try again.';
-
-      if (error.message) {
-        errorMessage = error.message;
-      }
-
-      // Handle specific error codes
-      if (error.code === 'DUPLICATE_PHONE') {
-        errorMessage = 'This phone number is already registered.';
+      // Handle duplicate phone error with a nicer message
+      if (error.code === 'DUPLICATE_PHONE' || error.message?.includes('already exists')) {
+        Alert.alert(
+          'Phone Number Already Registered',
+          'This phone number is already registered to an existing active user. Please use a different phone number.',
+          [{ text: 'OK', style: 'default' }]
+        );
       } else if (error.code === 'INSUFFICIENT_PERMISSIONS') {
-        errorMessage = 'You do not have permission to create users.';
+        Alert.alert('Permission Denied', 'You do not have permission to create users.');
       } else if (error.code === 'INVALID_PHONE') {
-        errorMessage = 'Please enter a valid 10-digit phone number.';
+        Alert.alert('Invalid Phone', 'Please enter a valid 10-digit phone number.');
+      } else {
+        // Show details if available
+        if (error.details) {
+          logger.error('[AddUserScreen] Error details:', error.details);
+        }
+        Alert.alert('Error', error.message || 'Failed to create user. Please try again.');
       }
-
-      // Show details if available
-      if (error.details) {
-        logger.error('[AddUserScreen] Error details:', error.details);
-      }
-
-      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

@@ -11,11 +11,11 @@ import * as logger from "firebase-functions/logger";
 
 /**
  * Scheduled function to process outbox events
- * Runs every 30 seconds
+ * Runs every minute (Cloud Scheduler minimum granularity)
  */
 export const processOutboxEvents = onSchedule(
   {
-    schedule: "*/30 * * * * *", // Every 30 seconds
+    schedule: "* * * * *", // Every minute (Cloud Scheduler minimum)
     timeZone: "Asia/Kolkata",
   },
   async (event) => {

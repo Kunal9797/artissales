@@ -81,11 +81,14 @@ interface DetailedStatsProps {
     };
   };
   userId?: string;
+  // Optional callback for navigating to Review screen with user filtered
+  onViewPending?: (type: 'sheets' | 'expenses') => void;
 }
 
 export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
   stats,
   targets = {},
+  onViewPending,
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('visits');
 
@@ -441,6 +444,16 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 {pendingSheets.count > 5 && (
                   <Text style={styles.moreText}>+{pendingSheets.count - 5} more pending</Text>
                 )}
+                {onViewPending && (
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => onViewPending('sheets')}
+                  >
+                    <Text style={styles.viewAllButtonText}>
+                      View All {pendingSheets.count} Pending →
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -520,6 +533,16 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 ))}
                 {pendingExpenses.count > 5 && (
                   <Text style={styles.moreText}>+{pendingExpenses.count - 5} more pending</Text>
+                )}
+                {onViewPending && (
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => onViewPending('expenses')}
+                  >
+                    <Text style={styles.viewAllButtonText}>
+                      View All {pendingExpenses.count} Pending →
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
             )}
@@ -801,5 +824,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text.secondary,
     marginTop: 2,
+  },
+  // View All button for pending items
+  viewAllButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: colors.accent + '15',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.accent,
   },
 });

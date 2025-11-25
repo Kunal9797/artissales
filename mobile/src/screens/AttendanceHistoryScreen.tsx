@@ -33,13 +33,25 @@ import { logger } from '../utils/logger';
 
 interface AttendanceHistoryScreenProps {
   navigation: any;
+  route?: {
+    params?: {
+      userId?: string;
+      userName?: string;
+    };
+  };
 }
 
 export const AttendanceHistoryScreen: React.FC<AttendanceHistoryScreenProps> = ({
   navigation,
+  route,
 }) => {
   const authInstance = getAuth();
-  const user = authInstance.currentUser;
+  const currentUser = authInstance.currentUser;
+
+  // Use provided userId or fall back to logged-in user
+  const targetUserId = route?.params?.userId || currentUser?.uid;
+  const targetUserName = route?.params?.userName;
+  const isViewingOtherUser = !!route?.params?.userId;
 
   // State for selected month
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -63,20 +75,20 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryScreenProps> = (
     isLoading,
     refetch,
   } = useQuery({
-    queryKey: ['activityHistory', user?.uid, dateRange.startDate, dateRange.endDate],
+    queryKey: ['activityHistory', targetUserId, dateRange.startDate, dateRange.endDate],
     queryFn: async () => {
-      if (!user?.uid) throw new Error('No user ID');
+      if (!targetUserId) throw new Error('No user ID');
 
-      logger.log('[AttendanceHistory] Fetching activity data...');
+      logger.log('[AttendanceHistory] Fetching activity data for:', targetUserId);
       const response = await api.getUserStats({
-        userId: user.uid,
+        userId: targetUserId,
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       });
 
       return response.stats;
     },
-    enabled: !!user?.uid,
+    enabled: !!targetUserId,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -194,7 +206,9 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryScreenProps> = (
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <ArrowLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Activity History</Text>
+          <Text style={styles.headerTitle}>
+            {isViewingOtherUser && targetUserName ? `${targetUserName}'s Activity` : 'Activity History'}
+          </Text>
         </View>
         <View style={styles.monthPicker}>
           <TouchableOpacity onPress={goToPreviousMonth} style={styles.monthNavButton}>

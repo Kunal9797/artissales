@@ -673,7 +673,7 @@ export const getUserStats = onRequest(async (request, response) => {
 
 /**
  * POST /updateUser
- * Update user details (phone, territory)
+ * Update user details (name, phone, territory, primaryDistributorId, isActive)
  * Only accessible by National Head or Admin
  */
 export const updateUser = onRequest({invoker: "public"}, async (request, response) => {
@@ -711,7 +711,7 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
     }
 
     // 2. Parse parameters
-    const {userId, phone, territory} = request.body;
+    const {userId, name, phone, territory, primaryDistributorId, isActive} = request.body;
 
     if (!userId) {
       const error: ApiError = {
@@ -741,6 +741,30 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
     const updates: any = {
       updatedAt: Timestamp.now(),
     };
+
+    // Validate and add name
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (trimmedName.length < 2) {
+        const error: ApiError = {
+          ok: false,
+          error: "Name must be at least 2 characters",
+          code: "INVALID_NAME",
+        };
+        response.status(400).json(error);
+        return;
+      }
+      if (trimmedName.length > 100) {
+        const error: ApiError = {
+          ok: false,
+          error: "Name must be at most 100 characters",
+          code: "INVALID_NAME",
+        };
+        response.status(400).json(error);
+        return;
+      }
+      updates.name = trimmedName;
+    }
 
     if (phone !== undefined) {
       // Normalize phone number
@@ -776,6 +800,42 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
 
     if (territory !== undefined && territory.trim()) {
       updates.territory = territory.trim();
+    }
+
+    // Validate and add primaryDistributorId
+    if (primaryDistributorId !== undefined) {
+      if (primaryDistributorId === null || primaryDistributorId === "") {
+        // Allow clearing the distributor
+        updates.primaryDistributorId = null;
+      } else {
+        // Verify the account exists and is a distributor
+        const accountDoc = await db.collection("accounts").doc(primaryDistributorId).get();
+        if (!accountDoc.exists) {
+          const error: ApiError = {
+            ok: false,
+            error: "Distributor account not found",
+            code: "ACCOUNT_NOT_FOUND",
+          };
+          response.status(404).json(error);
+          return;
+        }
+        const accountData = accountDoc.data();
+        if (accountData?.type !== "distributor") {
+          const error: ApiError = {
+            ok: false,
+            error: "Selected account is not a distributor",
+            code: "INVALID_ACCOUNT_TYPE",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        updates.primaryDistributorId = primaryDistributorId;
+      }
+    }
+
+    // Handle isActive status change
+    if (isActive !== undefined) {
+      updates.isActive = Boolean(isActive);
     }
 
     // 4. Update user

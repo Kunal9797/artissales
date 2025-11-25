@@ -5,7 +5,7 @@
  * Swipe right to approve, swipe left to reject
  */
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -35,7 +35,6 @@ import {
 } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { api } from '../../services/api';
-import { Skeleton } from '../../patterns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { PendingItem, PendingItemType } from '../../types';
@@ -43,7 +42,17 @@ import { PendingItem, PendingItemType } from '../../types';
 // Type filter options
 type TypeFilter = 'all' | 'sheets' | 'expense';
 
-export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+interface ReviewHomeScreenProps {
+  navigation?: any;
+  route?: {
+    params?: {
+      filterUserId?: string;
+      filterUserName?: string;
+    };
+  };
+}
+
+export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, route }) => {
   const bottomPadding = useBottomSafeArea(12);
   const queryClient = useQueryClient();
 
@@ -52,6 +61,13 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
   const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or specific userName
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Apply filter from navigation params when they change
+  useEffect(() => {
+    if (route?.params?.filterUserName) {
+      setUserFilter(route.params.filterUserName);
+    }
+  }, [route?.params?.filterUserName]);
 
   // User filter modal
   const [userFilterModalVisible, setUserFilterModalVisible] = useState(false);
@@ -65,6 +81,9 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+
+  // Expanded card state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   // Track open swipeable refs to close them
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
@@ -86,7 +105,7 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
       }
       return { items: [], counts: { sheets: 0, expenses: 0, total: 0 } };
     },
-    staleTime: 1 * 60 * 1000,
+    staleTime: 5 * 60 * 1000, // 5 minutes - reduce API calls
   });
 
   const items = pendingData?.items || [];
@@ -124,23 +143,44 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     swipeableRefs.current.forEach((ref) => ref?.close());
   };
 
-  // Handle approve
+  // Handle approve with optimistic update
   const handleApprove = async (item: PendingItem) => {
     closeAllSwipeables();
+    setExpandedId(null);
     setActionLoading(item.id);
+
+    // Optimistic update - remove item immediately
+    queryClient.setQueryData(['pendingItems'], (old: any) => {
+      if (!old) return old;
+      const itemType = item.type === 'sheets' ? 'sheets' : 'expenses';
+      return {
+        ...old,
+        items: old.items.filter((i: PendingItem) => i.id !== item.id),
+        counts: {
+          ...old.counts,
+          [itemType]: Math.max(0, old.counts[itemType] - 1),
+          total: Math.max(0, old.counts.total - 1),
+        },
+      };
+    });
+
     try {
       const response = await api.approveItem({
         itemId: item.id,
         type: item.type,
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        // Revert on error - refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
-        queryClient.invalidateQueries({ queryKey: ['teamStats'] });
-      } else {
         Alert.alert('Error', response.error || 'Failed to approve');
       }
+      // Success - optimistic update already applied, invalidate caches
+      queryClient.invalidateQueries({ queryKey: ['teamStats'] });
+      queryClient.invalidateQueries({ queryKey: ['managerDashboard'] });
     } catch (error: any) {
+      // Revert on error - refetch
+      queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
       logger.error('Approve error:', error);
       Alert.alert('Error', error.message || 'Failed to approve');
     } finally {
@@ -148,28 +188,51 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     }
   };
 
-  // Handle reject (with optional comment)
+  // Handle reject with optimistic update
   const handleReject = async () => {
     if (!rejectingItem) return;
 
-    setActionLoading(rejectingItem.id);
+    const item = rejectingItem;
+    setActionLoading(item.id);
+
+    // Optimistic update - remove item immediately
+    queryClient.setQueryData(['pendingItems'], (old: any) => {
+      if (!old) return old;
+      const itemType = item.type === 'sheets' ? 'sheets' : 'expenses';
+      return {
+        ...old,
+        items: old.items.filter((i: PendingItem) => i.id !== item.id),
+        counts: {
+          ...old.counts,
+          [itemType]: Math.max(0, old.counts[itemType] - 1),
+          total: Math.max(0, old.counts.total - 1),
+        },
+      };
+    });
+
+    // Close modal immediately for better UX
+    setRejectModalVisible(false);
+    setRejectingItem(null);
+    setRejectComment('');
+
     try {
       const response = await api.rejectItem({
-        itemId: rejectingItem.id,
-        type: rejectingItem.type,
+        itemId: item.id,
+        type: item.type,
         comment: rejectComment.trim() || undefined,
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        // Revert on error - refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
-        queryClient.invalidateQueries({ queryKey: ['teamStats'] });
-        setRejectModalVisible(false);
-        setRejectingItem(null);
-        setRejectComment('');
-      } else {
         Alert.alert('Error', response.error || 'Failed to reject');
       }
+      // Success - optimistic update already applied, invalidate caches
+      queryClient.invalidateQueries({ queryKey: ['teamStats'] });
+      queryClient.invalidateQueries({ queryKey: ['managerDashboard'] });
     } catch (error: any) {
+      // Revert on error - refetch
+      queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
       logger.error('Reject error:', error);
       Alert.alert('Error', error.message || 'Failed to reject');
     } finally {
@@ -265,85 +328,139 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
   const renderItem = ({ item }: { item: PendingItem }) => {
     const isProcessing = actionLoading === item.id;
     const isSheets = item.type === 'sheets';
+    const isExpanded = expandedId === item.id;
+    const hasDetails = item.description || (item.receiptPhotos && item.receiptPhotos.length > 0);
 
     return (
-      <Swipeable
-        ref={(ref) => {
-          if (ref) swipeableRefs.current.set(item.id, ref);
-        }}
-        renderRightActions={(progress) => renderRightActions(item, progress)}
-        renderLeftActions={(progress) => renderLeftActions(item, progress)}
-        rightThreshold={40}
-        leftThreshold={40}
-        overshootRight={false}
-        overshootLeft={false}
-        onSwipeableOpen={() => {
-          // Close other swipeables when one opens
-          swipeableRefs.current.forEach((ref, id) => {
-            if (id !== item.id) ref?.close();
-          });
+      <View
+        style={{
+          marginHorizontal: 16,
+          marginBottom: 12,
+          borderRadius: 12,
+          overflow: 'hidden',
+          // Shadow
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.12,
+          shadowRadius: 6,
+          elevation: 3,
+          backgroundColor: '#FFFFFF',
         }}
       >
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#F0F0F0',
-            opacity: isProcessing ? 0.5 : 1,
+        <Swipeable
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(item.id, ref);
+          }}
+          renderRightActions={(progress) => renderRightActions(item, progress)}
+          renderLeftActions={(progress) => renderLeftActions(item, progress)}
+          rightThreshold={40}
+          leftThreshold={40}
+          overshootRight={false}
+          overshootLeft={false}
+          onSwipeableOpen={() => {
+            // Close expanded card and other swipeables when one opens
+            setExpandedId(null);
+            swipeableRefs.current.forEach((ref, id) => {
+              if (id !== item.id) ref?.close();
+            });
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            {/* Type Icon */}
-            <View style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              {isSheets ? (
-                <FileBarChart size={18} color="#EF6C00" />
-              ) : (
-                <IndianRupee size={18} color="#6A1B9A" />
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setExpandedId(isExpanded ? null : item.id)}
+            style={{
+              backgroundColor: '#FFFFFF',
+              opacity: isProcessing ? 0.5 : 1,
+            }}
+          >
+            {/* Content container */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}>
+              {/* Type Icon */}
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                {isSheets ? (
+                  <FileBarChart size={22} color="#EF6C00" />
+                ) : (
+                  <IndianRupee size={22} color="#6A1B9A" />
+                )}
+              </View>
+
+              {/* Content */}
+              <View style={{ flex: 1 }}>
+                {/* Main row: Value + User */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
+                    {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
+                    {item.userName}
+                  </Text>
+                </View>
+
+                {/* Detail row: Category + Date */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                  <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
+                    {isSheets ? item.catalog : item.category}
+                    {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
+                      <Text> • 📷</Text>
+                    )}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: '#999999' }}>
+                    {formatDate(item.date)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Loading indicator */}
+              {isProcessing && (
+                <ActivityIndicator size="small" color="#666666" />
               )}
             </View>
 
-            {/* Content */}
-            <View style={{ flex: 1 }}>
-              {/* Main row: Value + User */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-                  {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
-                </Text>
-                <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
-                  {item.userName}
-                </Text>
-              </View>
+            {/* Expanded section */}
+            {isExpanded && (
+              <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+                {/* Notes/Description */}
+                {item.description && (
+                  <Text style={{ fontSize: 14, color: '#666666', marginBottom: 8 }}>
+                    {item.description}
+                  </Text>
+                )}
 
-              {/* Detail row: Category + Date */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
-                  {isSheets ? item.catalog : item.category}
-                  {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
-                    <Text> • 📷</Text>
-                  )}
-                </Text>
-                <Text style={{ fontSize: 12, color: '#BBBBBB' }}>
-                  {formatDate(item.date)}
-                </Text>
-              </View>
-            </View>
+                {/* Receipt photos (expenses only) */}
+                {item.receiptPhotos && item.receiptPhotos.length > 0 && (
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    {item.receiptPhotos.map((photo, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        onPress={() => openPhotoViewer(item.receiptPhotos || [])}
+                      >
+                        <Image
+                          source={{ uri: photo }}
+                          style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: '#F0F0F0' }}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
 
-            {/* Loading indicator */}
-            {isProcessing && (
-              <ActivityIndicator size="small" color="#666666" />
+                {/* Empty state */}
+                {!hasDetails && (
+                  <Text style={{ fontSize: 13, color: '#999999', fontStyle: 'italic' }}>
+                    No additional details
+                  </Text>
+                )}
+              </View>
             )}
-          </View>
-        </View>
-      </Swipeable>
+          </TouchableOpacity>
+        </Swipeable>
+      </View>
     );
   };
 
@@ -360,12 +477,11 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
     </View>
   );
 
-  // Render skeleton loading
-  const renderSkeleton = () => (
-    <View>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Skeleton key={i} style={{ height: 60, marginBottom: 1 }} />
-      ))}
+  // Render loading state
+  const renderLoading = () => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
+      <ActivityIndicator size="large" color="#393735" />
+      <Text style={{ marginTop: 12, fontSize: 14, color: '#666666' }}>Loading...</Text>
     </View>
   );
 
@@ -488,19 +604,24 @@ export const ReviewHomeScreen: React.FC<{ navigation?: any }> = ({ navigation })
 
       {/* List */}
       {loading ? (
-        renderSkeleton()
+        renderLoading()
       ) : (
         <FlatList
           data={filteredItems}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{
+            paddingTop: 12,
             paddingBottom: 60 + bottomPadding,
           }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           ListEmptyComponent={renderEmptyState}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
         />
       )}
 

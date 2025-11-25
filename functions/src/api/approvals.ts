@@ -91,8 +91,9 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
       return;
     }
 
-    // Get team member IDs
+    // Get team member IDs and build user name map in one query (fix N+1)
     let teamIds: string[];
+    const userNameMap: Record<string, string> = {};
 
     if (role === "national_head" || role === "admin") {
       // National heads see all reps
@@ -102,6 +103,10 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
         .where("isActive", "==", true)
         .get();
       teamIds = allRepsSnapshot.docs.map((doc) => doc.id);
+      // Build user name map from the same query (no extra reads!)
+      allRepsSnapshot.docs.forEach((doc) => {
+        userNameMap[doc.id] = doc.data()?.name || "Unknown";
+      });
     } else {
       // Area managers / zonal heads see direct reports
       const usersSnapshot = await db
@@ -110,6 +115,10 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
         .where("isActive", "==", true)
         .get();
       teamIds = usersSnapshot.docs.map((doc) => doc.id);
+      // Build user name map from the same query (no extra reads!)
+      usersSnapshot.docs.forEach((doc) => {
+        userNameMap[doc.id] = doc.data()?.name || "Unknown";
+      });
     }
 
     if (teamIds.length === 0) {
@@ -121,35 +130,42 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
       return;
     }
 
-    // Build user name map
-    const userNameMap: Record<string, string> = {};
-    const userDocs = await Promise.all(
-      teamIds.map((id) => db.collection("users").doc(id).get())
-    );
-    userDocs.forEach((doc) => {
-      if (doc.exists) {
-        userNameMap[doc.id] = doc.data()?.name || "Unknown";
-      }
-    });
-
     // Firestore "in" queries limited to 30 items, chunk if needed
     const chunks: string[][] = [];
     for (let i = 0; i < teamIds.length; i += 30) {
       chunks.push(teamIds.slice(i, i + 30));
     }
 
-    const pendingItems: PendingItem[] = [];
-
-    // Fetch pending sheets (verified = false, not rejected)
-    for (const chunk of chunks) {
-      const sheetsSnapshot = await db
+    // Parallelize all queries for sheets and expenses (major perf fix)
+    const sheetsPromises = chunks.map((chunk) =>
+      db
         .collection("sheetsSales")
         .where("userId", "in", chunk)
         .where("verified", "==", false)
         .orderBy("date", "desc")
-        .get();
+        .get()
+    );
 
-      sheetsSnapshot.docs.forEach((doc) => {
+    const expensesPromises = chunks.map((chunk) =>
+      db
+        .collection("expenses")
+        .where("userId", "in", chunk)
+        .where("status", "==", "pending")
+        .orderBy("date", "desc")
+        .get()
+    );
+
+    // Execute ALL queries in parallel
+    const [sheetsSnapshots, expensesSnapshots] = await Promise.all([
+      Promise.all(sheetsPromises),
+      Promise.all(expensesPromises),
+    ]);
+
+    const pendingItems: PendingItem[] = [];
+
+    // Process sheets results
+    sheetsSnapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((doc) => {
         const data = doc.data();
         // Skip if already rejected
         if (data.rejectedAt) return;
@@ -165,18 +181,11 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         });
       });
-    }
+    });
 
-    // Fetch pending expenses (status = 'pending')
-    for (const chunk of chunks) {
-      const expensesSnapshot = await db
-        .collection("expenses")
-        .where("userId", "in", chunk)
-        .where("status", "==", "pending")
-        .orderBy("date", "desc")
-        .get();
-
-      expensesSnapshot.docs.forEach((doc) => {
+    // Process expenses results
+    expensesSnapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((doc) => {
         const data = doc.data();
         // Get first item's details (expense is now single-item)
         const firstItem = data.items?.[0];
@@ -194,7 +203,7 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
           createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
         });
       });
-    }
+    });
 
     // Sort by date descending (newest first)
     pendingItems.sort((a, b) => {

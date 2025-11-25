@@ -57,7 +57,7 @@ export type RootStackParamList = {
   Documents: undefined;
   UploadDocument: { onUploadSuccess?: () => void };
   ManageDownloads: { onDelete?: () => void };
-  AttendanceHistory: undefined;
+  AttendanceHistory: { userId?: string; userName?: string } | undefined;
   Login: undefined;
   OTP: undefined;
 };

@@ -1,26 +1,105 @@
 /**
- * ManagerHomeScreen - Simple Version
- * Built with inline styles to avoid StyleSheet.create issues
+ * ManagerHomeScreen - Manager Dashboard
+ *
+ * Redesigned with:
+ * - Feature-colored KPI cards (green, gold, blue, orange tints)
+ * - Gold-accented pending banner
+ * - Proper theme integration
+ * - Lightweight getManagerDashboard API
+ * - Review tab prefetching
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { logger } from '../../utils/logger';
-import { View, Text, ScrollView, RefreshControl, TouchableOpacity, Image } from 'react-native';
-import { Bell, Users, MapPin, TrendingUp, ChevronRight, Sunrise, Sun, Moon, BookOpen, Palette } from 'lucide-react-native';
-import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
+import {
+  View,
+  Text,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Modal,
+  Pressable,
+} from 'react-native';
+import {
+  Bell,
+  Users,
+  MapPin,
+  TrendingUp,
+  ChevronRight,
+  Sunrise,
+  Sun,
+  Moon,
+  BookOpen,
+  X,
+} from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { Skeleton } from '../../patterns/Skeleton';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { colors, spacing, typography, featureColors } from '../../theme';
+
+// Types for the new API response
+interface ManagerDashboardResponse {
+  ok: boolean;
+  date: string;
+  user: {
+    name: string;
+    role: string;
+    teamSize: number;
+  };
+  summary: {
+    pendingSheets: number;
+    pendingExpenses: number;
+    pendingTotal: number;
+    todayVisits: number;
+    todaySheets: number;
+  };
+}
+
+// Bottom sheet types
+type SheetType = 'visits' | 'sheets' | null;
 
 export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
-  // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
-
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [userName, setUserName] = useState('Manager');
-  const [userRole, setUserRole] = useState('');
+  const [activeSheet, setActiveSheet] = useState<SheetType>(null);
+
+  // Get today's date for dashboard stats
+  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
+
+  // Fetch dashboard data using new lightweight API
+  const {
+    data: dashboardData,
+    isLoading: loading,
+    refetch: refetchDashboard,
+  } = useQuery<ManagerDashboardResponse>({
+    queryKey: ['managerDashboard', today],
+    queryFn: async () => {
+      const response = await api.getManagerDashboard({ date: today });
+      return response;
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  // Prefetch Review tab data after dashboard loads
+  useEffect(() => {
+    if (!loading && dashboardData?.ok) {
+      queryClient.prefetchQuery({
+        queryKey: ['pendingItems'],
+        queryFn: () => api.getPendingItems(),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
+  }, [loading, dashboardData, queryClient]);
+
+  // Extract data from response
+  const userName = dashboardData?.user?.name || 'Manager';
+  const teamSize = dashboardData?.user?.teamSize || 0;
+  const pendingTotal = dashboardData?.summary?.pendingTotal || 0;
+  const todayVisits = dashboardData?.summary?.todayVisits || 0;
+  const todaySheets = dashboardData?.summary?.todaySheets || 0;
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -29,305 +108,427 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     return { text: 'Good Evening', Icon: Moon };
   };
 
-  const getRoleDisplay = (role: string) => {
-    const roleMap: Record<string, string> = {
-      national_head: 'National Head',
-      zonal_head: 'Zonal Head',
-      area_manager: 'Area Manager',
-      admin: 'Admin',
-    };
-    return roleMap[role] || role;
-  };
-
-  // Get today's date for team stats
-  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
-
-  // Fetch team stats using React Query with caching
-  const {
-    data: teamStatsData,
-    isLoading: loading,
-    refetch: refetchStats,
-  } = useQuery({
-    queryKey: ['teamStats', today],
-    queryFn: async () => {
-      const response = await api.getTeamStats({ date: today });
-
-      if (response.ok && response.stats) {
-        return {
-          present: response.stats.team?.present || 0,
-          total: response.stats.team?.total || 0,
-          pendingApprovals: (response.stats.pending?.dsrs || 0) + (response.stats.pending?.expenses || 0),
-          todayVisits: response.stats.visits?.total || 0,
-          todaySheets: response.stats.sheets?.total || 0,
-        };
-      }
-      return {
-        present: 0,
-        total: 0,
-        pendingApprovals: 0,
-        todayVisits: 0,
-        todaySheets: 0,
-      };
-    },
-    staleTime: 2 * 60 * 1000, // 2 minutes (fresher data for manager dashboard)
-  });
-
-  const teamStats = teamStatsData || {
-    present: 0,
-    total: 0,
-    pendingApprovals: 0,
-    todayVisits: 0,
-    todaySheets: 0,
-  };
-
-  // Load user info on mount
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (user) {
-          const db = getFirestore();
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUserName(userData?.name || 'Manager');
-            setUserRole(userData?.role || '');
-          }
-        }
-      } catch (error) {
-        logger.error('Error loading user info:', error);
-      }
-    };
-    loadUserInfo();
-  }, []);
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await refetchStats();
+    await refetchDashboard();
+    // Also invalidate pending items cache so Review tab gets fresh data
+    queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
     setRefreshing(false);
   };
 
+  const greeting = getGreeting();
+  const GreetingIcon = greeting.Icon;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={styles.container}>
       {/* Header with Greeting */}
-      <View style={{
-        backgroundColor: '#393735',
-        paddingHorizontal: 24,
-        paddingTop: 52,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-        position: 'relative',
-      }}>
-        {/* Artis Logo - Translucent background (behind text) */}
-        <View style={{
-          position: 'absolute',
-          right: 16,
-          top: 40,
-          opacity: 0.15,
-          zIndex: 0,
-        }}>
+      <View style={styles.header}>
+        {/* Artis Logo - Translucent watermark */}
+        <View style={styles.logoWatermark}>
           <Image
             source={require('../../../assets/images/artislogo_blackbgrd.png')}
-            style={{ width: 80, height: 80 }}
+            style={styles.logoImage}
             resizeMode="contain"
           />
         </View>
 
-        {/* Greeting content - overlays logo */}
-        <View style={{ zIndex: 1 }}>
-          {(() => {
-            const greeting = getGreeting();
-            const GreetingIcon = greeting.Icon;
-            return (
-              <>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <GreetingIcon size={20} color="#C9A961" />
-                  <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
-                    {greeting.text}, {userName.charAt(0).toUpperCase() + userName.slice(1)}
-                  </Text>
-                </View>
-                <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-                  {getRoleDisplay(userRole)} • Team of {teamStats.total}
-                </Text>
-              </>
-            );
-          })()}
+        {/* Greeting content */}
+        <View style={styles.headerContent}>
+          <View style={styles.greetingRow}>
+            <GreetingIcon size={20} color={colors.accent} />
+            <Text style={styles.greetingText}>
+              {greeting.text}, {userName.charAt(0).toUpperCase() + userName.slice(1)}
+            </Text>
+          </View>
         </View>
       </View>
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24, paddingBottom: 60 + bottomPadding }}
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* KPI Cards */}
-        <View style={{ marginBottom: 16 }}>
+        {/* KPI Cards - Feature Color Coded */}
+        <View style={styles.kpiSection}>
           {loading ? (
             <>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                <Skeleton card style={{ flex: 1, height: 110 }} />
-                <Skeleton card style={{ flex: 1, height: 110 }} />
+              <View style={styles.kpiRow}>
+                <Skeleton card style={styles.skeletonCard} />
+                <Skeleton card style={styles.skeletonCard} />
               </View>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Skeleton card style={{ flex: 1, height: 110 }} />
-                <Skeleton card style={{ flex: 1, height: 110 }} />
+              <View style={styles.kpiRow}>
+                <Skeleton card style={styles.skeletonCard} />
+                <Skeleton card style={styles.skeletonCard} />
               </View>
             </>
           ) : (
             <>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                {/* Team Present */}
-                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Users size={20} color="#2E7D32" />
-                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>TEAM PRESENT</Text>
+              <View style={styles.kpiRow}>
+                {/* Team Size - Green tint */}
+                <TouchableOpacity
+                  style={[styles.kpiCard, styles.teamCard]}
+                  onPress={() => navigation?.navigate('TeamTab')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.kpiIconRow}>
+                    <Users size={20} color={featureColors.attendance.primary} />
+                    <Text style={styles.kpiLabel}>TEAM</Text>
                   </View>
-                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                    {teamStats.present}/{teamStats.total}
-                  </Text>
-                </View>
+                  <Text style={styles.kpiValue}>{teamSize}</Text>
+                </TouchableOpacity>
 
-                {/* Pending Approvals */}
-                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Bell size={20} color="#FFA726" />
-                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>PENDING</Text>
+                {/* Pending Approvals - Gold tint */}
+                <TouchableOpacity
+                  style={[styles.kpiCard, styles.pendingCard]}
+                  onPress={() => navigation?.navigate('ReviewTab')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.kpiIconRow}>
+                    <Bell size={20} color={colors.accent} />
+                    <Text style={styles.kpiLabel}>PENDING</Text>
                   </View>
-                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                    {teamStats.pendingApprovals}
-                  </Text>
-                </View>
+                  <Text style={styles.kpiValue}>{pendingTotal}</Text>
+                </TouchableOpacity>
               </View>
 
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {/* Today's Visits */}
-                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <MapPin size={20} color="#1976D2" />
-                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>VISITS</Text>
+              <View style={styles.kpiRow}>
+                {/* Today's Visits - Blue tint */}
+                <TouchableOpacity
+                  style={[styles.kpiCard, styles.visitsCard]}
+                  onPress={() => setActiveSheet('visits')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.kpiIconRow}>
+                    <MapPin size={20} color={featureColors.visits.primary} />
+                    <Text style={styles.kpiLabel}>VISITS</Text>
                   </View>
-                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                    {teamStats.todayVisits}
-                  </Text>
-                </View>
+                  <Text style={styles.kpiValue}>{todayVisits}</Text>
+                </TouchableOpacity>
 
-                {/* Today's Sheets */}
-                <View style={{ flex: 1, backgroundColor: '#F8F8F8', padding: 16, borderRadius: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <TrendingUp size={20} color="#7B1FA2" />
-                    <Text style={{ fontSize: 12, color: '#666666', fontWeight: '500' }}>SHEETS</Text>
+                {/* Today's Sheets - Orange tint */}
+                <TouchableOpacity
+                  style={[styles.kpiCard, styles.sheetsCard]}
+                  onPress={() => setActiveSheet('sheets')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.kpiIconRow}>
+                    <TrendingUp size={20} color={featureColors.sheets.primary} />
+                    <Text style={styles.kpiLabel}>SHEETS</Text>
                   </View>
-                  <Text style={{ fontSize: 28, fontWeight: '700', color: '#1A1A1A' }}>
-                    {teamStats.todaySheets}
-                  </Text>
-                </View>
+                  <Text style={styles.kpiValue}>{todaySheets}</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
         </View>
 
-        {/* Alerts Section */}
-        {teamStats.pendingApprovals > 0 && (
-          <View style={{ backgroundColor: '#FFF3E0', borderRadius: 8, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#FFA726' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Bell size={20} color="#FFA726" />
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-                Alerts
-              </Text>
-            </View>
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 14, color: '#666666' }}>
-                • {teamStats.pendingApprovals} pending approvals require attention
-              </Text>
-              {teamStats.present < teamStats.total && (
-                <Text style={{ fontSize: 14, color: '#666666' }}>
-                  • {teamStats.total - teamStats.present} team members not checked in today
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* Documents - Compact Card */}
+        {/* Document Library Card */}
         <TouchableOpacity
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#F8F8F8',
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-          }}
+          style={styles.documentsCard}
           onPress={() => navigation?.navigate('Documents')}
           activeOpacity={0.7}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: '#393735',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <BookOpen size={20} color="#C9A961" />
+          <View style={styles.documentsHeader}>
+            <View style={styles.documentsIconCircle}>
+              <BookOpen size={20} color={featureColors.documents.primary} />
             </View>
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-                Document Library
-              </Text>
-              <Text style={{ fontSize: 13, color: '#666666' }}>
-                Catalogs, price lists & resources
-              </Text>
+            <View style={styles.documentsTextContainer}>
+              <Text style={styles.documentsTitle}>Document Library</Text>
+              <Text style={styles.documentsSubtitle}>Catalogs, price lists & resources</Text>
             </View>
+            <ChevronRight size={20} color={colors.text.tertiary} />
           </View>
-          <ChevronRight size={20} color="#999999" />
-        </TouchableOpacity>
-
-        {/* Design Kitchen Sink - Compact Card */}
-        <TouchableOpacity
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#F8F8F8',
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-          }}
-          onPress={() => navigation?.navigate('AccountDesignKitchenSink')}
-          activeOpacity={0.7}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: '#9C27B0',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Palette size={20} color="#FFFFFF" />
-            </View>
-            <View>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A' }}>
-                Design Kitchen Sink
-              </Text>
-              <Text style={{ fontSize: 13, color: '#666666' }}>
-                UI component testing playground
-              </Text>
-            </View>
-          </View>
-          <ChevronRight size={20} color="#999999" />
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Bottom Sheet Modal */}
+      <Modal
+        visible={activeSheet !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActiveSheet(null)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setActiveSheet(null)}>
+          <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+            {/* Drag handle */}
+            <View style={styles.sheetHandle} />
+
+            {/* Close button */}
+            <TouchableOpacity
+              style={styles.sheetCloseButton}
+              onPress={() => setActiveSheet(null)}
+            >
+              <X size={20} color={colors.text.tertiary} />
+            </TouchableOpacity>
+
+            {/* Content */}
+            {activeSheet === 'visits' && (
+              <View style={styles.sheetContent}>
+                <View style={[styles.sheetIconCircle, { backgroundColor: featureColors.visits.light }]}>
+                  <MapPin size={24} color={featureColors.visits.primary} />
+                </View>
+                <Text style={styles.sheetTitle}>Today's Visits</Text>
+                <Text style={styles.sheetValue}>{todayVisits}</Text>
+                <Text style={styles.sheetDescription}>
+                  {todayVisits === 0
+                    ? 'No visits logged by your team today'
+                    : todayVisits === 1
+                    ? '1 visit logged by your team today'
+                    : `${todayVisits} visits logged by your team today`}
+                </Text>
+                <TouchableOpacity
+                  style={styles.sheetButton}
+                  onPress={() => {
+                    setActiveSheet(null);
+                    navigation?.navigate('TeamTab');
+                  }}
+                >
+                  <Text style={styles.sheetButtonText}>View Team Details</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {activeSheet === 'sheets' && (
+              <View style={styles.sheetContent}>
+                <View style={[styles.sheetIconCircle, { backgroundColor: featureColors.sheets.light }]}>
+                  <TrendingUp size={24} color={featureColors.sheets.primary} />
+                </View>
+                <Text style={styles.sheetTitle}>Today's Sheets</Text>
+                <Text style={styles.sheetValue}>{todaySheets}</Text>
+                <Text style={styles.sheetDescription}>
+                  {todaySheets === 0
+                    ? 'No sheets recorded by your team today'
+                    : todaySheets === 1
+                    ? '1 sheet recorded by your team today'
+                    : `${todaySheets} sheets recorded by your team today`}
+                </Text>
+                <TouchableOpacity
+                  style={styles.sheetButton}
+                  onPress={() => {
+                    setActiveSheet(null);
+                    navigation?.navigate('TeamTab');
+                  }}
+                >
+                  <Text style={styles.sheetButtonText}>View Team Details</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  // Container
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: spacing.screenPadding,
+  },
+
+  // Header
+  header: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: 52,
+    paddingBottom: spacing.lg, // Increased to accommodate logo after removing subtitle
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accent + '99', // Gold accent line at 60% opacity
+    position: 'relative',
+  },
+  logoWatermark: {
+    position: 'absolute',
+    right: 16,
+    top: 40,
+    opacity: 0.12,
+    zIndex: 0,
+  },
+  logoImage: {
+    width: 72,
+    height: 72,
+  },
+  headerContent: {
+    zIndex: 1,
+  },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  greetingText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: colors.text.inverse,
+    flex: 1,
+  },
+  // KPI Section
+  kpiSection: {
+    marginBottom: spacing.md,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  skeletonCard: {
+    flex: 1,
+    height: 110,
+  },
+
+  // KPI Card base
+  kpiCard: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: spacing.borderRadius.xl,
+    borderWidth: 1,
+    minHeight: 110,
+    justifyContent: 'space-between',
+  },
+  kpiIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  kpiLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  kpiValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+
+  // Feature-colored cards
+  teamCard: {
+    backgroundColor: featureColors.attendance.primary + '14', // 8% opacity
+    borderColor: featureColors.attendance.primary + '26', // 15% opacity
+  },
+  pendingCard: {
+    backgroundColor: colors.accent + '14',
+    borderColor: colors.accent + '26',
+  },
+  visitsCard: {
+    backgroundColor: featureColors.visits.primary + '14',
+    borderColor: featureColors.visits.primary + '26',
+  },
+  sheetsCard: {
+    backgroundColor: featureColors.sheets.primary + '14',
+    borderColor: featureColors.sheets.primary + '26',
+  },
+
+  // Documents Card
+  documentsCard: {
+    backgroundColor: featureColors.documents.primary + '14', // 8% opacity like KPI cards
+    borderRadius: spacing.borderRadius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: featureColors.documents.primary + '26', // 15% opacity
+  },
+  documentsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  documentsIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: featureColors.documents.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  documentsTextContainer: {
+    flex: 1,
+    marginLeft: spacing.sm + 4,
+  },
+  documentsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  documentsSubtitle: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+
+  // Bottom Sheet Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: spacing.borderRadius.xl,
+    borderTopRightRadius: spacing.borderRadius.xl,
+    paddingTop: spacing.sm,
+    paddingBottom: 40,
+    paddingHorizontal: spacing.screenPadding,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.border.default,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  sheetCloseButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    padding: spacing.sm,
+  },
+  sheetContent: {
+    alignItems: 'center',
+    paddingTop: spacing.md,
+  },
+  sheetIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  sheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  sheetValue: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  sheetDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  sheetButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.xl,
+    borderRadius: spacing.borderRadius.lg,
+  },
+  sheetButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
+});
