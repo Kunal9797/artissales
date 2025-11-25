@@ -27,6 +27,7 @@ import { SubmitExpenseRequest, ExpenseItem } from '../../types';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
+import { trackExpenseSubmitted } from '../../services/analytics';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
@@ -186,6 +187,13 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         };
 
         await api.submitExpense(expenseData);
+
+        // Track analytics event (only for new expenses)
+        trackExpenseSubmitted({
+          category: category,
+          amount: amountNum,
+          hasReceipt: !!receiptPhotoUrl,
+        });
       }
 
       // Invalidate home screen cache

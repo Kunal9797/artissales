@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.7</string>
+    <string>1.1.1</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -33,13 +33,13 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>exp+artis-sales</string>
+          <string>com.googleusercontent.apps.213810547379-fqhokb8k17heb2ojufulum0ar9ht9flo</string>
         </array>
       </dict>
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.googleusercontent.apps.213810547379-fqhokb8k17heb2ojufulum0ar9ht9flo</string>
+          <string>exp+artis-sales</string>
         </array>
       </dict>
     </array>

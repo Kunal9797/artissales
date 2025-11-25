@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
 import { getFirestore, collection, doc, getDoc, setDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { setAnalyticsUser, clearAnalyticsUser, trackEvent, UserProperties } from '../services/analytics';
 
 export interface UserWithRole extends FirebaseAuthTypes.User {
   role?: string;
@@ -90,11 +91,23 @@ export const useAuth = () => {
 
           logger.log('[Auth] Setting user with role:', userRole);
           setUser(userWithRole);
+
+          // Set analytics user identity
+          const userProperties: UserProperties = {
+            role: userRole as UserProperties['role'],
+            territory: userDoc.exists() ? userDoc.data()?.territory : undefined,
+            reportsToUserId: userDoc.exists() ? userDoc.data()?.reportsToUserId : undefined,
+          };
+          setAnalyticsUser(authUser.uid, userProperties);
+          trackEvent('login_completed', { method: 'phone' });
         } catch (error) {
-          logger.error('[Auth] ❌ Error handling user document:', error);
+          logger.error('useAuth', error);
           setUser(authUser as UserWithRole);
         }
       } else {
+        // User logged out - clear analytics identity
+        clearAnalyticsUser();
+        trackEvent('logout');
         setUser(null);
       }
 

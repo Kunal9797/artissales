@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationState } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { useAuth } from '../hooks/useAuth';
+import { trackScreenView } from '../services/analytics';
 import { TabNavigator } from './TabNavigator';
 import { ManagerTabNavigator } from './ManagerTabNavigator';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -64,9 +65,27 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/**
+ * Get the active route name from navigation state.
+ * Handles nested navigators (like tabs).
+ */
+const getActiveRouteName = (state: NavigationState | undefined): string | undefined => {
+  if (!state) return undefined;
+
+  const route = state.routes[state.index];
+
+  // Dive into nested navigators
+  if (route.state) {
+    return getActiveRouteName(route.state as NavigationState);
+  }
+
+  return route.name;
+};
+
 export const RootNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const [confirmation, setConfirmation] = useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
+  const routeNameRef = useRef<string | undefined>();
 
   // Reset confirmation when user logs out
   React.useEffect(() => {
@@ -87,7 +106,24 @@ export const RootNavigator: React.FC = () => {
   const isManager = user?.role && ['area_manager', 'zonal_head', 'national_head', 'admin'].includes(user.role);
 
   return (
-    <NavigationContainer>
+    <NavigationContainer
+      onReady={() => {
+        // Initialize with current route name (won't have state on first render)
+        routeNameRef.current = 'Home';
+      }}
+      onStateChange={(state) => {
+        const previousRouteName = routeNameRef.current;
+        const currentRouteName = getActiveRouteName(state);
+
+        if (previousRouteName !== currentRouteName && currentRouteName) {
+          // Track screen view in analytics
+          trackScreenView(currentRouteName);
+        }
+
+        // Save the current route name for later comparison
+        routeNameRef.current = currentRouteName;
+      }}
+    >
       {user ? (
         // User is authenticated - Route to appropriate TabNavigator based on role
         <Stack.Navigator screenOptions={{ headerShown: false }}>

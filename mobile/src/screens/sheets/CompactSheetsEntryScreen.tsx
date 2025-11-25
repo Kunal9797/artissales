@@ -19,6 +19,7 @@ import { useTargetProgress } from '../../hooks/useTargetProgress';
 import { targetCache } from '../../services/targetCache';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
+import { trackSheetsLogged } from '../../services/analytics';
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -118,6 +119,12 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           catalog: selectedCatalog,
           sheetsCount: count,
           notes: managerNotes || undefined,
+        });
+
+        // Track analytics event (only for new entries)
+        trackSheetsLogged({
+          catalog: selectedCatalog,
+          count: count,
         });
       }
 

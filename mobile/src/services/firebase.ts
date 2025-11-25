@@ -13,6 +13,8 @@ import { getApp } from '@react-native-firebase/app';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
 import { getStorage } from '@react-native-firebase/storage';
+import analytics from '@react-native-firebase/analytics';
+import crashlytics from '@react-native-firebase/crashlytics';
 
 // Initialize services
 const app = getApp();
@@ -55,4 +57,32 @@ export const getAuthToken = async (): Promise<string | null> => {
   const user = authInstance.currentUser;
   if (!user) return null;
   return await user.getIdToken();
+};
+
+// ============================================================================
+// Analytics & Crashlytics
+// ============================================================================
+
+/**
+ * Get Analytics instance
+ */
+export const getAnalyticsInstance = () => analytics();
+
+/**
+ * Get Crashlytics instance
+ */
+export const getCrashlyticsInstance = () => crashlytics();
+
+/**
+ * Enable/disable Crashlytics collection (useful for opt-out)
+ */
+export const setCrashlyticsEnabled = async (enabled: boolean): Promise<void> => {
+  await crashlytics().setCrashlyticsCollectionEnabled(enabled);
+};
+
+/**
+ * Enable/disable Analytics collection (useful for opt-out)
+ */
+export const setAnalyticsEnabled = async (enabled: boolean): Promise<void> => {
+  await analytics().setAnalyticsCollectionEnabled(enabled);
 };

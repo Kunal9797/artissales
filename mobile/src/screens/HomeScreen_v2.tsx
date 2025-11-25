@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../utils/logger';
+import { testNonFatalError } from '../services/analytics';
 import {
   View,
   Text,
@@ -1171,6 +1172,29 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             ))}
           </Card>
+        )}
+
+        {/* DEV ONLY: Test Crashlytics button */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={{
+              marginTop: spacing.lg,
+              padding: spacing.md,
+              backgroundColor: '#FFF3E0',
+              borderRadius: spacing.borderRadius.md,
+              borderWidth: 1,
+              borderColor: '#FF9800',
+              alignItems: 'center',
+            }}
+            onPress={() => {
+              testNonFatalError();
+              Alert.alert('Test Sent', 'A test error was sent to Crashlytics. Check Firebase Console in a few minutes.');
+            }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#E65100' }}>
+              Test Crashlytics (Dev Only)
+            </Text>
+          </TouchableOpacity>
         )}
 
       </ScrollView>

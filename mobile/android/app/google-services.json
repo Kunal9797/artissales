@@ -12,7 +12,20 @@
           "package_name": "com.artis.sales"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "213810547379-fbl1htnj68ebts64eekd5f1l4ktu6as5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.artis.sales",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "213810547379-mq9o2b5pamai1gfi2d82i2omtkglh5ld.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAT-4r897sgkn6hcTvJlA2Ol9tZmvfjx88"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "213810547379-mq9o2b5pamai1gfi2d82i2omtkglh5ld.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "213810547379-fqhokb8k17heb2ojufulum0ar9ht9flo.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.artis.sales"
+              }
+            }
+          ]
         }
       }
     }

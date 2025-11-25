@@ -38,6 +38,7 @@ import { api } from '../../services/api';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { PendingItem, PendingItemType } from '../../types';
+import { trackItemReviewed } from '../../services/analytics';
 
 // Type filter options
 type TypeFilter = 'all' | 'sheets' | 'expense';
@@ -174,6 +175,16 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         // Revert on error - refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
         Alert.alert('Error', response.error || 'Failed to approve');
+      } else {
+        // Success - track analytics event
+        const hoursPending = item.date
+          ? Math.round((Date.now() - new Date(item.date).getTime()) / (1000 * 60 * 60))
+          : 0;
+        trackItemReviewed({
+          approved: true,
+          itemType: item.type === 'sheets' ? 'sheets' : 'expense',
+          hoursPending,
+        });
       }
       // Success - optimistic update already applied, invalidate caches
       queryClient.invalidateQueries({ queryKey: ['teamStats'] });
@@ -226,6 +237,17 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         // Revert on error - refetch
         queryClient.invalidateQueries({ queryKey: ['pendingItems'] });
         Alert.alert('Error', response.error || 'Failed to reject');
+      } else {
+        // Success - track analytics event
+        const hoursPending = item.date
+          ? Math.round((Date.now() - new Date(item.date).getTime()) / (1000 * 60 * 60))
+          : 0;
+        trackItemReviewed({
+          approved: false,
+          itemType: item.type === 'sheets' ? 'sheets' : 'expense',
+          hoursPending,
+          reasonLength: rejectComment.trim().length,
+        });
       }
       // Success - optimistic update already applied, invalidate caches
       queryClient.invalidateQueries({ queryKey: ['teamStats'] });

@@ -21,6 +21,7 @@ import { CameraCapture } from '../../components/CameraCapture';
 import { colors, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
+import { trackVisitLogged, trackPhotoCaptureFailure } from '../../services/analytics';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -243,6 +244,13 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             },
           });
 
+          // Track analytics event
+          trackVisitLogged({
+            accountType: visitAccount.type,
+            hasPhoto: true,
+            purpose: purpose,
+          });
+
           // Navigate away immediately - upload happens in background!
           Alert.alert('Success', 'Visit logged! Photo uploading in background...', [
             {
@@ -264,6 +272,13 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 
           // Invalidate home screen cache to show new visit immediately
           invalidateHomeStatsCache();
+
+          // Track analytics event
+          trackVisitLogged({
+            accountType: visitAccount.type,
+            hasPhoto: !!photoUri,
+            purpose: purpose,
+          });
 
           Alert.alert('Success', 'Visit logged successfully!', [
             {

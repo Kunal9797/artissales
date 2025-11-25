@@ -56,51 +56,5 @@ target 'ArtisSales' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-
-    # Phase 5c: Apply GLOBAL fixes to ALL pods
-    installer.pods_project.targets.each do |t|
-      t.build_configurations.each do |cfg|
-        # Ensure minimum iOS deployment target
-        if cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.1
-          cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.1'
-        end
-        # Disable user script sandboxing (Xcode 15/16 CocoaPods compatibility)
-        cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-        # GLOBAL: Allow non-modular includes for ALL pods (fixes Firebase + React Native compatibility)
-        cfg.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        # Don't treat warnings as errors (prevents build failures on minor warnings)
-        cfg.build_settings['GCC_TREAT_WARNINGS_AS_ERRORS'] = 'NO'
-      end
-    end
-
-    # Phase 5d: ENHANCED React header search paths for RNFB* pods (especially Storage)
-    installer.pods_project.targets.each do |t|
-      if t.name.start_with?('RNFB')
-        t.build_configurations.each do |cfg|
-          hdrs = cfg.build_settings['HEADER_SEARCH_PATHS'] || '$(inherited)'
-          extra = [
-            '$(PODS_ROOT)/Headers/Public',
-            '$(PODS_ROOT)/Headers/Public/React',
-            '$(PODS_ROOT)/Headers/Public/React-Core',
-            '$(PODS_ROOT)/Headers/Public/React-RCTBridge',
-            '$(PODS_ROOT)/Headers/Public/React-RCTBlob',
-            '$(PODS_ROOT)/Headers/Public/React-RCTNetwork',
-            '$(PODS_CONFIGURATION_BUILD_DIR)/React-Core/React_Core.framework/Headers'
-          ]
-          cfg.build_settings['HEADER_SEARCH_PATHS'] = ([hdrs] + extra).join(' ')
-          cfg.build_settings['USE_HEADERMAP'] = 'YES'
-        end
-      end
-    end
-
-    # Phase 5c: Apply sandboxing fix to user project as well
-    installer.aggregate_targets.map(&:user_project).uniq.each do |project|
-      project.targets.each do |t|
-        t.build_configurations.each do |cfg|
-          cfg.build_settings['ENABLE_USER_SCRIPT_SANDBOXING'] = 'NO'
-        end
-      end
-      project.save
-    end
   end
 end

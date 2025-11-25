@@ -1,19 +1,34 @@
 import React, { useEffect } from 'react';
+
+// ============================================================================
+// STARTUP LOGGING - For debugging crash issues
+// ============================================================================
+console.log('[App] Starting imports...');
+
 import { RootNavigator } from './src/navigation/RootNavigator';
+console.log('[App] RootNavigator imported');
+
 import { AppStatusBar } from './src/components/ui';
+console.log('[App] AppStatusBar imported');
+
 import { ErrorBoundary } from './src/providers/ErrorBoundary';
+console.log('[App] ErrorBoundary imported');
+
 import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 import { SyncStatusIndicator } from './src/components/SyncStatusIndicator';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+console.log('[App] Core imports complete');
 
 // Initialize Firebase (must be imported before any Firebase usage)
 import './src/services/firebase';
+console.log('[App] Firebase initialized');
 
 // Initialize upload queue for background photo uploads
 import { uploadQueue } from './src/services/uploadQueue';
+console.log('[App] UploadQueue imported - All imports complete');
 
 // DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab and TenantThemeProvider for white-label
 const isDev = __DEV__;
@@ -31,9 +46,13 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  console.log('[App] App component rendering...');
+
   // Initialize upload queue on app start
   useEffect(() => {
+    console.log('[App] useEffect - initializing upload queue');
     uploadQueue.init();
+    console.log('[App] App fully initialized!');
   }, []);
   const AppContent = (
     <GestureHandlerRootView style={{ flex: 1 }}>

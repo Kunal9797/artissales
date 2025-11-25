@@ -1,12 +1,13 @@
 /**
  * ErrorBoundary Component
  * Catches JavaScript errors anywhere in the child component tree
- * Logs errors and displays a fallback UI
+ * Logs errors to Crashlytics and displays a fallback UI
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { colors, spacing, typography } from '../theme';
+import { logError, logMessage } from '../services/analytics';
 
 interface Props {
   children: ReactNode;
@@ -40,9 +41,16 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console (in production, send to error tracking service)
+    // Log error to console
     console.error('[ErrorBoundary] Caught error:', error);
     console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+
+    // Send to Crashlytics (production error tracking)
+    logMessage(`ErrorBoundary caught: ${error.message}`);
+    if (errorInfo.componentStack) {
+      logMessage(`Component stack: ${errorInfo.componentStack.substring(0, 500)}`);
+    }
+    logError(error, 'ErrorBoundary');
 
     // Update state with error details
     this.setState({
