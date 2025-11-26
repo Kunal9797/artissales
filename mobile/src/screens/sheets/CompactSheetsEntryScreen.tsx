@@ -13,7 +13,8 @@ import {
 import { getAuth } from '@react-native-firebase/auth';
 import { ChevronLeft, FileText } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { isOnline, OFFLINE_SUBMIT_MESSAGE } from '../../services/network';
+import { isOnline } from '../../services/network';
+import { dataQueue } from '../../services/dataQueue';
 import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useTargetProgress } from '../../hooks/useTargetProgress';
@@ -102,32 +103,58 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
       return;
     }
 
-    // Check network connectivity before submitting
-    const online = await isOnline();
-    if (!online) {
-      Alert.alert('No Connection', OFFLINE_SUBMIT_MESSAGE);
-      return;
-    }
-
     setSubmitting(true);
     try {
       const today = new Date().toISOString().split('T')[0];
 
+      // Check network connectivity
+      const online = await isOnline();
+
       if (isEditMode && editActivityId) {
-        // Edit mode: Update existing entry
+        // Edit mode: Requires network (can't edit offline)
+        if (!online) {
+          Alert.alert('No Connection', 'Editing requires an internet connection. Please try again when online.');
+          setSubmitting(false);
+          return;
+        }
         await api.updateSheetsSale({
           id: editActivityId,
           catalog: selectedCatalog,
           sheetsCount: count,
         });
+
+        // Invalidate caches
+        if (user?.uid) {
+          targetCache.invalidate(user.uid, month);
+        }
+        invalidateHomeStatsCache();
       } else {
-        // Create mode: Save new entry directly
-        await api.logSheetsSale({
+        // Create mode: Can work offline
+        const sheetData = {
           date: today,
           catalog: selectedCatalog,
           sheetsCount: count,
           notes: managerNotes || undefined,
-        });
+        };
+
+        if (online) {
+          // Online: Submit directly
+          await api.logSheetsSale(sheetData);
+
+          // Invalidate caches
+          if (user?.uid) {
+            targetCache.invalidate(user.uid, month);
+          }
+          invalidateHomeStatsCache();
+        } else {
+          // Offline: Queue for later sync
+          await dataQueue.addSheet(sheetData, user?.uid || '');
+          Alert.alert(
+            'Saved Offline',
+            'Your entry has been saved and will sync when you\'re back online.',
+            [{ text: 'OK' }]
+          );
+        }
 
         // Track analytics event (only for new entries)
         trackSheetsLogged({
@@ -136,13 +163,7 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         });
       }
 
-      // Invalidate caches
-      if (user?.uid) {
-        targetCache.invalidate(user.uid, month);
-      }
-      invalidateHomeStatsCache();
-
-      // Navigate back (toast shown implicitly by quick return)
+      // Navigate back
       navigation.goBack();
     } catch (error: any) {
       logger.error('Error saving sheet sale:', error);

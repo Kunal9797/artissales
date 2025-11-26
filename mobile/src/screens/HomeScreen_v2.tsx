@@ -51,7 +51,10 @@ import {
   Camera,
   X,
   ChevronLeft,
+  CloudUpload,
+  RefreshCw,
 } from 'lucide-react-native';
+import { dataQueue, DataQueueItem } from '../services/dataQueue';
 
 // FEATURE FLAG: Set to false to disable attendance tracking
 const ATTENDANCE_FEATURE_ENABLED = false;
@@ -135,9 +138,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     detail?: string; // Secondary info (e.g., "Fine Decor", "Travel")
     notes?: string;  // Notes/description for display in action sheet
     purpose?: string; // Visit purpose
-    status?: 'pending' | 'verified' | 'rejected'; // For sheets/expenses
+    status?: 'pending' | 'verified' | 'rejected'; // For sheets/expenses (manager review)
+    syncStatus?: 'pending' | 'syncing' | 'failed'; // For offline sync status
     photos?: string[]; // Photo URLs for visits
   }>>([]);
+
+  // Pending sync queue items (offline submissions)
+  const [pendingSyncQueue, setPendingSyncQueue] = useState<DataQueueItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   // Pagination state for activity feed
@@ -524,6 +531,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   }, [user?.uid, fetchAttendance, fetchActivities]);
 
+  // Subscribe to offline data queue for pending sync items
+  useEffect(() => {
+    // Initialize the queue
+    dataQueue.init();
+
+    // Subscribe to queue changes
+    const unsubscribe = dataQueue.subscribe((queue) => {
+      setPendingSyncQueue(queue);
+    });
+
+    // Initial load
+    setPendingSyncQueue(dataQueue.getQueue());
+
+    return unsubscribe;
+  }, []);
+
 
   // Helper function to get date/time display with "Today" indicator
   const getActivityTimeDisplay = (date: Date): { primary: string; secondary: string; isToday: boolean } => {
@@ -777,11 +800,38 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
     };
 
-    // Status icon (only for sheets/expenses)
+    // Status icon (for sheets/expenses - handles both sync status and review status)
     const getStatusIcon = () => {
       if (activity.type !== 'sheets' && activity.type !== 'expense') return null;
-      const status = activity.status || 'pending';
 
+      // Sync status takes priority (offline pending items)
+      if (activity.syncStatus) {
+        switch (activity.syncStatus) {
+          case 'pending':
+          case 'syncing':
+            return <CloudUpload size={16} color="#1976D2" />;
+          case 'failed':
+            return (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Sync Failed',
+                    'This item failed to sync. Would you like to retry?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Retry', onPress: () => dataQueue.retryItem(activity.id) },
+                    ]
+                  );
+                }}
+              >
+                <RefreshCw size={16} color="#D32F2F" />
+              </TouchableOpacity>
+            );
+        }
+      }
+
+      // Manager review status
+      const status = activity.status || 'pending';
       switch (status) {
         case 'pending':
           return <Clock size={16} color="#F9A825" />;
@@ -799,6 +849,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }
     };
 
+    // Check if this is a pending sync item
+    const isPendingSync = !!activity.syncStatus;
+
     // Compact time format
     const getCompactTime = () => {
       const diffMs = now.getTime() - activity.time.getTime();
@@ -813,19 +866,34 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       return activity.time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    // Handle tap on activity item
+    const handleActivityPress = () => {
+      if (isPendingSync) {
+        // Show message for pending sync items
+        Alert.alert(
+          'Waiting to Sync',
+          'This entry will be uploaded when you\'re back online. You can edit it after it syncs.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        setSelectedActivity(activity);
+      }
+    };
+
     return (
       <TouchableOpacity
         key={activity.id}
         activeOpacity={0.7}
-        onPress={() => setSelectedActivity(activity)}
+        onPress={handleActivityPress}
         style={{
           backgroundColor: colors.surface,
           borderRadius: 10,
           paddingVertical: 14,
           paddingHorizontal: 14,
           marginBottom: 8,
-          borderWidth: 1,
-          borderColor: colors.border.light,
+          borderWidth: isPendingSync ? 2 : 1,
+          borderColor: isPendingSync ? '#1976D2' : colors.border.light,
+          borderStyle: isPendingSync ? 'dashed' : 'solid',
         }}
       >
         {/* Single row: Icon + Value • Detail • Time + Status */}
@@ -1048,13 +1116,54 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {todayActivities.length > 0 ? (
+        {/* Activity Feed */}
+        {(() => {
+          // Convert pending sync queue items to activity format
+          const pendingSyncActivities: typeof todayActivities = pendingSyncQueue.map(item => {
+            if (item.type === 'sheet') {
+              const sheetData = item.data as import('../types').LogSheetsSaleRequest;
+              return {
+                id: item.id,
+                type: 'sheets' as const,
+                time: new Date(item.createdAt),
+                description: `${sheetData.sheetsCount} - ${sheetData.catalog}`,
+                value: String(sheetData.sheetsCount),
+                detail: sheetData.catalog,
+                notes: sheetData.notes,
+                syncStatus: item.status as 'pending' | 'syncing' | 'failed',
+              };
+            } else {
+              const expenseData = item.data as import('../types').SubmitExpenseRequest;
+              const firstItem = expenseData.items[0];
+              const totalAmount = expenseData.items.reduce((sum, i) => sum + i.amount, 0);
+              const categoryLabel = firstItem.category === 'other' && firstItem.categoryOther
+                ? firstItem.categoryOther
+                : firstItem.category.charAt(0).toUpperCase() + firstItem.category.slice(1);
+
+              return {
+                id: item.id,
+                type: 'expense' as const,
+                time: new Date(item.createdAt),
+                description: `${totalAmount} - ${categoryLabel}`,
+                value: String(totalAmount),
+                detail: categoryLabel,
+                notes: firstItem.description,
+                syncStatus: item.status as 'pending' | 'syncing' | 'failed',
+              };
+            }
+          });
+
+          // Combine server activities with pending sync items, sorted by time
+          const allActivities = [...todayActivities, ...pendingSyncActivities]
+            .sort((a, b) => b.time.getTime() - a.time.getTime());
+
+          return allActivities.length > 0 ? (
           <View>
             {(() => {
               // Filter activities based on selected filter
               const filteredActivities = activityFilter === 'all'
-                ? todayActivities
-                : todayActivities.filter(a => a.type === activityFilter);
+                ? allActivities
+                : allActivities.filter(a => a.type === activityFilter);
 
               // Separate today's and older activities
               const now = new Date();
@@ -1126,7 +1235,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </Text>
             </View>
           </Card>
-        )}
+        );
+        })()}
 
         {/* Load More Button */}
         {hasMore && todayActivities.length > 0 && (

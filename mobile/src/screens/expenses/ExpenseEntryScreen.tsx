@@ -18,9 +18,11 @@ import {
   Modal,
   Image,
 } from 'react-native';
+import { getAuth } from '@react-native-firebase/auth';
 import { Car, UtensilsCrossed, Hotel, FileText, Camera, ChevronLeft, IndianRupee } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { isOnline, OFFLINE_SUBMIT_MESSAGE } from '../../services/network';
+import { isOnline } from '../../services/network';
+import { dataQueue } from '../../services/dataQueue';
 import { uploadPhoto } from '../../services/storage';
 import { CameraCapture } from '../../components/CameraCapture';
 import { Card } from '../../components/ui';
@@ -155,16 +157,12 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
       return;
     }
 
-    // Check if photo is still uploading
-    if (receiptPhoto && !receiptPhotoUrl) {
-      Alert.alert('Please Wait', 'Receipt photo is still uploading...');
-      return;
-    }
-
-    // Check network connectivity before submitting
+    // Check network connectivity
     const online = await isOnline();
-    if (!online) {
-      Alert.alert('No Connection', OFFLINE_SUBMIT_MESSAGE);
+
+    // Check if photo is still uploading (only relevant when online)
+    if (online && receiptPhoto && !receiptPhotoUrl && uploadingReceipt) {
+      Alert.alert('Please Wait', 'Receipt photo is still uploading...');
       return;
     }
 
@@ -179,33 +177,58 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
       };
 
       if (isEditMode && editActivityId) {
-        // Update existing expense
+        // Edit mode: Requires network (can't edit offline)
+        if (!online) {
+          Alert.alert('No Connection', 'Editing requires an internet connection. Please try again when online.');
+          setSubmitting(false);
+          return;
+        }
         await api.updateExpense({
           id: editActivityId,
           date,
           items: [expenseItem],
           ...(receiptPhotoUrl && { receiptPhotos: [receiptPhotoUrl] }),
         });
+
+        // Invalidate home screen cache
+        invalidateHomeStatsCache();
       } else {
-        // Create new expense
+        // Create mode: Can work offline
         const expenseData: SubmitExpenseRequest = {
           date,
           items: [expenseItem],
+          // Only include photo URL if we have it (online upload completed)
           ...(receiptPhotoUrl && { receiptPhotos: [receiptPhotoUrl] }),
         };
 
-        await api.submitExpense(expenseData);
+        if (online) {
+          // Online: Submit directly
+          await api.submitExpense(expenseData);
+
+          // Invalidate home screen cache
+          invalidateHomeStatsCache();
+        } else {
+          // Offline: Queue for later sync
+          // Pass local photo URI if we have a photo but no uploaded URL
+          const localPhotoUri = receiptPhoto && !receiptPhotoUrl ? receiptPhoto : undefined;
+          const authInstance = getAuth();
+          const userId = authInstance.currentUser?.uid || '';
+
+          await dataQueue.addExpense(expenseData, userId, localPhotoUri);
+          Alert.alert(
+            'Saved Offline',
+            'Your expense has been saved and will sync when you\'re back online.',
+            [{ text: 'OK' }]
+          );
+        }
 
         // Track analytics event (only for new expenses)
         trackExpenseSubmitted({
           category: category,
           amount: amountNum,
-          hasReceipt: !!receiptPhotoUrl,
+          hasReceipt: !!receiptPhoto,
         });
       }
-
-      // Invalidate home screen cache
-      invalidateHomeStatsCache();
 
       // Navigate back immediately
       navigation.goBack();
