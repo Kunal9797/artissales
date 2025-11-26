@@ -22,7 +22,7 @@ interface SelectAccountScreenProps {
   navigation: any;
 }
 
-type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'contractor';
+type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
   const { accounts, loading, error, isOffline, refreshAccounts } = useAccounts();
@@ -136,9 +136,9 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       return true;
     }
 
-    // Reps can only edit dealers/architects/contractors they created
+    // Reps can only edit dealers/architects/OEMs they created
     if (user.role === 'rep') {
-      const isCorrectType = account.type === 'dealer' || account.type === 'architect' || account.type === 'contractor';
+      const isCorrectType = account.type === 'dealer' || account.type === 'architect' || account.type === 'OEM';
       const isCreatedByUser = account.createdByUserId === userId;
       return isCorrectType && isCreatedByUser;
     }
@@ -162,7 +162,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         return '#388E3C'; // Green
       case 'architect':
         return '#F57C00'; // Orange
-      case 'contractor':
+      case 'OEM':
         return '#7B1FA2'; // Purple
       default:
         return '#666666';
@@ -276,7 +276,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             </Text>
           </View>
 
-          {/* Add Account Button - Sales reps can only create Dealer/Architect/Contractor */}
+          {/* Add Account Button - Sales reps can only create Dealer/Architect/OEM */}
           <TouchableOpacity
             style={{
               flexDirection: 'row',
@@ -408,18 +408,18 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
               paddingHorizontal: 16,
               paddingVertical: 8,
               borderRadius: 16,
-              backgroundColor: selectedType === 'contractor' ? '#393735' : '#FFFFFF',
+              backgroundColor: selectedType === 'OEM' ? '#393735' : '#FFFFFF',
               borderWidth: 1,
-              borderColor: selectedType === 'contractor' ? '#393735' : '#E0E0E0',
+              borderColor: selectedType === 'OEM' ? '#393735' : '#E0E0E0',
             }}
-            onPress={() => setSelectedType('contractor')}
+            onPress={() => setSelectedType('OEM')}
           >
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: selectedType === 'contractor' ? '#FFFFFF' : '#666666',
+              color: selectedType === 'OEM' ? '#FFFFFF' : '#666666',
             }}>
-              Contractors
+              OEMs
             </Text>
           </TouchableOpacity>
           <TouchableOpacity

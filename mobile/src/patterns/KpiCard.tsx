@@ -71,15 +71,19 @@ export function KpiCard({ title, value, delta, icon }: KpiCardProps) {
         </View>
       )}
 
-      {/* Value - Large and centered */}
-      <Text style={[
-        styles.value,
-        {
-          fontSize: getDynamicFontSize(),
-          letterSpacing: getDynamicLetterSpacing(),
-          lineHeight: getDynamicFontSize() + 4,
-        }
-      ]}>
+      {/* Value - Large and centered, always single line */}
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        style={[
+          styles.value,
+          {
+            fontSize: getDynamicFontSize(),
+            letterSpacing: getDynamicLetterSpacing(),
+            lineHeight: getDynamicFontSize() + 4,
+          }
+        ]}
+      >
         {value}
       </Text>
 

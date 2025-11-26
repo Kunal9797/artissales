@@ -73,7 +73,7 @@ export interface CreateUserByManagerResponse {
 }
 
 // Account Management Types
-export type AccountType = 'distributor' | 'dealer' | 'architect' | 'contractor';
+export type AccountType = 'distributor' | 'dealer' | 'architect' | 'OEM';
 
 export interface CreateAccountRequest {
   name: string;
@@ -197,7 +197,7 @@ export interface GetUserStatsResponse {
         distributor: number;
         dealer: number;
         architect: number;
-        contractor: number;
+        OEM: number;
       };
       records: Array<{
         id: string;
@@ -238,7 +238,7 @@ export interface TargetsByCatalog {
 export interface TargetsByAccountType {
   dealer?: number;
   architect?: number;
-  contractor?: number;
+  OEM?: number;
 }
 
 export interface Target {
@@ -263,7 +263,7 @@ export interface TargetProgress {
 }
 
 export interface VisitProgress {
-  accountType: 'dealer' | 'architect' | 'contractor';
+  accountType: 'dealer' | 'architect' | 'OEM';
   target: number;
   achieved: number;
   percentage: number;

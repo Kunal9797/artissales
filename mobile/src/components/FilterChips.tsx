@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Factory, Store, Ruler, HardHat } from 'lucide-react-native';
 import { colors } from '../theme';
 
-type FilterType = 'all' | 'distributor' | 'dealer' | 'architect' | 'contractor';
+type FilterType = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 
 interface FilterChipsProps {
   selected: FilterType;
@@ -52,9 +52,9 @@ export const FilterChips: React.FC<FilterChipsProps> = ({ selected, onSelect }) 
         <Text style={textStyle(selected === 'architect')}>Architects</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={chipStyle(selected === 'contractor')} onPress={() => onSelect('contractor')}>
-        <HardHat size={16} color={selected === 'contractor' ? colors.primary : colors.text.secondary} />
-        <Text style={textStyle(selected === 'contractor')}>Contractors</Text>
+      <TouchableOpacity style={chipStyle(selected === 'OEM')} onPress={() => onSelect('OEM')}>
+        <HardHat size={16} color={selected === 'OEM' ? colors.primary : colors.text.secondary} />
+        <Text style={textStyle(selected === 'OEM')}>OEMs</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={chipStyle(selected === 'distributor')} onPress={() => onSelect('distributor')}>

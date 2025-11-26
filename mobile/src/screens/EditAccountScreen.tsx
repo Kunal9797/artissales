@@ -358,8 +358,8 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
           {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
         </View>
 
-        {/* Birthdate (only for dealer, architect, and contractor) */}
-        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'contractor') && (
+        {/* Birthdate (only for dealer, architect, and OEM) */}
+        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'OEM') && (
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Birthdate (Optional)</Text>
             <View style={styles.inputWrapper}>
@@ -440,8 +440,8 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
           />
         </View>
 
-        {/* Parent Distributor (for dealers/architects/contractors) */}
-        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'contractor') && (
+        {/* Parent Distributor (for dealers/architects/OEMs) */}
+        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'OEM') && (
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Parent Distributor (Optional)</Text>
             <TouchableOpacity

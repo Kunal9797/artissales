@@ -6,14 +6,14 @@ admin.initializeApp({
 });
 const db = admin.firestore();
 
-async function addTestContractors() {
-  const contractors = [
+async function addTestOEMs() {
+  const oems = [
     {
       name: "Rajesh Kumar (Site Supervisor)",
-      type: "contractor",
+      type: "OEM",
       contactPerson: "Rajesh Kumar",
       phone: "+919876543210",
-      email: "rajesh.contractor@gmail.com",
+      email: "rajesh.oem@gmail.com",
       birthdate: "1985-03-15",
       address: "Site 12, DLF Phase 3, Sector 24",
       city: "Gurugram",
@@ -28,7 +28,7 @@ async function addTestContractors() {
     },
     {
       name: "Vijay Builders - Amit Sharma",
-      type: "contractor",
+      type: "OEM",
       contactPerson: "Amit Sharma",
       phone: "+919876543211",
       email: "amit@vijaybuilders.com",
@@ -46,7 +46,7 @@ async function addTestContractors() {
     },
     {
       name: "Pradeep Construction Co.",
-      type: "contractor",
+      type: "OEM",
       contactPerson: "Pradeep Singh",
       phone: "+919876543212",
       email: "pradeep.construction@yahoo.com",
@@ -65,7 +65,7 @@ async function addTestContractors() {
     },
     {
       name: "Santosh Yadav (Independent)",
-      type: "contractor",
+      type: "OEM",
       contactPerson: "Santosh Yadav",
       phone: "+919876543213",
       birthdate: "1990-01-25",
@@ -82,7 +82,7 @@ async function addTestContractors() {
     },
     {
       name: "Modern Interiors - Suresh Reddy",
-      type: "contractor",
+      type: "OEM",
       contactPerson: "Suresh Reddy",
       phone: "+919876543214",
       email: "suresh@moderninteriors.in",
@@ -100,20 +100,20 @@ async function addTestContractors() {
     }
   ];
 
-  console.log('Adding 5 test contractors...\n');
+  console.log('Adding 5 test OEMs...\n');
 
-  for (const contractor of contractors) {
+  for (const oem of oems) {
     const docRef = db.collection('accounts').doc();
-    contractor.id = docRef.id;
-    await docRef.set(contractor);
-    console.log(`✅ Added: ${contractor.name} (${contractor.city})`);
+    oem.id = docRef.id;
+    await docRef.set(oem);
+    console.log(`✅ Added: ${oem.name} (${oem.city})`);
   }
 
-  console.log('\n✨ All 5 test contractors added successfully!');
+  console.log('\n✨ All 5 test OEMs added successfully!');
   process.exit(0);
 }
 
-addTestContractors().catch(err => {
+addTestOEMs().catch(err => {
   console.error('❌ Error:', err);
   process.exit(1);
 });

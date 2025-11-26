@@ -69,7 +69,7 @@ service cloud.firestore {
     }
 
     // ========================================================================
-    // ACCOUNTS COLLECTION (Distributors, Dealers, Architects & Contractors)
+    // ACCOUNTS COLLECTION (Distributors, Dealers, Architects & OEMs)
     // ========================================================================
     match /accounts/{accountId} {
       // Anyone authenticated can read accounts
@@ -78,33 +78,33 @@ service cloud.firestore {
       // Create rules by account type:
       // - Admin can create anything
       // - National Head can create anything
-      // - Reps can only create dealers/architects/contractors (not distributors)
+      // - Reps can only create dealers/architects/OEMs (not distributors)
       allow create: if isAuthenticated() && (
         isAdmin() ||
         isNationalHeadOrAdmin() ||
-        (request.resource.data.type in ['dealer', 'architect', 'contractor'] &&
+        (request.resource.data.type in ['dealer', 'architect', 'OEM'] &&
          request.resource.data.createdByUserId == request.auth.uid)
       );
 
       // Update rules:
       // - Admin can edit any account
       // - National Head can edit any account
-      // - Reps can only edit dealers/architects/contractors they created
+      // - Reps can only edit dealers/architects/OEMs they created
       allow update: if isAuthenticated() && (
         isAdmin() ||
         isNationalHeadOrAdmin() ||
-        (resource.data.type in ['dealer', 'architect', 'contractor'] &&
+        (resource.data.type in ['dealer', 'architect', 'OEM'] &&
          resource.data.createdByUserId == request.auth.uid)
       );
 
       // Delete rules:
       // - Admin can delete any account
       // - National Head can delete any account
-      // - Reps can only delete dealers/architects/contractors they created
+      // - Reps can only delete dealers/architects/OEMs they created
       allow delete: if isAuthenticated() && (
         isAdmin() ||
         isNationalHeadOrAdmin() ||
-        (resource.data.type in ['dealer', 'architect', 'contractor'] &&
+        (resource.data.type in ['dealer', 'architect', 'OEM'] &&
          resource.data.createdByUserId == request.auth.uid)
       );
     }

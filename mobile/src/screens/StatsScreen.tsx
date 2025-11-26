@@ -140,7 +140,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
           newTargets.visitsByType = {
             dealer: response.target.targetsByAccountType.dealer,
             architect: response.target.targetsByAccountType.architect,
-            contractor: response.target.targetsByAccountType.contractor,
+            OEM: response.target.targetsByAccountType.OEM,
           };
         }
 

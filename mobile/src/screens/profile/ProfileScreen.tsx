@@ -109,9 +109,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           }
 
           // Fetch assigned distributor info if exists
-          if (data?.assignedDistributorId) {
+          if (data?.primaryDistributorId) {
             try {
-              const distDocRef = doc(db, 'accounts', data.assignedDistributorId);
+              const distDocRef = doc(db, 'accounts', data.primaryDistributorId);
               const distDoc = await getDoc(distDocRef);
               if (distDoc.exists()) {
                 const distData = distDoc.data();

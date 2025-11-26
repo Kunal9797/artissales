@@ -11,7 +11,7 @@ import { MoreVertical, ChevronRight, CheckCircle, XCircle, User } from 'lucide-r
 const mockAccount = {
   id: '1',
   name: 'Pradeep Construction Co.',
-  type: 'contractor' as const,
+  type: 'OEM' as const,
   city: 'Mumbai',
   state: 'Maharashtra',
   phone: '+919876543212',
@@ -68,7 +68,7 @@ const getTypeColor = (type: string) => {
     case 'distributor': return '#1976D2'; // Blue
     case 'dealer': return '#FFA726'; // Orange
     case 'architect': return '#9C27B0'; // Purple
-    case 'contractor': return '#666666'; // Gray
+    case 'OEM': return '#666666'; // Gray
     default: return '#999999';
   }
 };

@@ -69,7 +69,7 @@ export interface GetTeamStatsResponse {
       distributor: number;
       dealer: number;
       architect: number;
-      contractor: number;
+      OEM: number;
     };
     sheets: {
       total: number;
@@ -146,7 +146,7 @@ export interface GetUserStatsResponse {
         distributor: number;
         dealer: number;
         architect: number;
-        contractor: number;
+        OEM: number;
       };
       records: Array<any>;
     };
@@ -266,7 +266,7 @@ export interface GetAccountsListResponse {
   accounts: Array<{
     id: string;
     name: string;
-    type: 'distributor' | 'dealer' | 'architect' | 'contractor';
+    type: 'distributor' | 'dealer' | 'architect' | 'OEM';
     phone: string;
     city: string;
     territory?: string;
@@ -288,7 +288,7 @@ export interface SetTargetRequest {
     distributor: number;
     dealer: number;
     architect: number;
-    contractor: number;
+    OEM: number;
   };
   targetsByCatalog: {
     'Fine Decor': number;

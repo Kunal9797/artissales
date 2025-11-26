@@ -41,7 +41,7 @@ interface DetailedStatsProps {
         distributor: number;
         dealer: number;
         architect: number;
-        contractor: number;
+        OEM: number;
       };
       records?: any[]; // For top visited accounts
     };
@@ -71,7 +71,7 @@ interface DetailedStatsProps {
       distributor?: number;
       dealer?: number;
       architect?: number;
-      contractor?: number;
+      OEM?: number;
     };
     sheetsByCatalog?: {
       'Fine Decor'?: number;
@@ -341,18 +341,18 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 <View style={styles.categoryHeader}>
                   <View style={styles.categoryLeft}>
                     <View style={[styles.categoryDot, { backgroundColor: colors.warning }]} />
-                    <Text style={styles.categoryLabel}>Contractor</Text>
+                    <Text style={styles.categoryLabel}>OEM</Text>
                   </View>
                   <View style={styles.categoryRight}>
-                    <Text style={styles.categoryValue}>{stats.visits.byType.contractor}</Text>
-                    {targets?.visitsByType?.contractor && (
-                      <Text style={styles.categoryTargetRed}>/ {targets.visitsByType.contractor}</Text>
+                    <Text style={styles.categoryValue}>{stats.visits.byType.OEM}</Text>
+                    {targets?.visitsByType?.OEM && (
+                      <Text style={styles.categoryTargetRed}>/ {targets.visitsByType.OEM}</Text>
                     )}
                   </View>
                 </View>
                 {renderProgressBarWithTarget(
-                  stats.visits.byType.contractor,
-                  targets?.visitsByType?.contractor,
+                  stats.visits.byType.OEM,
+                  targets?.visitsByType?.OEM,
                   colors.warning
                 )}
               </View>

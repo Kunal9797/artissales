@@ -191,15 +191,15 @@ class DataQueueService {
    */
   private async processQueue() {
     if (this.isProcessing) return;
+    this.isProcessing = true;  // Lock IMMEDIATELY to prevent race condition
 
     // Check network status
     const online = await isOnline();
     if (!online) {
+      this.isProcessing = false;  // Release lock
       logger.log('[DataQueue] Offline, skipping queue processing');
       return;
     }
-
-    this.isProcessing = true;
 
     const pendingItems = this.queue.filter(item => item.status === 'pending');
 

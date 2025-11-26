@@ -13,7 +13,7 @@ interface VisitsData {
   distributor: number;
   dealer: number;
   architect: number;
-  contractor: number;
+  OEM: number;
 }
 
 interface VisitsByTypeChartProps {
@@ -50,8 +50,8 @@ export function VisitsByTypeChart({ data, isLoading }: VisitsByTypeChartProps) {
       Visits: data.architect,
     },
     {
-      name: 'Contractor',
-      Visits: data.contractor,
+      name: 'OEM',
+      Visits: data.OEM,
     },
   ];
 

@@ -490,7 +490,7 @@ export const getUserStats = onRequest(async (request, response) => {
       distributor: visits.filter((v) => v.accountType === "distributor").length,
       dealer: visits.filter((v) => v.accountType === "dealer").length,
       architect: visits.filter((v) => v.accountType === "architect").length,
-      contractor: visits.filter((v) => v.accountType === "contractor").length,
+      OEM: visits.filter((v) => v.accountType === "OEM").length,
     };
 
     // Process sheets sales

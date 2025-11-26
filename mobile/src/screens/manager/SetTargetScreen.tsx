@@ -20,7 +20,7 @@ import { TargetsByCatalog, TargetsByAccountType } from '../../types';
 type SetTargetScreenProps = NativeStackScreenProps<any, 'SetTarget'>;
 
 const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
-const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'contractor'];
+const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'OEM'];
 
 export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, route }) => {
   const { userId, userName, currentMonth } = route.params;

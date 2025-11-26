@@ -234,14 +234,14 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     let distributorVisits = 0;
     let dealerVisits = 0;
     let architectVisits = 0;
-    let contractorVisits = 0;
+    let oemVisits = 0;
 
     visitsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (data.accountType === "distributor") distributorVisits++;
       else if (data.accountType === "dealer") dealerVisits++;
       else if (data.accountType === "architect") architectVisits++;
-      else if (data.accountType === "contractor") contractorVisits++;
+      else if (data.accountType === "OEM") oemVisits++;
     });
 
     // Process sheets sales data
@@ -289,7 +289,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           distributor: distributorVisits,
           dealer: dealerVisits,
           architect: architectVisits,
-          contractor: contractorVisits,
+          OEM: oemVisits,
         },
         sheets: {
           total: totalSheets,

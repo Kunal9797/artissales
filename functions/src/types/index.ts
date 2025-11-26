@@ -34,10 +34,10 @@ export interface User {
 }
 
 // ============================================================================
-// ACCOUNTS TYPES (Distributors, Dealers, Architects & Contractors)
+// ACCOUNTS TYPES (Distributors, Dealers, Architects & OEMs)
 // ============================================================================
 
-export type AccountType = "distributor" | "dealer" | "architect" | "contractor";
+export type AccountType = "distributor" | "dealer" | "architect" | "OEM";
 export type AccountStatus = "active" | "inactive";
 
 export interface Account {
@@ -166,7 +166,7 @@ export interface Visit {
   // Account info (denormalized for easy reading)
   accountId: string; // Link to accounts collection
   accountName: string; // "ABC Laminates"
-  accountType: AccountType; // "distributor" | "dealer" | "architect" | "contractor"
+  accountType: AccountType; // "distributor" | "dealer" | "architect" | "OEM"
 
   // When (single timestamp - when visit was logged)
   timestamp: Timestamp; // When visit logged
@@ -516,7 +516,7 @@ export interface TargetsByCatalog {
 export interface TargetsByAccountType {
   dealer?: number;
   architect?: number;
-  contractor?: number;
+  OEM?: number;
 }
 
 export interface Target {
@@ -553,7 +553,7 @@ export interface TargetProgress {
 
 // Visit progress (calculated from visits)
 export interface VisitProgress {
-  accountType: "dealer" | "architect" | "contractor";
+  accountType: "dealer" | "architect" | "OEM";
   target: number;
   achieved: number;
   percentage: number; // 0-100

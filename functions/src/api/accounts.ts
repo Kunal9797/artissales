@@ -28,9 +28,9 @@ function canCreateAccount(
   // National Head can create anything
   if (callerRole === "national_head") return true;
 
-  // Reps and Zonal Heads can only create dealers/architects/contractors
+  // Reps and Zonal Heads can only create dealers/architects/OEMs
   if (callerRole === "rep" || callerRole === "zonal_head") {
-    return accountType === "dealer" || accountType === "architect" || accountType === "contractor";
+    return accountType === "dealer" || accountType === "architect" || accountType === "OEM";
   }
 
   return false;
@@ -108,10 +108,10 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
     }
 
     // Validate account type
-    if (!["distributor", "dealer", "architect", "contractor"].includes(type)) {
+    if (!["distributor", "dealer", "architect", "OEM"].includes(type)) {
       const error: ApiError = {
         ok: false,
-        error: "Invalid account type. Must be: distributor, dealer, architect, or contractor",
+        error: "Invalid account type. Must be: distributor, dealer, architect, or OEM",
         code: "INVALID_TYPE",
       };
       response.status(400).json(error);
@@ -123,7 +123,7 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
     if (!canCreate) {
       const error: ApiError = {
         ok: false,
-        error: `${callerRole} cannot create ${type} accounts. Only National Head or Admin can create distributors. Reps can create dealers, architects, and contractors.`,
+        error: `${callerRole} cannot create ${type} accounts. Only National Head or Admin can create distributors. Reps can create dealers, architects, and OEMs.`,
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
@@ -282,7 +282,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
     // Filter by type if provided
     if (type) {
-      if (!["distributor", "dealer", "architect", "contractor"].includes(type)) {
+      if (!["distributor", "dealer", "architect", "OEM"].includes(type)) {
         const error: ApiError = {
           ok: false,
           error: "Invalid account type filter",
@@ -324,13 +324,13 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
     // Managers (admin, national_head) can see all accounts
     // Reps can see:
     //   - All distributors
-    //   - Their own created dealer/architect/contractor
-    //   - Dealer/architect/contractor created by managers
+    //   - Their own created dealer/architect/OEM
+    //   - Dealer/architect/OEM created by managers
     if (callerRole !== "admin" && callerRole !== "national_head") {
       // Get unique creator IDs to check their roles (filter out empty/undefined)
       const creatorIds = new Set<string>(
         accounts
-          .filter((acc) => ["dealer", "architect", "contractor"].includes(acc.type))
+          .filter((acc) => ["dealer", "architect", "OEM"].includes(acc.type))
           .map((acc) => acc.createdByUserId)
           .filter((id) => id && id.trim().length > 0) // Filter out empty/undefined IDs
       );
@@ -355,7 +355,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
           return true;
         }
 
-        // For dealer/architect/contractor:
+        // For dealer/architect/OEM:
         // 1. If createdByUserId is empty/missing, show it (legacy data or created by managers)
         if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
           return true;
@@ -490,7 +490,7 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
     const canEdit =
       callerRole === "admin" ||
       callerRole === "national_head" ||
-      (["dealer", "architect", "contractor"].includes(existingAccount?.type) &&
+      (["dealer", "architect", "OEM"].includes(existingAccount?.type) &&
        existingAccount?.createdByUserId === userId);
 
     if (!canEdit) {

@@ -162,7 +162,7 @@ async function calculateVisitProgress(
   const achievedByType: Record<string, number> = {
     "dealer": 0,
     "architect": 0,
-    "contractor": 0,
+    "OEM": 0,
   };
 
   visitsSnapshot.forEach((doc) => {
@@ -174,7 +174,7 @@ async function calculateVisitProgress(
   });
 
   // Build progress array for account types that have targets
-  const accountTypes: Array<"dealer" | "architect" | "contractor"> = ["dealer", "architect", "contractor"];
+  const accountTypes: Array<"dealer" | "architect" | "OEM"> = ["dealer", "architect", "OEM"];
   accountTypes.forEach((type) => {
     if (targetsByAccountType[type] !== undefined && targetsByAccountType[type]! > 0) {
       const target = targetsByAccountType[type]!;

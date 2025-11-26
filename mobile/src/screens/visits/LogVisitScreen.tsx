@@ -223,8 +223,12 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         }
       } else {
         // NEW VISIT: Optimistic update with background upload
-        // Try to capture GPS for auto check-in (non-blocking)
-        const gpsData = await captureGPSForAutoCheckIn();
+        // TODO: Re-enable GPS capture in background (currently disabled for performance)
+        // GPS was causing 5-20s delays on visit submission. Will implement proper
+        // background GPS capture in a future update.
+        // See: captureGPSForAutoCheckIn() helper function above
+        const gpsData = null;
+        logger.log('[LogVisit] GPS capture disabled for performance - will add back later');
 
         const { uploadQueue } = await import('../../services/uploadQueue');
 

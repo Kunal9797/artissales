@@ -9,7 +9,7 @@ const ACCOUNTS_CACHE_KEY = '@cached_accounts';
 export interface Account {
   id: string;
   name: string;
-  type: 'distributor' | 'dealer' | 'architect' | 'contractor';
+  type: 'distributor' | 'dealer' | 'architect' | 'OEM';
   contactPerson?: string;
   phone?: string;
   email?: string;

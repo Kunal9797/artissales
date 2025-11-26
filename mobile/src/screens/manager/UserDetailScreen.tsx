@@ -181,7 +181,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
             distributor: response.target.targetsByAccountType.distributor,
             dealer: response.target.targetsByAccountType.dealer,
             architect: response.target.targetsByAccountType.architect,
-            contractor: response.target.targetsByAccountType.contractor,
+            OEM: response.target.targetsByAccountType.OEM,
           };
         }
 

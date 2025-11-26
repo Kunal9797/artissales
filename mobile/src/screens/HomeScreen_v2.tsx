@@ -138,7 +138,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     detail?: string; // Secondary info (e.g., "Fine Decor", "Travel")
     notes?: string;  // Notes/description for display in action sheet
     purpose?: string; // Visit purpose
-    status?: 'pending' | 'verified' | 'rejected'; // For sheets/expenses (manager review)
+    status?: 'pending' | 'verified' | 'approved' | 'rejected'; // For sheets/expenses (manager review)
     syncStatus?: 'pending' | 'syncing' | 'failed'; // For offline sync status
     photos?: string[]; // Photo URLs for visits
   }>>([]);

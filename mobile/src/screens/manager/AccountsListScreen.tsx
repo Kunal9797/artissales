@@ -157,7 +157,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     { label: 'Distributors', value: 'distributor', active: selectedType === 'distributor' },
     { label: 'Dealers', value: 'dealer', active: selectedType === 'dealer' },
     { label: 'Architects', value: 'architect', active: selectedType === 'architect' },
-    { label: 'Contractors', value: 'contractor', active: selectedType === 'contractor' },
+    { label: 'OEMs', value: 'OEM', active: selectedType === 'OEM' },
   ];
 
   // Calculate KPIs
@@ -165,7 +165,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const distributorCount = accounts.filter(a => a.type === 'distributor').length;
   const dealerCount = accounts.filter(a => a.type === 'dealer').length;
   const architectCount = accounts.filter(a => a.type === 'architect').length;
-  const contractorCount = accounts.filter(a => a.type === 'contractor').length;
+  const oemCount = accounts.filter(a => a.type === 'OEM').length;
 
   return (
     <View style={styles.container}>
