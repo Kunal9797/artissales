@@ -1,5 +1,6 @@
 import { getAuth } from '@react-native-firebase/auth';
 import { logger } from '../utils/logger';
+import { isNetworkError, OFFLINE_SUBMIT_MESSAGE } from './network';
 
 async function getAuthToken(): Promise<string | null> {
   const authInstance = getAuth();
@@ -93,7 +94,19 @@ async function callFunction(endpoint: string, data: any): Promise<any> {
     logger.error(`[API] ${endpoint} fetch error:`, error);
     logger.error(`[API] Error name: ${error.name}`);
     logger.error(`[API] Error message: ${error.message}`);
-    throw error;
+
+    // Wrap network errors in user-friendly message
+    if (isNetworkError(error)) {
+      throw new ApiError(OFFLINE_SUBMIT_MESSAGE, 0, { originalError: error.message });
+    }
+
+    // Re-throw ApiErrors as-is
+    if (error instanceof ApiError) {
+      throw error;
+    }
+
+    // Wrap other errors
+    throw new ApiError(error.message || 'An unexpected error occurred', 0, error);
   }
 }
 

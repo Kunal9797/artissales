@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Search, MapPin, User, Plus, Edit2 } from 'lucide-react-native';
+import { Search, MapPin, User, Plus, Edit2, WifiOff } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { colors, spacing, typography, shadows } from '../../theme';
@@ -25,7 +25,7 @@ interface SelectAccountScreenProps {
 type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'contractor';
 
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
-  const { accounts, loading, error, refreshAccounts } = useAccounts();
+  const { accounts, loading, error, isOffline, refreshAccounts } = useAccounts();
   const { user } = useAuth();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
@@ -242,10 +242,17 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     );
   }
 
-  if (error) {
+  if (error && accounts.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
+        <WifiOff size={48} color={colors.text.tertiary} style={{ marginBottom: 16 }} />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={refreshAccounts}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -291,6 +298,16 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Offline Banner - Show when using cached data */}
+      {isOffline && accounts.length > 0 && (
+        <View style={styles.offlineBanner}>
+          <WifiOff size={16} color="#856404" />
+          <Text style={styles.offlineBannerText}>
+            You're offline. Showing cached accounts.
+          </Text>
+        </View>
+      )}
 
       {/* Search Bar - Match Manager Design */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
@@ -496,5 +513,33 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.tertiary,
     textAlign: 'center',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF3CD',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE69C',
+  },
+  offlineBannerText: {
+    fontSize: 13,
+    color: '#856404',
+    fontWeight: '500',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

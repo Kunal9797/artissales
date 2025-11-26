@@ -13,6 +13,7 @@ import {
 import { getAuth } from '@react-native-firebase/auth';
 import { ChevronLeft, FileText } from 'lucide-react-native';
 import { api } from '../../services/api';
+import { isOnline, OFFLINE_SUBMIT_MESSAGE } from '../../services/network';
 import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useTargetProgress } from '../../hooks/useTargetProgress';
@@ -98,6 +99,13 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
     const count = parseInt(sheetsInput);
     if (!sheetsInput || isNaN(count) || count <= 0) {
       Alert.alert('Error', 'Please enter a valid number of sheets');
+      return;
+    }
+
+    // Check network connectivity before submitting
+    const online = await isOnline();
+    if (!online) {
+      Alert.alert('No Connection', OFFLINE_SUBMIT_MESSAGE);
       return;
     }
 

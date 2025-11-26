@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { Car, UtensilsCrossed, Hotel, FileText, Camera, ChevronLeft, IndianRupee } from 'lucide-react-native';
 import { api } from '../../services/api';
+import { isOnline, OFFLINE_SUBMIT_MESSAGE } from '../../services/network';
 import { uploadPhoto } from '../../services/storage';
 import { CameraCapture } from '../../components/CameraCapture';
 import { Card } from '../../components/ui';
@@ -157,6 +158,13 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     // Check if photo is still uploading
     if (receiptPhoto && !receiptPhotoUrl) {
       Alert.alert('Please Wait', 'Receipt photo is still uploading...');
+      return;
+    }
+
+    // Check network connectivity before submitting
+    const online = await isOnline();
+    if (!online) {
+      Alert.alert('No Connection', OFFLINE_SUBMIT_MESSAGE);
       return;
     }
 
