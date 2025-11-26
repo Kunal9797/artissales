@@ -14,9 +14,15 @@ import { api } from './api';
 import { uploadPhoto } from './storage';
 import { isOnline } from './network';
 import { logger } from '../utils/logger';
-import { invalidateHomeStatsCache } from '../screens/HomeScreen_v2';
 import { targetCache } from './targetCache';
 import { LogSheetsSaleRequest, SubmitExpenseRequest } from '../types';
+
+// Callback for when sync completes (set by HomeScreen to avoid circular dependency)
+let onSyncCompleteCallback: (() => void) | null = null;
+
+export const setOnSyncComplete = (callback: () => void) => {
+  onSyncCompleteCallback = callback;
+};
 
 // Optional: NetInfo for network detection
 let NetInfo: any = null;
@@ -258,8 +264,10 @@ class DataQueueService {
       await this.saveQueue();
       this.notifyListeners();
 
-      // Invalidate home screen cache
-      invalidateHomeStatsCache();
+      // Notify that sync completed (for cache invalidation)
+      if (onSyncCompleteCallback) {
+        onSyncCompleteCallback();
+      }
 
     } catch (error) {
       logger.error(`[DataQueue] Error syncing ${item.type}:`, error);

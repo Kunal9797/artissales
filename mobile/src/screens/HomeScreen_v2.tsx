@@ -54,7 +54,7 @@ import {
   CloudUpload,
   RefreshCw,
 } from 'lucide-react-native';
-import { dataQueue, DataQueueItem } from '../services/dataQueue';
+import { dataQueue, DataQueueItem, setOnSyncComplete } from '../services/dataQueue';
 
 // FEATURE FLAG: Set to false to disable attendance tracking
 const ATTENDANCE_FEATURE_ENABLED = false;
@@ -536,6 +536,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     // Initialize the queue
     dataQueue.init();
 
+    // Set callback for when items sync successfully (invalidates cache)
+    setOnSyncComplete(() => {
+      invalidateHomeStatsCache();
+      // Refresh activities to show the newly synced items from server
+      fetchActivities(false);
+    });
+
     // Subscribe to queue changes
     const unsubscribe = dataQueue.subscribe((queue) => {
       setPendingSyncQueue(queue);
@@ -545,7 +552,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setPendingSyncQueue(dataQueue.getQueue());
 
     return unsubscribe;
-  }, []);
+  }, [fetchActivities]);
 
 
   // Helper function to get date/time display with "Today" indicator
