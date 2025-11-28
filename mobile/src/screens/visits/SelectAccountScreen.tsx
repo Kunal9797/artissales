@@ -17,6 +17,7 @@ import { colors, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { gpsService } from '../../services/gpsService';
 
 interface SelectAccountScreenProps {
   navigation: any;
@@ -89,6 +90,10 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   }, [accounts, searchQuery, selectedType, currentUserId]);
 
   const handleSelectAccount = (account: Account) => {
+    // Start GPS prefetch immediately (non-blocking)
+    // This gives GPS ~3-5s to acquire while user navigates and takes photo
+    gpsService.prefetch();
+
     // Helper function to safely convert date to ISO string
     const safeToISOString = (date: any): string | null => {
       if (!date) return null;

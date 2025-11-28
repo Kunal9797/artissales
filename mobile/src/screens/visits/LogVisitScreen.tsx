@@ -12,7 +12,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock } from 'lucide-react-native';
+import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock, Wifi, WifiOff, Navigation, AlertCircle } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
@@ -22,6 +22,8 @@ import { colors, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 import { trackVisitLogged, trackPhotoCaptureFailure } from '../../services/analytics';
+import { gpsService, GPSLocation } from '../../services/gpsService';
+import { isOnline, subscribeToNetworkChanges } from '../../services/network';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -57,6 +59,12 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // GPS and Network state for online-only visit logging
+  const [gpsLocation, setGpsLocation] = useState<GPSLocation | null>(null);
+  const [gpsLoading, setGpsLoading] = useState(true);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [networkOnline, setNetworkOnline] = useState(true);
 
   // Fetch existing visit data in edit mode (PARALLEL LOADING OPTIMIZATION)
   useEffect(() => {
@@ -121,6 +129,79 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
     }
   }, [isEditMode, editActivityId]);
 
+  // GPS and Network monitoring for online-only visits (new visits only)
+  useEffect(() => {
+    if (isEditMode) {
+      // Edit mode doesn't require GPS - skip monitoring
+      setGpsLoading(false);
+      return;
+    }
+
+    // Check initial network status
+    isOnline().then(setNetworkOnline);
+
+    // Subscribe to network changes
+    const unsubscribeNetwork = subscribeToNetworkChanges((state) => {
+      setNetworkOnline(state.isConnected);
+    });
+
+    // Check if GPS was already prefetched (from SelectAccountScreen)
+    const checkGPS = async () => {
+      setGpsLoading(true);
+      setGpsError(null);
+
+      try {
+        // This will return cached location if available, or fetch new one
+        const location = await gpsService.get(60000); // 60s max age
+
+        if (location) {
+          if (gpsService.isAccuracyAcceptable(location)) {
+            setGpsLocation(location);
+            logger.info(`[LogVisit] GPS ready: ${location.accuracyM.toFixed(0)}m accuracy`);
+          } else {
+            setGpsError(`GPS accuracy too low (${location.accuracyM.toFixed(0)}m)`);
+            logger.warn(`[LogVisit] GPS accuracy too low: ${location.accuracyM}m`);
+          }
+        } else {
+          const permissionStatus = gpsService.getPermissionStatus();
+          if (permissionStatus === 'denied') {
+            setGpsError('Location permission denied');
+          } else {
+            setGpsError('Could not get location');
+          }
+        }
+      } catch (error) {
+        logger.error('[LogVisit] GPS check failed:', error);
+        setGpsError('Failed to get location');
+      } finally {
+        setGpsLoading(false);
+      }
+    };
+
+    checkGPS();
+
+    return () => {
+      unsubscribeNetwork();
+    };
+  }, [isEditMode]);
+
+  // Retry GPS capture
+  const retryGPS = async () => {
+    setGpsLoading(true);
+    setGpsError(null);
+    gpsService.clear(); // Clear any stale cache
+
+    const location = await gpsService.prefetch();
+    if (location && gpsService.isAccuracyAcceptable(location)) {
+      setGpsLocation(location);
+    } else if (location) {
+      setGpsError(`GPS accuracy too low (${location.accuracyM.toFixed(0)}m)`);
+    } else {
+      setGpsError('Could not get location');
+    }
+    setGpsLoading(false);
+  };
+
   const handlePhotoTaken = (uri: string) => {
     setPhotoUri(uri);
     setShowCamera(false);
@@ -183,6 +264,30 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
       return;
     }
 
+    // NEW VISITS: Require online + GPS
+    if (!isEditMode) {
+      if (!networkOnline) {
+        Alert.alert(
+          'No Internet Connection',
+          'Visit logging requires an internet connection. Please check your connection and try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      if (!gpsLocation) {
+        Alert.alert(
+          'Location Required',
+          gpsError || 'Could not get your location. Please enable GPS and try again.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Retry', onPress: retryGPS },
+          ]
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
@@ -222,13 +327,15 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           ]);
         }
       } else {
-        // NEW VISIT: Optimistic update with background upload
-        // TODO: Re-enable GPS capture in background (currently disabled for performance)
-        // GPS was causing 5-20s delays on visit submission. Will implement proper
-        // background GPS capture in a future update.
-        // See: captureGPSForAutoCheckIn() helper function above
-        const gpsData = null;
-        logger.log('[LogVisit] GPS capture disabled for performance - will add back later');
+        // NEW VISIT: Online-only with required GPS
+        // GPS is prefetched when user selects account (see SelectAccountScreen)
+        // and validated above before reaching this point
+        const gpsData = gpsLocation ? {
+          lat: gpsLocation.lat,
+          lon: gpsLocation.lon,
+          accuracyM: gpsLocation.accuracyM,
+        } : null;
+        logger.log(`[LogVisit] Submitting with GPS: ${gpsData?.lat.toFixed(6)}, ${gpsData?.lon.toFixed(6)} (${gpsData?.accuracyM?.toFixed(0)}m)`);
 
         const { uploadQueue } = await import('../../services/uploadQueue');
 
@@ -434,6 +541,73 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             </View>
           )}
 
+          {/* GPS & Network Status Indicator (New visits only) */}
+          {!isEditMode && (
+            <View style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: (!networkOnline || gpsError) ? '#FFCDD2' : gpsLocation ? '#C8E6C9' : '#E0E0E0',
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Network Status */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {networkOnline ? (
+                    <Wifi size={16} color="#4CAF50" />
+                  ) : (
+                    <WifiOff size={16} color="#D32F2F" />
+                  )}
+                  <Text style={{ fontSize: 13, color: networkOnline ? '#4CAF50' : '#D32F2F', fontWeight: '500' }}>
+                    {networkOnline ? 'Online' : 'Offline'}
+                  </Text>
+                </View>
+
+                {/* GPS Status */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {gpsLoading ? (
+                    <>
+                      <ActivityIndicator size="small" color="#666666" />
+                      <Text style={{ fontSize: 13, color: '#666666', fontWeight: '500' }}>
+                        Getting location...
+                      </Text>
+                    </>
+                  ) : gpsLocation ? (
+                    <>
+                      <Navigation size={16} color="#4CAF50" />
+                      <Text style={{ fontSize: 13, color: '#4CAF50', fontWeight: '500' }}>
+                        GPS Ready ({gpsLocation.accuracyM.toFixed(0)}m)
+                      </Text>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={retryGPS}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                    >
+                      <AlertCircle size={16} color="#D32F2F" />
+                      <Text style={{ fontSize: 13, color: '#D32F2F', fontWeight: '500' }}>
+                        {gpsError || 'No GPS'}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: '#1976D2', fontWeight: '600', marginLeft: 4 }}>
+                        Retry
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              {/* Warning message if offline or no GPS */}
+              {(!networkOnline || (!gpsLocation && !gpsLoading)) && (
+                <Text style={{ fontSize: 12, color: '#666666', marginTop: 8, textAlign: 'center' }}>
+                  {!networkOnline
+                    ? 'Visit logging requires internet connection'
+                    : 'Visit logging requires GPS location'}
+                </Text>
+              )}
+            </View>
+          )}
+
           {/* Compact Photo Section */}
           <View style={{
             backgroundColor: '#FFFFFF',
@@ -597,25 +771,33 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           )}
 
           {/* Submit Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: (!purpose || submitting) ? '#E0E0E0' : featureColors.visits.primary,
-              borderRadius: 8,
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginBottom: isEditMode ? 12 : 0,
-            }}
-            onPress={handleSubmit}
-            disabled={!purpose || submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
-                {isEditMode ? 'Update Visit' : 'Log Visit'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {(() => {
+            // For new visits: require GPS + online
+            const canSubmitNewVisit = isEditMode || (networkOnline && gpsLocation && !gpsLoading);
+            const isDisabled = !purpose || submitting || !canSubmitNewVisit;
+
+            return (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: isDisabled ? '#E0E0E0' : featureColors.visits.primary,
+                  borderRadius: 8,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  marginBottom: isEditMode ? 12 : 0,
+                }}
+                onPress={handleSubmit}
+                disabled={isDisabled}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: isDisabled ? '#999999' : '#FFFFFF' }}>
+                    {isEditMode ? 'Update Visit' : 'Log Visit'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            );
+          })()}
 
           {/* Delete Button (Edit Mode Only) */}
           {isEditMode && (
