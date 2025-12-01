@@ -143,23 +143,6 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
         return;
       }
       normalizedPhone = normalizePhoneNumber(phone);
-
-      // 4.5 Check for duplicate phone number
-      const existingAccounts = await db.collection("accounts")
-        .where("phone", "==", normalizedPhone)
-        .limit(1)
-        .get();
-
-      if (!existingAccounts.empty) {
-        const existingAccount = existingAccounts.docs[0].data();
-        const error: ApiError = {
-          ok: false,
-          error: `An account with this phone number already exists: ${existingAccount.name}`,
-          code: "DUPLICATE_PHONE",
-        };
-        response.status(409).json(error);
-        return;
-      }
     }
 
     // 5. Validate pincode (6 digits)
@@ -191,7 +174,7 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
       }
     }
 
-    // 7. Create account
+    // 7. Create account with atomic duplicate check using transaction
     const accountRef = db.collection("accounts").doc();
     const accountId = accountRef.id;
 
@@ -218,7 +201,40 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
     if (birthdate?.trim()) newAccount.birthdate = birthdate.trim();
     if (address?.trim()) newAccount.address = address.trim();
 
-    await accountRef.set(newAccount);
+    // Use transaction for atomic duplicate check + create (prevents race conditions)
+    try {
+      await db.runTransaction(async (transaction) => {
+        // Check for duplicate phone within transaction (atomic read)
+        if (normalizedPhone) {
+          const existingQuery = db.collection("accounts")
+            .where("phone", "==", normalizedPhone)
+            .limit(1);
+          const existingAccounts = await transaction.get(existingQuery);
+
+          if (!existingAccounts.empty) {
+            const existingAccount = existingAccounts.docs[0].data();
+            throw new Error(`DUPLICATE_PHONE:${existingAccount.name}`);
+          }
+        }
+
+        // Create account (atomic write)
+        transaction.set(accountRef, newAccount);
+      });
+    } catch (txError: any) {
+      // Handle duplicate phone error from transaction
+      if (txError.message?.startsWith("DUPLICATE_PHONE:")) {
+        const existingName = txError.message.split(":")[1];
+        const error: ApiError = {
+          ok: false,
+          error: `An account with this phone number already exists: ${existingName}`,
+          code: "DUPLICATE_PHONE",
+        };
+        response.status(409).json(error);
+        return;
+      }
+      // Re-throw other errors
+      throw txError;
+    }
 
     logger.info(`[createAccount] ✅ ${type} created:`, accountId, name, "by", userId);
 

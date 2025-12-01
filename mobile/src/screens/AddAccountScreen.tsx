@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -53,6 +53,9 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  // Ref guard to prevent double-tap submissions
+  const isSubmittingRef = useRef(false);
+
   // Check if user can create distributors
   const canCreateDistributor = user?.role === 'national_head' || user?.role === 'admin';
 
@@ -103,11 +106,15 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
   };
 
   const handleSubmit = async () => {
+    // Prevent double-tap submissions
+    if (isSubmittingRef.current) return;
+
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fix the errors before submitting');
       return;
     }
 
+    isSubmittingRef.current = true;
     setLoading(true);
     try {
       const response = await api.createAccount({
@@ -153,6 +160,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
       }
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
