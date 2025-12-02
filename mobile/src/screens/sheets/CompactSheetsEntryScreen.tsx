@@ -22,6 +22,7 @@ import { targetCache } from '../../services/targetCache';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 import { trackSheetsLogged } from '../../services/analytics';
+import { useToast } from '../../providers/ToastProvider';
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -37,6 +38,7 @@ type CatalogType = 'Fine Decor' | 'Artvio' | 'Woodrica' | 'Artis 1MM';
 export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> = ({ navigation, route }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+  const toast = useToast();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -129,7 +131,8 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
         }
         invalidateHomeStatsCache();
       } else {
-        // Create mode: Can work offline
+        // Create mode: Always use dataQueue for instant UX (works online & offline)
+        // The dataQueue will sync immediately when online, HomeScreen refreshes via setOnSyncComplete callback
         const sheetData = {
           date: today,
           catalog: selectedCatalog,
@@ -137,24 +140,14 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           notes: managerNotes || undefined,
         };
 
-        if (online) {
-          // Online: Submit directly
-          await api.logSheetsSale(sheetData);
+        await dataQueue.addSheet(sheetData, user?.uid || '');
 
-          // Invalidate caches
-          if (user?.uid) {
-            targetCache.invalidate(user.uid, month);
-          }
-          invalidateHomeStatsCache();
-        } else {
-          // Offline: Queue for later sync
-          await dataQueue.addSheet(sheetData, user?.uid || '');
-          Alert.alert(
-            'Saved Offline',
-            'Your entry has been saved and will sync when you\'re back online.',
-            [{ text: 'OK' }]
-          );
-        }
+        // Show toast and navigate immediately - no waiting for sync!
+        toast.show({
+          kind: online ? 'success' : 'offline',
+          text: online ? 'Sheets logged!' : 'Saved offline',
+          duration: 2000,
+        });
 
         // Track analytics event (only for new entries)
         trackSheetsLogged({

@@ -201,7 +201,6 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
           data={filteredUsers}
           renderItem={renderUserCard}
           keyExtractor={keyExtractor}
-          estimatedItemSize={80}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={loadUsers} colors={[colors.accent]} />

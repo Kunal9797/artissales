@@ -31,6 +31,7 @@ import { colors, spacing, typography, shadows, featureColors } from '../../theme
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 import { trackExpenseSubmitted } from '../../services/analytics';
+import { useToast } from '../../providers/ToastProvider';
 
 interface ExpenseEntryScreenProps {
   navigation: any;
@@ -56,6 +57,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   route,
 }) => {
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  const toast = useToast();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -193,7 +195,8 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         // Invalidate home screen cache
         invalidateHomeStatsCache();
       } else {
-        // Create mode: Can work offline
+        // Create mode: Always use dataQueue for instant UX (works online & offline)
+        // The dataQueue will sync immediately when online, HomeScreen refreshes via setOnSyncComplete callback
         const expenseData: SubmitExpenseRequest = {
           date,
           items: [expenseItem],
@@ -201,26 +204,19 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           ...(receiptPhotoUrl && { receiptPhotos: [receiptPhotoUrl] }),
         };
 
-        if (online) {
-          // Online: Submit directly
-          await api.submitExpense(expenseData);
+        // Pass local photo URI if we have a photo but no uploaded URL (for offline upload later)
+        const localPhotoUri = receiptPhoto && !receiptPhotoUrl ? receiptPhoto : undefined;
+        const authInstance = getAuth();
+        const userId = authInstance.currentUser?.uid || '';
 
-          // Invalidate home screen cache
-          invalidateHomeStatsCache();
-        } else {
-          // Offline: Queue for later sync
-          // Pass local photo URI if we have a photo but no uploaded URL
-          const localPhotoUri = receiptPhoto && !receiptPhotoUrl ? receiptPhoto : undefined;
-          const authInstance = getAuth();
-          const userId = authInstance.currentUser?.uid || '';
+        await dataQueue.addExpense(expenseData, userId, localPhotoUri);
 
-          await dataQueue.addExpense(expenseData, userId, localPhotoUri);
-          Alert.alert(
-            'Saved Offline',
-            'Your expense has been saved and will sync when you\'re back online.',
-            [{ text: 'OK' }]
-          );
-        }
+        // Show toast and navigate immediately - no waiting for sync!
+        toast.show({
+          kind: online ? 'success' : 'offline',
+          text: online ? 'Expense saved!' : 'Saved offline',
+          duration: 2000,
+        });
 
         // Track analytics event (only for new expenses)
         trackExpenseSubmitted({

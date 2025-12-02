@@ -9,20 +9,20 @@
  * - Storage usage tracking
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { logger } from '../utils/logger';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   ActivityIndicator,
   Alert,
   Platform,
   Linking,
   RefreshControl,
 } from 'react-native';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import { useRoute } from '@react-navigation/native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
@@ -413,6 +413,163 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   const offlineDocuments = documents.filter(doc => cachedDocIds.has(doc.id));
   const offlineCount = offlineDocuments.length;
 
+  // Type for list items - includes documents and storage footer
+  type ListItem =
+    | { type: 'document'; data: Document }
+    | { type: 'storage_footer' };
+
+  // Build list data based on filter mode
+  const listData = useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+    const docs = filterMode === 'all' ? documents : offlineDocuments;
+
+    docs.forEach(doc => {
+      items.push({ type: 'document', data: doc });
+    });
+
+    // Add storage footer only in offline mode with documents
+    if (filterMode === 'offline' && offlineDocuments.length > 0) {
+      items.push({ type: 'storage_footer' });
+    }
+
+    return items;
+  }, [documents, offlineDocuments, filterMode]);
+
+  // Memoized document press handler
+  const handleDocumentPress = useCallback((doc: Document) => {
+    handleOpenDocument(doc);
+  }, []);
+
+  // Memoized download handler
+  const handleDownloadPress = useCallback((doc: Document) => {
+    handleDownloadDocument(doc);
+  }, []);
+
+  // Memoized share handler
+  const handleSharePress = useCallback((doc: Document) => {
+    handleShareDocument(doc);
+  }, []);
+
+  // Memoized delete handler
+  const handleDeletePress = useCallback((doc: Document) => {
+    filterMode === 'offline' ? handleDeleteCachedDocument(doc) : handleDeleteDocument(doc);
+  }, [filterMode]);
+
+  // FlashList renderItem
+  const renderDocumentItem = useCallback(({ item, index }: ListRenderItemInfo<ListItem>) => {
+    if (item.type === 'storage_footer') {
+      return (
+        <View style={styles.storageFooter}>
+          <View style={styles.storageTotalContainer}>
+            <Text style={styles.storageTotalLabel}>Total Storage Used</Text>
+            <Text style={styles.storageTotalSize}>{formatFileSize(totalCacheSize)}</Text>
+          </View>
+
+          <TouchableOpacity style={styles.clearAllButton} onPress={handleClearAllCache}>
+            <Text style={styles.clearAllText}>Clear All Downloads</Text>
+          </TouchableOpacity>
+
+          {totalCacheSize > 100 * 1024 * 1024 && (
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningText}>
+                {totalCacheSize > 500 * 1024 * 1024
+                  ? 'Consider clearing old documents'
+                  : 'Using significant storage'}
+              </Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    const doc = item.data;
+    const isCached = cachedDocIds.has(doc.id);
+    const isDownloading = downloading === doc.id;
+    const progress = downloadProgress[doc.id];
+    const isPdf = doc.fileType === 'pdf';
+    const isDeleting = deleting === doc.id;
+    const isLastItem = index === listData.length - 1 || (index === listData.length - 2 && filterMode === 'offline');
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.documentCard,
+          isLastItem && !loadingOnline && { marginBottom: 0 },
+        ]}
+        onPress={() => handleDocumentPress(doc)}
+        disabled={isDownloading}
+      >
+        <View style={styles.documentIcon}>
+          {isPdf ? (
+            <FileText size={24} color={colors.primary} />
+          ) : (
+            <ImageIcon size={24} color={colors.primary} />
+          )}
+        </View>
+
+        <View style={styles.documentInfo}>
+          <Text style={styles.documentName} numberOfLines={1}>
+            {doc.name}
+          </Text>
+          <Text style={styles.documentMeta}>
+            {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
+          </Text>
+          {isDownloading && progress !== undefined && (
+            <Text style={styles.downloadingText}>
+              Downloading... {progress}%
+            </Text>
+          )}
+        </View>
+
+        <View style={styles.documentActions}>
+          {isDownloading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : filterMode === 'offline' ? (
+            <>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => handleSharePress(doc)}
+                disabled={isDeleting}
+              >
+                <Share2 size={20} color="#F57C00" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, isDeleting && styles.deletingButton]}
+                onPress={() => handleDeletePress(doc)}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color={colors.error} />
+                ) : (
+                  <Trash2 size={20} color={colors.error} />
+                )}
+              </TouchableOpacity>
+            </>
+          ) : isCached ? (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleSharePress(doc)}
+            >
+              <Share2 size={20} color="#F57C00" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => handleDownloadPress(doc)}
+            >
+              <Download size={20} color={colors.info} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }, [cachedDocIds, downloading, downloadProgress, deleting, filterMode, loadingOnline, totalCacheSize, listData.length, handleDocumentPress, handleDownloadPress, handleSharePress, handleDeletePress]);
+
+  // Key extractor
+  const keyExtractor = useCallback((item: ListItem, index: number) => {
+    return item.type === 'storage_footer' ? 'storage_footer' : item.data.id;
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Dark Header */}
@@ -506,218 +663,63 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       </View>
 
       {/* Content */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: isStackScreen ? 24 : 100 }, // Less padding for stack, more for tab
-        ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {loading ? (
-          <>
-            <Skeleton rows={2} />
-            <Skeleton rows={2} />
-            <Skeleton rows={2} />
-            <Skeleton rows={2} />
-          </>
-        ) : filterMode === 'all' ? (
-          // ALL VIEW
-          documents.length === 0 ? (
-            <EmptyState
-              icon={<FileText size={48} color={colors.text.tertiary} />}
-              title="No documents yet"
-              subtitle={
-                canManageDocuments
+      {loading ? (
+        <View style={styles.content}>
+          <Skeleton rows={2} />
+          <Skeleton rows={2} />
+          <Skeleton rows={2} />
+          <Skeleton rows={2} />
+        </View>
+      ) : listData.length === 0 ? (
+        <View style={styles.content}>
+          <EmptyState
+            icon={<FileText size={48} color={colors.text.tertiary} />}
+            title={filterMode === 'all' ? 'No documents yet' : 'No offline documents'}
+            subtitle={
+              filterMode === 'all'
+                ? canManageDocuments
                   ? 'Upload catalogs, brochures, or other documents'
                   : 'No documents have been uploaded yet'
-              }
-              primaryAction={
-                canManageDocuments
-                  ? {
-                      label: 'Upload Document',
-                      onPress: () => navigation.navigate('UploadDocument', { onUploadSuccess: loadDocuments }),
-                    }
-                  : undefined
-              }
+                : 'Download documents from the All tab to access them offline'
+            }
+            primaryAction={
+              filterMode === 'all' && canManageDocuments
+                ? {
+                    label: 'Upload Document',
+                    onPress: () => navigation.navigate('UploadDocument', { onUploadSuccess: loadDocuments }),
+                  }
+                : undefined
+            }
+          />
+        </View>
+      ) : (
+        <FlashList
+          data={listData}
+          renderItem={renderDocumentItem}
+          keyExtractor={keyExtractor}
+          contentContainerStyle={{
+            paddingHorizontal: spacing.screenPadding,
+            paddingTop: spacing.screenPadding,
+            paddingBottom: isStackScreen ? 24 : 100,
+          }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
-          ) : (
-            <>
-              {documents.map((doc, index) => {
-                const isCached = cachedDocIds.has(doc.id);
-                const isDownloading = downloading === doc.id;
-                const progress = downloadProgress[doc.id];
-                const isPdf = doc.fileType === 'pdf';
-
-                return (
-                  <TouchableOpacity
-                    key={doc.id}
-                    style={[
-                      styles.documentCard,
-                      index === documents.length - 1 && !loadingOnline && { marginBottom: 0 },
-                    ]}
-                    onPress={() => handleOpenDocument(doc)}
-                    disabled={isDownloading}
-                  >
-                    <View style={styles.documentIcon}>
-                      {isPdf ? (
-                        <FileText size={24} color={colors.primary} />
-                      ) : (
-                        <ImageIcon size={24} color={colors.primary} />
-                      )}
-                    </View>
-
-                    <View style={styles.documentInfo}>
-                      <Text style={styles.documentName} numberOfLines={1}>
-                        {doc.name}
-                      </Text>
-                      <Text style={styles.documentMeta}>
-                        {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
-                      </Text>
-                      {isDownloading && progress !== undefined && (
-                        <Text style={styles.downloadingText}>
-                          Downloading... {progress}%
-                        </Text>
-                      )}
-                    </View>
-
-                    <View style={styles.documentActions}>
-                      {isDownloading ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : isCached ? (
-                        <>
-                          {/* Share button for cached documents */}
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => handleShareDocument(doc)}
-                          >
-                            <Share2 size={20} color="#F57C00" />
-                          </TouchableOpacity>
-                        </>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => handleDownloadDocument(doc)}
-                        >
-                          <Download size={20} color={colors.info} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* Show skeleton rows at bottom while loading online documents */}
-              {loadingOnline && (
-                <>
-                  <Skeleton rows={2} />
-                  <Skeleton rows={2} />
-                </>
-              )}
-            </>
-          )
-        ) : (
-          // OFFLINE VIEW
-          <>
-            {offlineDocuments.length === 0 ? (
-              <EmptyState
-                icon={<FileText size={48} color={colors.text.tertiary} />}
-                title="No offline documents"
-                subtitle="Download documents from the All tab to access them offline"
-              />
-            ) : (
-              <>
-                {offlineDocuments.map((doc, index) => {
-                  const isDeleting = deleting === doc.id;
-                  const isPdf = doc.fileType === 'pdf';
-
-                  return (
-                    <TouchableOpacity
-                      key={doc.id}
-                      style={[
-                        styles.documentCard,
-                        index === offlineDocuments.length - 1 && styles.documentCardLast,
-                      ]}
-                      onPress={() => handleOpenDocument(doc)}
-                      disabled={isDeleting}
-                    >
-                      <View style={styles.documentIcon}>
-                        {isPdf ? (
-                          <FileText size={24} color={colors.primary} />
-                        ) : (
-                          <ImageIcon size={24} color={colors.primary} />
-                        )}
-                      </View>
-
-                      <View style={styles.documentInfo}>
-                        <Text style={styles.documentName} numberOfLines={1}>
-                          {doc.name}
-                        </Text>
-                        <Text style={styles.documentMeta}>
-                          {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
-                        </Text>
-                      </View>
-
-                      <View style={styles.documentActions}>
-                        {/* Share button */}
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => handleShareDocument(doc)}
-                          disabled={isDeleting}
-                        >
-                          <Share2 size={20} color="#F57C00" />
-                        </TouchableOpacity>
-
-                        {/* Delete from device button */}
-                        <TouchableOpacity
-                          style={[styles.actionButton, isDeleting && styles.deletingButton]}
-                          onPress={() => handleDeleteCachedDocument(doc)}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? (
-                            <ActivityIndicator size="small" color={colors.error} />
-                          ) : (
-                            <Trash2 size={20} color={colors.error} />
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Storage Info Footer */}
-                <View style={styles.storageFooter}>
-                  <View style={styles.storageTotalContainer}>
-                    <Text style={styles.storageTotalLabel}>Total Storage Used</Text>
-                    <Text style={styles.storageTotalSize}>{formatFileSize(totalCacheSize)}</Text>
-                  </View>
-
-                  <TouchableOpacity style={styles.clearAllButton} onPress={handleClearAllCache}>
-                    <Text style={styles.clearAllText}>Clear All Downloads</Text>
-                  </TouchableOpacity>
-
-                  {totalCacheSize > 100 * 1024 * 1024 && (
-                    <View style={styles.warningContainer}>
-                      <Text style={styles.warningText}>
-                        ⚠️ {totalCacheSize > 500 * 1024 * 1024
-                          ? 'Consider clearing old documents'
-                          : 'Using significant storage'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
+          }
+          ListFooterComponent={
+            loadingOnline ? (
+              <View style={{ marginTop: spacing.md }}>
+                <Skeleton rows={2} />
+                <Skeleton rows={2} />
+              </View>
+            ) : null
+          }
+        />
+      )}
     </View>
   );
 };
@@ -732,9 +734,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 52,
     paddingBottom: 16,
-  },
-  scrollView: {
-    flex: 1,
   },
   content: {
     padding: spacing.screenPadding,

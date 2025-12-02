@@ -29,7 +29,7 @@ const MAX_RETRIES = 3;
 export interface QueueItem {
   id: string;
   type: 'visit' | 'visit-update' | 'expense';
-  photoUri: string;
+  photoUri: string | null; // null for items without new photos
   folder: 'visits' | 'expenses';
   metadata: any; // Visit or expense data
   retryCount: number;
@@ -151,7 +151,7 @@ class UploadQueueService {
    * Process single queue item
    */
   private async processItem(item: QueueItem) {
-    logger.log(`[UploadQueue] Processing ${item.type} upload: ${item.id}`);
+    logger.log(`[UploadQueue] Processing ${item.type}: ${item.id}`);
 
     // Update status to uploading
     item.status = 'uploading';
@@ -159,27 +159,48 @@ class UploadQueueService {
     this.notifyListeners();
 
     try {
-      // Step 1: Upload photo to Firebase Storage
-      const photoUrl = await uploadPhoto(item.photoUri, item.folder);
-      logger.log(`[UploadQueue] Photo uploaded: ${photoUrl}`);
+      // Step 1: Upload photo to Firebase Storage (if provided)
+      let photoUrl: string | null = null;
+      if (item.photoUri) {
+        photoUrl = await uploadPhoto(item.photoUri, item.folder);
+        logger.log(`[UploadQueue] Photo uploaded: ${photoUrl}`);
+      }
 
-      // Step 2: Submit to API with uploaded photo URL
+      // Step 2: Submit to API
       if (item.type === 'visit') {
+        // Build photos array: new upload, existing URL, or empty
+        const photos: string[] = [];
+        if (photoUrl) {
+          photos.push(photoUrl);
+        } else if (item.metadata.existingPhotoUrl) {
+          photos.push(item.metadata.existingPhotoUrl);
+        }
+
         await api.logVisit({
-          ...item.metadata,
-          photos: [photoUrl],
+          accountId: item.metadata.accountId,
+          purpose: item.metadata.purpose,
+          notes: item.metadata.notes,
+          geo: item.metadata.geo,
+          photos,
         });
       } else if (item.type === 'visit-update') {
+        const photos: string[] = [];
+        if (photoUrl) {
+          photos.push(photoUrl);
+        } else if (item.metadata.existingPhotoUrl) {
+          photos.push(item.metadata.existingPhotoUrl);
+        }
+
         await api.updateVisit({
           id: item.metadata.visitId,
           purpose: item.metadata.purpose,
           notes: item.metadata.notes,
-          photos: [photoUrl],
+          photos,
         });
       } else if (item.type === 'expense') {
         await api.submitExpense({
           ...item.metadata,
-          receiptPhotos: [photoUrl],
+          ...(photoUrl && { receiptPhotos: [photoUrl] }),
         });
       }
 
@@ -193,7 +214,7 @@ class UploadQueueService {
       invalidateHomeStatsCache();
 
     } catch (error) {
-      logger.error(`[UploadQueue] ❌ Error uploading ${item.type}:`, error);
+      logger.error(`[UploadQueue] ❌ Error processing ${item.type}:`, error);
 
       // Increment retry count
       item.retryCount++;

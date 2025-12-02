@@ -9,7 +9,7 @@ import { Toast, ToastProps } from '../components/ui/Toast';
 
 export interface ToastItem {
   id: number;
-  kind: 'success' | 'error' | 'info' | 'warning';
+  kind: 'success' | 'error' | 'info' | 'warning' | 'offline';
   text: string;
   duration?: number;
 }
@@ -85,10 +85,11 @@ export function ToastProvider({ children }: ToastProviderProps) {
 const styles = StyleSheet.create({
   portal: {
     position: 'absolute',
-    bottom: 80, // Above bottom navigation/tabs
-    left: 16,
-    right: 16,
+    bottom: 90, // Above bottom navigation/tabs (tab bar ~60px + 30px margin)
+    left: 0,
+    right: 0,
     gap: 8,
-    alignItems: 'stretch',
+    alignItems: 'center',
+    pointerEvents: 'box-none',
   },
 });

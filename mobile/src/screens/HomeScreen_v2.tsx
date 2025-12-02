@@ -12,13 +12,11 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../utils/logger';
-import { testNonFatalError } from '../services/analytics';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   Image,
   Modal,
@@ -26,6 +24,7 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc, query, collection, where, getDocs, orderBy, limit, startAfter } from '@react-native-firebase/firestore';
@@ -753,6 +752,142 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     };
   }, [filteredActivities]);
 
+  // Memoized handler for activity item press (defined before renderListItem that uses it)
+  const handleActivityItemPress = useCallback((activity: Activity) => {
+    setSelectedActivity(activity);
+  }, []);
+
+  // Type for FlashList items - can be activity, separator, empty state, or load more
+  type ListItem =
+    | { type: 'empty_today'; id: string }
+    | { type: 'activity'; data: Activity; id: string }
+    | { type: 'separator'; id: string }
+    | { type: 'no_results'; id: string }
+    | { type: 'load_more'; id: string };
+
+  // Build flat list data for FlashList with separators
+  const listData = useMemo((): ListItem[] => {
+    const items: ListItem[] = [];
+
+    // Empty state when no activities at all
+    if (allActivities.length === 0) {
+      return items; // Return empty - empty state handled in ListEmptyComponent
+    }
+
+    // No activities today message (when we have older but not today)
+    if (todayItems.length === 0 && olderItems.length > 0) {
+      items.push({ type: 'empty_today', id: 'empty_today' });
+    }
+
+    // Today's activities
+    todayItems.forEach(activity => {
+      items.push({ type: 'activity', data: activity, id: activity.id });
+    });
+
+    // "Earlier" separator (only when there are older items)
+    if (olderItems.length > 0) {
+      items.push({ type: 'separator', id: 'earlier_separator' });
+    }
+
+    // Older activities
+    olderItems.forEach(activity => {
+      items.push({ type: 'activity', data: activity, id: activity.id });
+    });
+
+    // Empty state for filtered results (filter active but no matches)
+    if (filteredActivities.length === 0 && allActivities.length > 0) {
+      items.push({ type: 'no_results', id: 'no_results' });
+    }
+
+    // Load more button
+    if (hasMore && todayActivities.length > 0) {
+      items.push({ type: 'load_more', id: 'load_more' });
+    }
+
+    return items;
+  }, [allActivities, todayItems, olderItems, filteredActivities, hasMore, todayActivities.length]);
+
+  // FlashList renderItem callback
+  const renderListItem = useCallback(({ item }: ListRenderItemInfo<ListItem>) => {
+    switch (item.type) {
+      case 'empty_today':
+        return (
+          <View style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.03)',
+            borderRadius: 12,
+            paddingVertical: 20,
+            paddingHorizontal: 16,
+            marginBottom: 8,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.border.light,
+            borderStyle: 'dashed',
+          }}>
+            <Text style={{ fontSize: 14, color: colors.text.tertiary, textAlign: 'center' }}>
+              No activities logged today
+            </Text>
+          </View>
+        );
+
+      case 'activity':
+        return (
+          <ActivityItem
+            activity={item.data}
+            onPress={handleActivityItemPress}
+          />
+        );
+
+      case 'separator':
+        return (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 }}>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+            <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Earlier
+            </Text>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+          </View>
+        );
+
+      case 'no_results':
+        return (
+          <View style={{ padding: 24, alignItems: 'center' }}>
+            <Text style={{ color: colors.text.tertiary }}>No {activityFilter} activities found</Text>
+          </View>
+        );
+
+      case 'load_more':
+        return (
+          <TouchableOpacity
+            style={{
+              marginTop: spacing.md,
+              padding: spacing.md,
+              backgroundColor: colors.surface,
+              borderRadius: spacing.borderRadius.md,
+              borderWidth: 1,
+              borderColor: colors.border.light,
+              alignItems: 'center',
+            }}
+            onPress={loadMoreActivities}
+            disabled={loadingMore}
+          >
+            {loadingMore ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
+                Load More
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+
+      default:
+        return null;
+    }
+  }, [handleActivityItemPress, activityFilter, loadMoreActivities, loadingMore]);
+
+  // Key extractor for FlashList
+  const keyExtractor = useCallback((item: ListItem) => item.id, []);
+
   // Delete activity handler
   const handleDeleteActivity = async (activity: typeof todayActivities[0]) => {
     Alert.alert(
@@ -914,11 +1049,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setEditValue('');
   }, []);
 
-  // Memoized handler for activity item press
-  const handleActivityItemPress = useCallback((activity: Activity) => {
-    setSelectedActivity(activity);
-  }, []);
-
   return (
     <View style={styles.container}>
       {/* Minimal Header */}
@@ -972,9 +1102,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </View>
       )}
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
+      <FlashList
+        data={listData}
+        renderItem={renderListItem}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={{ paddingHorizontal: spacing.screenPadding, paddingBottom: 60 + bottomPadding }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -983,190 +1115,154 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             tintColor={colors.primary}
           />
         }
-      >
-
-        {/* Attendance Status Card - Compact Design (DISABLED via feature flag) */}
-        {ATTENDANCE_FEATURE_ENABLED && (
-          <Card elevation="md" style={styles.attendanceCard}>
-            {attendanceStatus.isCheckedIn ? (
-            // State 1: Currently checked in - Show working duration and Check Out button
-            <>
-              <View style={styles.attendanceRow}>
-                <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Working for</Text>
-                  <Text style={styles.statusValue}>{getWorkingDuration()}</Text>
-                  <Text style={styles.checkInText}>
-                    Checked in at {attendanceStatus.checkInTime}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.checkOutButton}
-                  onPress={() => setShowAttendanceModal(true)}
-                >
-                  <Text style={styles.checkOutButtonText}>Check Out</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : attendanceStatus.hasCheckedOut ? (
-            // State 2: Already checked out - Show completion message with Check In Again button
-            <>
-              <View style={styles.attendanceRow}>
-                <View style={styles.statusInfo}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <CheckCircle size={20} color={featureColors.attendance.primary} strokeWidth={2.5} />
-                    <Text style={styles.statusLabel}>Day Complete</Text>
+        ListHeaderComponent={
+          <View style={{ paddingTop: spacing.screenPadding }}>
+            {/* Attendance Status Card - Compact Design (DISABLED via feature flag) */}
+            {ATTENDANCE_FEATURE_ENABLED && (
+              <Card elevation="md" style={styles.attendanceCard}>
+                {attendanceStatus.isCheckedIn ? (
+                // State 1: Currently checked in - Show working duration and Check Out button
+                <>
+                  <View style={styles.attendanceRow}>
+                    <View style={styles.statusInfo}>
+                      <Text style={styles.statusLabel}>Working for</Text>
+                      <Text style={styles.statusValue}>{getWorkingDuration()}</Text>
+                      <Text style={styles.checkInText}>
+                        Checked in at {attendanceStatus.checkInTime}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.checkOutButton}
+                      onPress={() => setShowAttendanceModal(true)}
+                    >
+                      <Text style={styles.checkOutButtonText}>Check Out</Text>
+                    </TouchableOpacity>
                   </View>
-                  <Text style={styles.notCheckedInText}>
-                    Checked out at {attendanceStatus.checkOutTime}
-                  </Text>
-                  {attendanceStatus.checkInTime && (
-                    <Text style={styles.checkInText}>
-                      Started at {attendanceStatus.checkInTime}
-                    </Text>
-                  )}
-                </View>
+                </>
+              ) : attendanceStatus.hasCheckedOut ? (
+                // State 2: Already checked out - Show completion message with Check In Again button
+                <>
+                  <View style={styles.attendanceRow}>
+                    <View style={styles.statusInfo}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <CheckCircle size={20} color={featureColors.attendance.primary} strokeWidth={2.5} />
+                        <Text style={styles.statusLabel}>Day Complete</Text>
+                      </View>
+                      <Text style={styles.notCheckedInText}>
+                        Checked out at {attendanceStatus.checkOutTime}
+                      </Text>
+                      {attendanceStatus.checkInTime && (
+                        <Text style={styles.checkInText}>
+                          Started at {attendanceStatus.checkInTime}
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.checkInAgainButton}
+                      onPress={() => setShowAttendanceModal(true)}
+                    >
+                      <Text style={styles.checkInAgainButtonText}>Check In Again</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              ) : (
+                // State 3: Not checked in yet - Show Check In button
+                <>
+                  <View style={styles.attendanceRow}>
+                    <View style={styles.statusInfo}>
+                      <Text style={styles.statusLabel}>Attendance</Text>
+                      <Text style={styles.notCheckedInText}>Not checked in</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.checkInButton}
+                      onPress={() => setShowAttendanceModal(true)}
+                    >
+                      <Text style={styles.checkInButtonText}>Check In</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+              </Card>
+            )}
+
+            {/* KPI Cards - Today's Stats (Tappable as filters) */}
+            <View style={styles.kpiSection}>
+              <Text style={styles.sectionTitle}>Today's Activity</Text>
+              <View style={styles.kpiRow}>
                 <TouchableOpacity
-                  style={styles.checkInAgainButton}
-                  onPress={() => setShowAttendanceModal(true)}
+                  activeOpacity={0.7}
+                  onPress={() => setActivityFilter(activityFilter === 'visit' ? 'all' : 'visit')}
+                  style={{
+                    flex: 1,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: activityFilter === 'visit' ? featureColors.visits.primary : 'transparent',
+                  }}
                 >
-                  <Text style={styles.checkInAgainButtonText}>Check In Again</Text>
+                  <KpiCard
+                    title="Visits"
+                    value={todayStats.visits.toString()}
+                    icon={<MapPin size={20} color={featureColors.visits.primary} />}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setActivityFilter(activityFilter === 'sheets' ? 'all' : 'sheets')}
+                  style={{
+                    flex: 1,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: activityFilter === 'sheets' ? featureColors.sheets.primary : 'transparent',
+                  }}
+                >
+                  <KpiCard
+                    title="Sheets"
+                    value={todayStats.sheets.toString()}
+                    icon={<FileText size={20} color={featureColors.sheets.primary} />}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setActivityFilter(activityFilter === 'expense' ? 'all' : 'expense')}
+                  style={{
+                    flex: 1,
+                    borderRadius: 12,
+                    borderWidth: 2,
+                    borderColor: activityFilter === 'expense' ? featureColors.expenses.primary : 'transparent',
+                  }}
+                >
+                  <KpiCard
+                    title="Expenses"
+                    value={todayStats.expenses.toString()}
+                    icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
+                  />
                 </TouchableOpacity>
               </View>
-            </>
-          ) : (
-            // State 3: Not checked in yet - Show Check In button
-            <>
-              <View style={styles.attendanceRow}>
-                <View style={styles.statusInfo}>
-                  <Text style={styles.statusLabel}>Attendance</Text>
-                  <Text style={styles.notCheckedInText}>Not checked in</Text>
+            </View>
+
+            {/* Pending Action Items - shown in header since it's not part of activity list */}
+            {pendingItems.length > 0 && (
+              <Card elevation="md" style={styles.pendingCard}>
+                <View style={styles.pendingHeader}>
+                  <Bell size={20} color={colors.warning} />
+                  <Text style={styles.pendingTitle}>Action Items</Text>
+                  <Badge variant="warning">{pendingItems.length}</Badge>
                 </View>
-                <TouchableOpacity
-                  style={styles.checkInButton}
-                  onPress={() => setShowAttendanceModal(true)}
-                >
-                  <Text style={styles.checkInButtonText}>Check In</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-          </Card>
-        )}
-
-        {/* KPI Cards - Today's Stats (Tappable as filters) */}
-        <View style={styles.kpiSection}>
-          <Text style={styles.sectionTitle}>Today's Activity</Text>
-          <View style={styles.kpiRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setActivityFilter(activityFilter === 'visit' ? 'all' : 'visit')}
-              style={{
-                flex: 1,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: activityFilter === 'visit' ? featureColors.visits.primary : 'transparent',
-              }}
-            >
-              <KpiCard
-                title="Visits"
-                value={todayStats.visits.toString()}
-                icon={<MapPin size={20} color={featureColors.visits.primary} />}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setActivityFilter(activityFilter === 'sheets' ? 'all' : 'sheets')}
-              style={{
-                flex: 1,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: activityFilter === 'sheets' ? featureColors.sheets.primary : 'transparent',
-              }}
-            >
-              <KpiCard
-                title="Sheets"
-                value={todayStats.sheets.toString()}
-                icon={<FileText size={20} color={featureColors.sheets.primary} />}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setActivityFilter(activityFilter === 'expense' ? 'all' : 'expense')}
-              style={{
-                flex: 1,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: activityFilter === 'expense' ? featureColors.expenses.primary : 'transparent',
-              }}
-            >
-              <KpiCard
-                title="Expenses"
-                value={todayStats.expenses.toString()}
-                icon={<IndianRupee size={20} color={featureColors.expenses.primary} />}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Activity Feed - Using memoized values for performance */}
-        {allActivities.length > 0 ? (
-          <View>
-            {/* No activities today - show faded message */}
-            {todayItems.length === 0 && olderItems.length > 0 && (
-              <View style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                borderRadius: 12,
-                paddingVertical: 20,
-                paddingHorizontal: 16,
-                marginBottom: 8,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: colors.border.light,
-                borderStyle: 'dashed',
-              }}>
-                <Text style={{ fontSize: 14, color: colors.text.tertiary, textAlign: 'center' }}>
-                  No activities logged today
-                </Text>
-              </View>
-            )}
-
-            {/* Today's Activities (no label needed - anything above "Earlier" is today) */}
-            {todayItems.map((activity) => (
-              <ActivityItem
-                key={activity.id}
-                activity={activity}
-                onPress={handleActivityItemPress}
-              />
-            ))}
-
-            {/* Earlier separator (only shown when there are older items) */}
-            {olderItems.length > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
-                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Earlier
-                </Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
-              </View>
-            )}
-
-            {/* Older Activities */}
-            {olderItems.map((activity) => (
-              <ActivityItem
-                key={activity.id}
-                activity={activity}
-                onPress={handleActivityItemPress}
-              />
-            ))}
-
-            {/* Empty state for filtered results */}
-            {filteredActivities.length === 0 && (
-              <View style={{ padding: 24, alignItems: 'center' }}>
-                <Text style={{ color: colors.text.tertiary }}>No {activityFilter} activities found</Text>
-              </View>
+                {pendingItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.pendingItem}
+                    onPress={() => navigation.navigate(item.screen)}
+                  >
+                    <Text style={styles.pendingItemText}>• {item.text}</Text>
+                    <ChevronRight size={16} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                ))}
+              </Card>
             )}
           </View>
-        ) : (
+        }
+        ListEmptyComponent={
           <Card elevation="sm" style={styles.timelineCard}>
             <View style={styles.emptyTimeline}>
               <Clock size={20} color={colors.text.tertiary} />
@@ -1175,78 +1271,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </Text>
             </View>
           </Card>
-        )}
-
-        {/* Load More Button */}
-        {hasMore && todayActivities.length > 0 && (
-          <TouchableOpacity
-            style={{
-              marginTop: spacing.md,
-              padding: spacing.md,
-              backgroundColor: colors.surface,
-              borderRadius: spacing.borderRadius.md,
-              borderWidth: 1,
-              borderColor: colors.border.light,
-              alignItems: 'center',
-            }}
-            onPress={loadMoreActivities}
-            disabled={loadingMore}
-          >
-            {loadingMore ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.primary }}>
-                Load More
-              </Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* Pending Action Items */}
-        {pendingItems.length > 0 && (
-          <Card elevation="md" style={styles.pendingCard}>
-            <View style={styles.pendingHeader}>
-              <Bell size={20} color={colors.warning} />
-              <Text style={styles.pendingTitle}>Action Items</Text>
-              <Badge variant="warning">{pendingItems.length}</Badge>
-            </View>
-            {pendingItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.pendingItem}
-                onPress={() => navigation.navigate(item.screen)}
-              >
-                <Text style={styles.pendingItemText}>• {item.text}</Text>
-                <ChevronRight size={16} color={colors.text.tertiary} />
-              </TouchableOpacity>
-            ))}
-          </Card>
-        )}
-
-        {/* DEV ONLY: Test Crashlytics button */}
-        {__DEV__ && (
-          <TouchableOpacity
-            style={{
-              marginTop: spacing.lg,
-              padding: spacing.md,
-              backgroundColor: '#FFF3E0',
-              borderRadius: spacing.borderRadius.md,
-              borderWidth: 1,
-              borderColor: '#FF9800',
-              alignItems: 'center',
-            }}
-            onPress={() => {
-              testNonFatalError();
-              Alert.alert('Test Sent', 'A test error was sent to Crashlytics. Check Firebase Console in a few minutes.');
-            }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#E65100' }}>
-              Test Crashlytics (Dev Only)
-            </Text>
-          </TouchableOpacity>
-        )}
-
-      </ScrollView>
+        }
+      />
 
       {/* Attendance Check-In/Out Modal */}
       <Modal
@@ -1974,14 +2000,6 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     letterSpacing: 0.3,
   },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    padding: spacing.screenPadding,
-    // paddingBottom set dynamically via useBottomSafeArea hook (60 + bottomPadding)
-  },
-
   // Attendance Status Card - Compact Design
   attendanceCard: {
     padding: spacing.md,

@@ -1,18 +1,18 @@
 /**
  * Toast Component
- * Presentation component for toast notifications
+ * Compact pill-style toast notifications with icon and color-coding
+ * Positioned above bottom navigation bar
  */
 
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Pressable, AccessibilityInfo } from 'react-native';
-import { roles, typography, spacing, shadows } from '../../theme';
-import { CheckCircle, AlertCircle, Info, AlertTriangle, X } from 'lucide-react-native';
+import { Text, StyleSheet, Animated, AccessibilityInfo } from 'react-native';
+import { Check, AlertCircle, Info, AlertTriangle, CloudOff } from 'lucide-react-native';
 
 export interface ToastProps {
   /**
-   * Toast kind - maps to role colors
+   * Toast kind - determines color and icon
    */
-  kind: 'success' | 'error' | 'info' | 'warning';
+  kind: 'success' | 'error' | 'info' | 'warning' | 'offline';
 
   /**
    * Toast message text
@@ -20,26 +20,51 @@ export interface ToastProps {
   text: string;
 
   /**
-   * Callback when dismiss button is pressed
+   * Callback when toast is dismissed (auto or manual)
    */
   onDismiss?: () => void;
 }
 
+// Compact color scheme for toast pills
+const toastColors = {
+  success: {
+    bg: '#4CAF50',
+    text: '#FFFFFF',
+  },
+  error: {
+    bg: '#F44336',
+    text: '#FFFFFF',
+  },
+  warning: {
+    bg: '#FF9800',
+    text: '#FFFFFF',
+  },
+  info: {
+    bg: '#2196F3',
+    text: '#FFFFFF',
+  },
+  offline: {
+    bg: '#757575',
+    text: '#FFFFFF',
+  },
+};
+
 export function Toast({ kind, text, onDismiss }: ToastProps) {
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Slide up and fade in
     Animated.parallel([
-      Animated.timing(slideAnim, {
+      Animated.spring(slideAnim, {
         toValue: 0,
-        duration: 300,
+        tension: 100,
+        friction: 10,
         useNativeDriver: true,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
-        duration: 300,
+        duration: 200,
         useNativeDriver: true,
       }),
     ]).start();
@@ -48,22 +73,25 @@ export function Toast({ kind, text, onDismiss }: ToastProps) {
     AccessibilityInfo.announceForAccessibility(text);
   }, [text]);
 
-  // Map kind to role
-  const role = roles[kind];
+  const colors = toastColors[kind] || toastColors.info;
 
   // Get icon based on kind
   const renderIcon = () => {
-    const iconProps = { size: 20, color: role.text };
+    const iconProps = { size: 16, color: colors.text, strokeWidth: 2.5 };
 
     switch (kind) {
       case 'success':
-        return <CheckCircle {...iconProps} />;
+        return <Check {...iconProps} />;
       case 'error':
         return <AlertCircle {...iconProps} />;
       case 'warning':
         return <AlertTriangle {...iconProps} />;
       case 'info':
         return <Info {...iconProps} />;
+      case 'offline':
+        return <CloudOff {...iconProps} />;
+      default:
+        return <Check {...iconProps} />;
     }
   };
 
@@ -72,25 +100,16 @@ export function Toast({ kind, text, onDismiss }: ToastProps) {
       style={[
         styles.container,
         {
-          backgroundColor: role.bg,
-          borderColor: role.border,
+          backgroundColor: colors.bg,
           transform: [{ translateY: slideAnim }],
           opacity: opacityAnim,
         },
-        shadows.md,
       ]}
     >
-      <View style={styles.iconContainer}>{renderIcon()}</View>
-
-      <Text style={[styles.text, { color: role.text }]} numberOfLines={3}>
+      {renderIcon()}
+      <Text style={[styles.text, { color: colors.text }]} numberOfLines={1}>
         {text}
       </Text>
-
-      {onDismiss && (
-        <Pressable onPress={onDismiss} style={styles.dismissButton} hitSlop={8}>
-          <X size={18} color={role.text} />
-        </Pressable>
-      )}
     </Animated.View>
   );
 }
@@ -99,25 +118,19 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    borderWidth: 1,
-    gap: spacing.sm,
-    minHeight: 56,
-  },
-  iconContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   text: {
-    ...typography.styles.body,
-    flex: 1,
-    fontWeight: '500',
-  },
-  dismissButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xs / 2,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

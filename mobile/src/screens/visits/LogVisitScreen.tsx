@@ -22,6 +22,7 @@ import { colors, featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 import { trackVisitLogged, trackPhotoCaptureFailure } from '../../services/analytics';
+import { useToast } from '../../providers/ToastProvider';
 
 interface LogVisitScreenProps {
   navigation: any;
@@ -45,6 +46,7 @@ const VISIT_PURPOSES = [
 export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, route }) => {
   const { account, editActivityId } = route.params;
   const isEditMode = !!editActivityId;
+  const toast = useToast();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -205,9 +207,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             },
           });
 
-          Alert.alert('Success', 'Visit updated! Photo uploading in background...', [
-            { text: 'OK', onPress: () => navigation.goBack() }
-          ]);
+          // Show toast and navigate immediately - photo uploads in background
+          toast.show({ kind: 'success', text: 'Visit updated!', duration: 2000 });
+          navigation.goBack();
         } else {
           // Photo already uploaded or no photo change - update immediately
           await api.updateVisit({
@@ -217,9 +219,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             photos: photoUri ? [photoUri] : [],
           });
 
-          Alert.alert('Success', 'Visit updated successfully!', [
-            { text: 'OK', onPress: () => navigation.goBack() }
-          ]);
+          // Show toast and navigate immediately
+          toast.show({ kind: 'success', text: 'Visit updated!', duration: 2000 });
+          navigation.goBack();
         }
       } else {
         // NEW VISIT: Optimistic update with background upload
@@ -255,27 +257,26 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             purpose: purpose,
           });
 
-          // Navigate away immediately - upload happens in background!
-          Alert.alert('Success', 'Visit logged! Photo uploading in background...', [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('Home');
-              },
-            },
-          ]);
+          // Show toast and navigate immediately - photo uploads in background!
+          toast.show({ kind: 'success', text: 'Visit logged!', duration: 2000 });
+          navigation.navigate('Home');
         } else {
-          // No photo or existing URL - submit immediately
-          await api.logVisit({
-            accountId: visitAccount.id,
-            purpose: purpose as any,
-            notes: notes.trim() || undefined,
-            photos: photoUri ? [photoUri] : [],
-            geo: gpsData || undefined,
-          });
+          // No new photo - but still use uploadQueue for consistency (instant UX)
+          // This queues a visit without photo, uploadQueue handles the API call in background
+          const { uploadQueue } = await import('../../services/uploadQueue');
 
-          // Invalidate home screen cache to show new visit immediately
-          invalidateHomeStatsCache();
+          await uploadQueue.addToQueue({
+            type: 'visit',
+            photoUri: null, // No photo
+            folder: 'visits',
+            metadata: {
+              accountId: visitAccount.id,
+              purpose: purpose as any,
+              notes: notes.trim() || undefined,
+              geo: gpsData || undefined,
+              existingPhotoUrl: photoUri?.startsWith('http') ? photoUri : undefined,
+            },
+          });
 
           // Track analytics event
           trackVisitLogged({
@@ -284,14 +285,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             purpose: purpose,
           });
 
-          Alert.alert('Success', 'Visit logged successfully!', [
-            {
-              text: 'OK',
-              onPress: () => {
-                navigation.navigate('Home');
-              },
-            },
-          ]);
+          // Show toast and navigate immediately
+          toast.show({ kind: 'success', text: 'Visit logged!', duration: 2000 });
+          navigation.navigate('Home');
         }
       }
     } catch (error: any) {

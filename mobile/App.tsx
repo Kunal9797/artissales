@@ -17,7 +17,6 @@ console.log('[App] ErrorBoundary imported');
 import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
-import { SyncStatusIndicator } from './src/components/SyncStatusIndicator';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -76,7 +75,6 @@ export default function App() {
             <ToastProvider>
               <AppStatusBar />
               <RootNavigator />
-              <SyncStatusIndicator />
             </ToastProvider>
           </TenantThemeProvider>
         </PersistQueryClientProvider>
