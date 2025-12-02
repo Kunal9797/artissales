@@ -61,6 +61,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   // Check if current user is a manager
   const isManager = ['area_manager', 'zonal_head', 'national_head', 'admin'].includes(role);
 
+  // Sales Head contact (Shiv) - always available for sales reps
+  const SALES_HEAD_CONTACT = {
+    name: 'Shiv',
+    phone: '+917043045045',
+    title: 'Sales Head',
+  };
+
   // Load local cached photo on mount
   useEffect(() => {
     const loadLocalPhoto = async () => {
@@ -449,40 +456,84 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           )}
         </Card>
 
-        {/* Quick Call Actions */}
-        {(managerInfo || distributorInfo) && (
-          <Card elevation="sm" style={styles.quickActionsCard}>
-            <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+        {/* Quick Contacts */}
+        <Card elevation="sm" style={styles.contactsCard}>
+          <Text style={styles.contactsTitle}>Contacts</Text>
 
-            {managerInfo && (
-              <TouchableOpacity
-                style={styles.callButton}
-                onPress={() => handleCall(managerInfo.phone, managerInfo.name)}
-                activeOpacity={0.7}
-              >
-                <PhoneCall size={20} color="#FFFFFF" />
-                <View style={styles.callButtonText}>
-                  <Text style={styles.callButtonLabel}>Call Manager</Text>
-                  <Text style={styles.callButtonName}>{managerInfo.name}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
+          {/* Sales Head Contact - Always visible */}
+          <View style={styles.contactItem}>
+            <View style={styles.contactInfo}>
+              <View style={styles.contactAvatar}>
+                <Text style={styles.contactAvatarText}>
+                  {SALES_HEAD_CONTACT.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.contactDetails}>
+                <Text style={styles.contactName}>{SALES_HEAD_CONTACT.name}</Text>
+                <Text style={styles.contactRole}>{SALES_HEAD_CONTACT.title}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.contactCallButton}
+              onPress={() => handleCall(SALES_HEAD_CONTACT.phone, SALES_HEAD_CONTACT.name)}
+              activeOpacity={0.7}
+            >
+              <PhoneCall size={18} color="#4CAF50" />
+            </TouchableOpacity>
+          </View>
 
-            {distributorInfo && (
-              <TouchableOpacity
-                style={[styles.callButton, styles.callButtonSecondary]}
-                onPress={() => handleCall(distributorInfo.phone, distributorInfo.name)}
-                activeOpacity={0.7}
-              >
-                <PhoneCall size={20} color="#393735" />
-                <View style={styles.callButtonText}>
-                  <Text style={[styles.callButtonLabel, styles.callButtonLabelSecondary]}>Call Distributor</Text>
-                  <Text style={[styles.callButtonName, styles.callButtonNameSecondary]}>{distributorInfo.name}</Text>
+          {managerInfo && (
+            <>
+              <View style={styles.contactDivider} />
+              <View style={styles.contactItem}>
+                <View style={styles.contactInfo}>
+                  <View style={[styles.contactAvatar, styles.contactAvatarSecondary]}>
+                    <Text style={[styles.contactAvatarText, styles.contactAvatarTextSecondary]}>
+                      {managerInfo.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.contactDetails}>
+                    <Text style={styles.contactName}>{managerInfo.name}</Text>
+                    <Text style={styles.contactRole}>Manager</Text>
+                  </View>
                 </View>
-              </TouchableOpacity>
-            )}
-          </Card>
-        )}
+                <TouchableOpacity
+                  style={styles.contactCallButton}
+                  onPress={() => handleCall(managerInfo.phone, managerInfo.name)}
+                  activeOpacity={0.7}
+                >
+                  <PhoneCall size={18} color="#4CAF50" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {distributorInfo && (
+            <>
+              <View style={styles.contactDivider} />
+              <View style={styles.contactItem}>
+                <View style={styles.contactInfo}>
+                  <View style={[styles.contactAvatar, styles.contactAvatarSecondary]}>
+                    <Text style={[styles.contactAvatarText, styles.contactAvatarTextSecondary]}>
+                      {distributorInfo.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.contactDetails}>
+                    <Text style={styles.contactName}>{distributorInfo.name}</Text>
+                    <Text style={styles.contactRole}>Distributor</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.contactCallButton}
+                  onPress={() => handleCall(distributorInfo.phone, distributorInfo.name)}
+                  activeOpacity={0.7}
+                >
+                  <PhoneCall size={18} color="#4CAF50" />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </Card>
 
         {/* Sign Out button moved to header */}
       </ScrollView>
@@ -685,52 +736,75 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text.primary,
   },
-  // Quick Actions Card
-  quickActionsCard: {
+  // Contacts Card
+  contactsCard: {
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  quickActionsTitle: {
+  contactsTitle: {
     fontSize: 14,
     fontWeight: '600' as const,
     color: colors.text.secondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
   },
-  callButton: {
+  contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: '#C9A961',
-    padding: spacing.md,
-    borderRadius: 8,
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
   },
-  callButtonSecondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    marginBottom: 0,
-  },
-  callButtonText: {
+  contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
+    gap: spacing.md,
   },
-  callButtonLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 2,
+  contactAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#393735',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  callButtonLabelSecondary: {
-    color: colors.text.tertiary,
+  contactAvatarSecondary: {
+    backgroundColor: '#E8E8E8',
   },
-  callButtonName: {
-    fontSize: 16,
+  contactAvatarText: {
+    fontSize: 18,
     fontWeight: '600' as const,
     color: '#FFFFFF',
   },
-  callButtonNameSecondary: {
+  contactAvatarTextSecondary: {
+    color: '#666666',
+  },
+  contactDetails: {
+    flex: 1,
+  },
+  contactName: {
+    fontSize: 16,
+    fontWeight: '600' as const,
     color: colors.text.primary,
+    marginBottom: 2,
+  },
+  contactRole: {
+    fontSize: 13,
+    color: colors.text.tertiary,
+  },
+  contactCallButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E8F5E9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactDivider: {
+    height: 1,
+    backgroundColor: colors.border.light,
+    marginVertical: spacing.xs,
   },
   // Sign Out Button
   signOutButton: {
