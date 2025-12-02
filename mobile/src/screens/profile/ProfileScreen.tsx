@@ -160,18 +160,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       return;
     }
     const phoneUrl = `tel:${phone}`;
-    Linking.canOpenURL(phoneUrl)
-      .then((supported) => {
-        if (supported) {
-          Linking.openURL(phoneUrl);
-        } else {
-          Alert.alert('Error', 'Phone calls are not supported on this device');
-        }
-      })
-      .catch((err) => {
-        logger.error('Failed to make call:', err);
-        Alert.alert('Error', 'Failed to initiate call');
-      });
+    Linking.openURL(phoneUrl).catch((err) => {
+      logger.error('Failed to make call:', err);
+      Alert.alert('Error', `Unable to make phone call. Please dial manually: ${phone}`);
+    });
   };
 
   const handleChangePhoto = async () => {
