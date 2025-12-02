@@ -18,7 +18,10 @@ import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 import { SyncStatusIndicator } from './src/components/SyncStatusIndicator';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 console.log('[App] Core imports complete');
 
@@ -33,16 +36,24 @@ console.log('[App] UploadQueue imported - All imports complete');
 // DEV-ONLY: Wrap with ThemeRuntimeProvider for Design Lab and TenantThemeProvider for white-label
 const isDev = __DEV__;
 
-// Create React Query client
+// Create React Query client with persistence-friendly options
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (previously cacheTime)
+      gcTime: 30 * 60 * 1000, // 30 minutes - keep cached data longer for persistence
       retry: 1,
       refetchOnWindowFocus: false,
     },
   },
+});
+
+// Create AsyncStorage persister for React Query cache
+// This allows cached data to survive app restarts for faster cold starts
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: '@artis_query_cache',
+  throttleTime: 1000, // Throttle writes to storage to every 1 second
 });
 
 export default function App() {
@@ -57,7 +68,10 @@ export default function App() {
   const AppContent = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{ persister: asyncStoragePersister }}
+        >
           <TenantThemeProvider>
             <ToastProvider>
               <AppStatusBar />
@@ -65,7 +79,7 @@ export default function App() {
               <SyncStatusIndicator />
             </ToastProvider>
           </TenantThemeProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

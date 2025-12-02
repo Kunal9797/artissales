@@ -10,7 +10,7 @@
  * - Improved visual hierarchy
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../utils/logger';
 import { testNonFatalError } from '../services/analytics';
 import {
@@ -26,10 +26,12 @@ import {
   ActivityIndicator,
   TextInput,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
+import { getFirestore, doc, getDoc, query, collection, where, getDocs, orderBy, limit, startAfter } from '@react-native-firebase/firestore';
 import { Card, Badge } from '../components/ui';
 import { KpiCard } from '../patterns/KpiCard';
+import { ActivityItem, Activity } from '../components/ActivityItem';
 import { colors, spacing, typography, featureColors, shadows } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
@@ -59,15 +61,17 @@ import { dataQueue, DataQueueItem, setOnSyncComplete } from '../services/dataQue
 // FEATURE FLAG: Set to false to disable attendance tracking
 const ATTENDANCE_FEATURE_ENABLED = false;
 
-// Simple cache for today's stats (5-minute TTL)
+// Cache configuration
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const STATS_CACHE_KEY = '@artis_home_stats_cache';
+
+// In-memory cache for immediate access (also persisted to AsyncStorage)
 const statsCache: {
   data?: any;
   timestamp?: number;
   userId?: string;
   date?: string;
 } = {};
-
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 const getCachedStats = (userId: string, date: string) => {
   const now = Date.now();
@@ -88,11 +92,64 @@ const setCachedStats = (userId: string, date: string, data: any) => {
   statsCache.userId = userId;
   statsCache.date = date;
   statsCache.timestamp = Date.now();
+
+  // Persist to AsyncStorage for faster cold starts
+  persistCacheToStorage(userId, date, data).catch(err =>
+    logger.error('Failed to persist cache:', err)
+  );
 };
 
 export const invalidateHomeStatsCache = () => {
   statsCache.data = undefined;
   statsCache.timestamp = undefined;
+  // Also clear persisted cache
+  AsyncStorage.removeItem(STATS_CACHE_KEY).catch(() => {});
+};
+
+// Persist cache to AsyncStorage for faster app restarts
+const persistCacheToStorage = async (userId: string, date: string, data: any) => {
+  try {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+      userId,
+      date,
+    };
+    await AsyncStorage.setItem(STATS_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (error) {
+    logger.error('Error persisting cache:', error);
+  }
+};
+
+// Load cache from AsyncStorage (for cold starts)
+const loadCacheFromStorage = async (userId: string, date: string): Promise<any | null> => {
+  try {
+    const cached = await AsyncStorage.getItem(STATS_CACHE_KEY);
+    if (!cached) return null;
+
+    const parsed = JSON.parse(cached);
+    const now = Date.now();
+
+    // Validate cache: same user, same date, not expired
+    if (
+      parsed.userId === userId &&
+      parsed.date === date &&
+      parsed.timestamp &&
+      now - parsed.timestamp < CACHE_TTL
+    ) {
+      // Also populate in-memory cache
+      statsCache.data = parsed.data;
+      statsCache.userId = parsed.userId;
+      statsCache.date = parsed.date;
+      statsCache.timestamp = parsed.timestamp;
+      return parsed.data;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error('Error loading cache from storage:', error);
+    return null;
+  }
 };
 
 interface HomeScreenProps {
@@ -129,19 +186,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     expenses: 0,
   });
   const [pendingItems, setPendingItems] = useState<Array<{ id: number; text: string; screen: string }>>([]);
-  const [todayActivities, setTodayActivities] = useState<Array<{
-    id: string;
-    type: 'visit' | 'sheets' | 'expense' | 'attendance';
-    time: Date;
-    description: string;
-    value?: string;  // Main number/value to highlight (e.g., "10 sheets", "₹500")
-    detail?: string; // Secondary info (e.g., "Fine Decor", "Travel")
-    notes?: string;  // Notes/description for display in action sheet
-    purpose?: string; // Visit purpose
-    status?: 'pending' | 'verified' | 'approved' | 'rejected'; // For sheets/expenses (manager review)
-    syncStatus?: 'pending' | 'syncing' | 'failed'; // For offline sync status
-    photos?: string[]; // Photo URLs for visits
-  }>>([]);
+  const [todayActivities, setTodayActivities] = useState<Activity[]>([]);
 
   // Pending sync queue items (offline submissions)
   const [pendingSyncQueue, setPendingSyncQueue] = useState<DataQueueItem[]>([]);
@@ -155,7 +200,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [activityFilter, setActivityFilter] = useState<'all' | 'visit' | 'sheets' | 'expense'>('all');
 
   // Activity action sheet state
-  const [selectedActivity, setSelectedActivity] = useState<typeof todayActivities[0] | null>(null);
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [deletingActivity, setDeletingActivity] = useState(false);
   const [viewingPhotoIndex, setViewingPhotoIndex] = useState<number | null>(null);
 
@@ -191,7 +236,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       today.setHours(0, 0, 0, 0);
 
       // Query attendance for today using timestamp field (not date)
-      const { query, collection, where, getDocs } = await import('@react-native-firebase/firestore');
       const attendanceQuery = query(
         collection(firestore, 'attendance'),
         where('userId', '==', user.uid),
@@ -258,7 +302,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
     try {
       const firestore = getFirestore();
-      const { query, collection, where, getDocs, orderBy, limit, startAfter } = await import('@react-native-firebase/firestore');
 
       // Fetch visits - ordered by timestamp, limit 30
       let visitsQuery = query(
@@ -354,14 +397,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         expenses: totalExpenses,
       });
 
-      // Build activity timeline
-      const activities: Array<{
-        id: string;
-        type: 'visit' | 'sheets' | 'expense' | 'attendance';
-        time: Date;
-        description: string;
-        status?: 'pending' | 'verified' | 'rejected';
-      }> = [];
+      // Build activity timeline using the Activity type from ActivityItem component
+      const activities: Activity[] = [];
 
       // NOTE: Attendance tracking is disabled for V1 (ATTENDANCE_FEATURE_ENABLED = false)
       // No attendance activities are added to the feed
@@ -441,6 +478,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         setTodayActivities(prev => [...prev, ...activities]);
       } else {
         setTodayActivities(activities);
+
+        // Cache the data for faster cold starts (only for initial load, not pagination)
+        const cacheData = {
+          activities: activities.map(a => ({
+            ...a,
+            time: a.time.toISOString(), // Serialize Date for storage
+          })),
+          stats: { visits: todayVisits, sheets: totalSheets, expenses: totalExpenses },
+        };
+        setCachedStats(user.uid, todayString, cacheData);
       }
 
       // Store last visible documents for pagination (using refs to avoid re-renders)
@@ -519,16 +566,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     loadUserData();
   }, [user?.uid, navigation]);
 
-  // Fetch data on mount only (Phase 2A optimization)
-  // User can manually refresh via pull-to-refresh
+  // Fetch data on mount - try cache first for instant display, then refresh in background
   useEffect(() => {
-    if (user?.uid) {
-      // Run all queries in parallel for faster loading
+    if (!user?.uid) return;
+
+    const todayString = new Date().toISOString().substring(0, 10);
+
+    const loadData = async () => {
+      // First, try to load from persisted cache for instant display
+      const cachedData = await loadCacheFromStorage(user.uid, todayString);
+
+      if (cachedData) {
+        // Instantly show cached data
+        const restoredActivities = cachedData.activities.map((a: any) => ({
+          ...a,
+          time: new Date(a.time), // Deserialize Date from ISO string
+        }));
+        setTodayActivities(restoredActivities);
+        setTodayStats(cachedData.stats);
+        setLoading(false);
+        logger.info('[HomeScreen] Loaded data from cache - instant display');
+      }
+
+      // Then fetch fresh data in background (will update UI + cache)
       Promise.all([
         fetchAttendance(),
         fetchActivities(false),
       ]);
-    }
+    };
+
+    loadData();
   }, [user?.uid, fetchAttendance, fetchActivities]);
 
   // Subscribe to offline data queue for pending sync items
@@ -625,6 +692,66 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   const greeting = getGreeting();
+
+  // Memoize pending sync activities conversion (avoid recalculating on every render)
+  const pendingSyncActivities = useMemo((): Activity[] => {
+    return pendingSyncQueue.map(item => {
+      if (item.type === 'sheet') {
+        const sheetData = item.data as import('../types').LogSheetsSaleRequest;
+        return {
+          id: item.id,
+          type: 'sheets' as const,
+          time: new Date(item.createdAt),
+          description: `${sheetData.sheetsCount} - ${sheetData.catalog}`,
+          value: String(sheetData.sheetsCount),
+          detail: sheetData.catalog,
+          notes: sheetData.notes,
+          syncStatus: item.status as 'pending' | 'syncing' | 'failed',
+        };
+      } else {
+        const expenseData = item.data as import('../types').SubmitExpenseRequest;
+        const firstItem = expenseData.items[0];
+        const totalAmount = expenseData.items.reduce((sum, i) => sum + i.amount, 0);
+        const categoryLabel = firstItem.category === 'other' && firstItem.categoryOther
+          ? firstItem.categoryOther
+          : firstItem.category.charAt(0).toUpperCase() + firstItem.category.slice(1);
+
+        return {
+          id: item.id,
+          type: 'expense' as const,
+          time: new Date(item.createdAt),
+          description: `${totalAmount} - ${categoryLabel}`,
+          value: String(totalAmount),
+          detail: categoryLabel,
+          notes: firstItem.description,
+          syncStatus: item.status as 'pending' | 'syncing' | 'failed',
+        };
+      }
+    });
+  }, [pendingSyncQueue]);
+
+  // Memoize combined and sorted activities
+  const allActivities = useMemo(() => {
+    return [...todayActivities, ...pendingSyncActivities]
+      .sort((a, b) => b.time.getTime() - a.time.getTime());
+  }, [todayActivities, pendingSyncActivities]);
+
+  // Memoize filtered activities based on filter selection
+  const filteredActivities = useMemo(() => {
+    return activityFilter === 'all'
+      ? allActivities
+      : allActivities.filter(a => a.type === activityFilter);
+  }, [allActivities, activityFilter]);
+
+  // Memoize today/older activity split
+  const { todayItems, olderItems } = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return {
+      todayItems: filteredActivities.filter(a => a.time >= todayStart),
+      olderItems: filteredActivities.filter(a => a.time < todayStart),
+    };
+  }, [filteredActivities]);
 
   // Delete activity handler
   const handleDeleteActivity = async (activity: typeof todayActivities[0]) => {
@@ -782,157 +909,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   };
 
   // Cancel inline edit
-  const cancelInlineEdit = () => {
+  const cancelInlineEdit = useCallback(() => {
     setEditingField(null);
     setEditValue('');
-  };
+  }, []);
 
-  // Helper function to render compact activity item
-  const renderActivityItem = (activity: typeof todayActivities[0], isLast: boolean, index: number) => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const isToday = activity.time >= todayStart;
-
-    // Icon directly without background (larger size)
-    const getActivityIcon = () => {
-      switch (activity.type) {
-        case 'visit':
-          return <MapPin size={24} color={featureColors.visits.primary} />;
-        case 'sheets':
-          return <FileText size={24} color={featureColors.sheets.primary} />;
-        case 'expense':
-          return <IndianRupee size={24} color={featureColors.expenses.primary} />;
-        default:
-          return <CheckCircle size={24} color={featureColors.attendance.primary} />;
-      }
-    };
-
-    // Status icon (for sheets/expenses - handles both sync status and review status)
-    const getStatusIcon = () => {
-      if (activity.type !== 'sheets' && activity.type !== 'expense') return null;
-
-      // Sync status takes priority (offline pending items)
-      if (activity.syncStatus) {
-        switch (activity.syncStatus) {
-          case 'pending':
-          case 'syncing':
-            return <CloudUpload size={16} color="#1976D2" />;
-          case 'failed':
-            return (
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Sync Failed',
-                    'This item failed to sync. Would you like to retry?',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Retry', onPress: () => dataQueue.retryItem(activity.id) },
-                    ]
-                  );
-                }}
-              >
-                <RefreshCw size={16} color="#D32F2F" />
-              </TouchableOpacity>
-            );
-        }
-      }
-
-      // Manager review status
-      const status = activity.status || 'pending';
-      switch (status) {
-        case 'pending':
-          return <Clock size={16} color="#F9A825" />;
-        case 'verified':
-        case 'approved':
-          return <CheckCircle size={16} color="#2E7D32" />;
-        case 'rejected':
-          return (
-            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#FFEBEE', justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: '#C62828' }}>✕</Text>
-            </View>
-          );
-        default:
-          return <Clock size={16} color="#F9A825" />;
-      }
-    };
-
-    // Check if this is a pending sync item
-    const isPendingSync = !!activity.syncStatus;
-
-    // Compact time format
-    const getCompactTime = () => {
-      const diffMs = now.getTime() - activity.time.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMins / 60);
-      const diffDays = Math.floor(diffHours / 24);
-
-      if (diffMins < 1) return 'now';
-      if (diffMins < 60) return `${diffMins}m`;
-      if (diffHours < 24) return `${diffHours}h`;
-      if (diffDays < 7) return `${diffDays}d`;
-      return activity.time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-
-    // Handle tap on activity item
-    const handleActivityPress = () => {
-      if (isPendingSync) {
-        // Show message for pending sync items
-        Alert.alert(
-          'Waiting to Sync',
-          'This entry will be uploaded when you\'re back online. You can edit it after it syncs.',
-          [{ text: 'OK' }]
-        );
-      } else {
-        setSelectedActivity(activity);
-      }
-    };
-
-    return (
-      <TouchableOpacity
-        key={activity.id}
-        activeOpacity={0.7}
-        onPress={handleActivityPress}
-        style={{
-          backgroundColor: colors.surface,
-          borderRadius: 10,
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          marginBottom: 8,
-          borderWidth: isPendingSync ? 2 : 1,
-          borderColor: isPendingSync ? '#1976D2' : colors.border.light,
-          borderStyle: isPendingSync ? 'dashed' : 'solid',
-        }}
-      >
-        {/* Single row: Icon + Value • Detail • Time + Status */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {/* Icon without background */}
-          {getActivityIcon()}
-
-          {/* Content: Value • Detail • Time */}
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Text style={{
-              fontSize: (activity.type === 'sheets' || activity.type === 'expense') ? 19 : 17,
-              fontWeight: '600',
-              color: colors.text.primary
-            }}>
-              {activity.value || activity.description}
-            </Text>
-            {activity.detail && (
-              <Text style={{ fontSize: 15, color: colors.text.secondary, marginLeft: 6 }}>
-                • {activity.detail}
-              </Text>
-            )}
-            <Text style={{ fontSize: 13, color: colors.text.tertiary, marginLeft: 6 }}>
-              • {getCompactTime()}
-            </Text>
-          </View>
-
-          {/* Status icon for sheets/expenses */}
-          {getStatusIcon()}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  // Memoized handler for activity item press
+  const handleActivityItemPress = useCallback((activity: Activity) => {
+    setSelectedActivity(activity);
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -952,7 +937,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           {greeting.icon === 'sun' && <Sun size={22} color="#C9A961" />}
           {greeting.icon === 'moon' && <Moon size={22} color="#C9A961" />}
           <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>
-            Welcome, {userName ? userName.charAt(0).toUpperCase() + userName.slice(1) : 'User'}
+            Welcome, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'User'}
           </Text>
         </View>
 
@@ -1123,115 +1108,63 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Activity Feed */}
-        {(() => {
-          // Convert pending sync queue items to activity format
-          const pendingSyncActivities: typeof todayActivities = pendingSyncQueue.map(item => {
-            if (item.type === 'sheet') {
-              const sheetData = item.data as import('../types').LogSheetsSaleRequest;
-              return {
-                id: item.id,
-                type: 'sheets' as const,
-                time: new Date(item.createdAt),
-                description: `${sheetData.sheetsCount} - ${sheetData.catalog}`,
-                value: String(sheetData.sheetsCount),
-                detail: sheetData.catalog,
-                notes: sheetData.notes,
-                syncStatus: item.status as 'pending' | 'syncing' | 'failed',
-              };
-            } else {
-              const expenseData = item.data as import('../types').SubmitExpenseRequest;
-              const firstItem = expenseData.items[0];
-              const totalAmount = expenseData.items.reduce((sum, i) => sum + i.amount, 0);
-              const categoryLabel = firstItem.category === 'other' && firstItem.categoryOther
-                ? firstItem.categoryOther
-                : firstItem.category.charAt(0).toUpperCase() + firstItem.category.slice(1);
-
-              return {
-                id: item.id,
-                type: 'expense' as const,
-                time: new Date(item.createdAt),
-                description: `${totalAmount} - ${categoryLabel}`,
-                value: String(totalAmount),
-                detail: categoryLabel,
-                notes: firstItem.description,
-                syncStatus: item.status as 'pending' | 'syncing' | 'failed',
-              };
-            }
-          });
-
-          // Combine server activities with pending sync items, sorted by time
-          const allActivities = [...todayActivities, ...pendingSyncActivities]
-            .sort((a, b) => b.time.getTime() - a.time.getTime());
-
-          return allActivities.length > 0 ? (
+        {/* Activity Feed - Using memoized values for performance */}
+        {allActivities.length > 0 ? (
           <View>
-            {(() => {
-              // Filter activities based on selected filter
-              const filteredActivities = activityFilter === 'all'
-                ? allActivities
-                : allActivities.filter(a => a.type === activityFilter);
+            {/* No activities today - show faded message */}
+            {todayItems.length === 0 && olderItems.length > 0 && (
+              <View style={{
+                backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                borderRadius: 12,
+                paddingVertical: 20,
+                paddingHorizontal: 16,
+                marginBottom: 8,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.border.light,
+                borderStyle: 'dashed',
+              }}>
+                <Text style={{ fontSize: 14, color: colors.text.tertiary, textAlign: 'center' }}>
+                  No activities logged today
+                </Text>
+              </View>
+            )}
 
-              // Separate today's and older activities
-              const now = new Date();
-              const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-              const todayItems = filteredActivities.filter(a => a.time >= todayStart);
-              const olderItems = filteredActivities.filter(a => a.time < todayStart);
+            {/* Today's Activities (no label needed - anything above "Earlier" is today) */}
+            {todayItems.map((activity) => (
+              <ActivityItem
+                key={activity.id}
+                activity={activity}
+                onPress={handleActivityItemPress}
+              />
+            ))}
 
-              return (
-                <>
-                  {/* No activities today - show faded message */}
-                  {todayItems.length === 0 && olderItems.length > 0 && (
-                    <View style={{
-                      backgroundColor: 'rgba(0, 0, 0, 0.03)',
-                      borderRadius: 12,
-                      paddingVertical: 20,
-                      paddingHorizontal: 16,
-                      marginBottom: 8,
-                      alignItems: 'center',
-                      borderWidth: 1,
-                      borderColor: colors.border.light,
-                      borderStyle: 'dashed',
-                    }}>
-                      <Text style={{ fontSize: 14, color: colors.text.tertiary, textAlign: 'center' }}>
-                        No activities logged today
-                      </Text>
-                    </View>
-                  )}
+            {/* Earlier separator (only shown when there are older items) */}
+            {olderItems.length > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Earlier
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
+              </View>
+            )}
 
-                  {/* Today's Activities (no label needed - anything above "Earlier" is today) */}
-                  {todayItems.map((activity, index) => {
-                    const isLast = index === todayItems.length - 1 && olderItems.length === 0;
-                    return renderActivityItem(activity, isLast, index);
-                  })}
+            {/* Older Activities */}
+            {olderItems.map((activity) => (
+              <ActivityItem
+                key={activity.id}
+                activity={activity}
+                onPress={handleActivityItemPress}
+              />
+            ))}
 
-                  {/* Earlier separator (only shown when there are older items) */}
-                  {olderItems.length > 0 && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 12 }}>
-                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: colors.text.tertiary, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        Earlier
-                      </Text>
-                      <View style={{ flex: 1, height: 1, backgroundColor: colors.border.light }} />
-                    </View>
-                  )}
-
-                  {/* Older Activities */}
-                  {olderItems.map((activity, index) => {
-                    const isLast = index === olderItems.length - 1;
-                    return renderActivityItem(activity, isLast, index + todayItems.length);
-                  })}
-
-                  {/* Empty state for filtered results */}
-                  {filteredActivities.length === 0 && (
-                    <View style={{ padding: 24, alignItems: 'center' }}>
-                      <Text style={{ color: colors.text.tertiary }}>No {activityFilter} activities found</Text>
-                    </View>
-                  )}
-                </>
-              );
-            })()}
-            {/* Moved outside the IIFE */}
+            {/* Empty state for filtered results */}
+            {filteredActivities.length === 0 && (
+              <View style={{ padding: 24, alignItems: 'center' }}>
+                <Text style={{ color: colors.text.tertiary }}>No {activityFilter} activities found</Text>
+              </View>
+            )}
           </View>
         ) : (
           <Card elevation="sm" style={styles.timelineCard}>
@@ -1242,8 +1175,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
               </Text>
             </View>
           </Card>
-        );
-        })()}
+        )}
 
         {/* Load More Button */}
         {hasMore && todayActivities.length > 0 && (
