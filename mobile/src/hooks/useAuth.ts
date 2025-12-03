@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { logger } from '../utils/logger';
 import { getAuth, onAuthStateChanged } from '@react-native-firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
+import { getFirestore, collection, doc, getDoc, setDoc, deleteDoc, query, where, getDocs, Timestamp } from '@react-native-firebase/firestore';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { setAnalyticsUser, clearAnalyticsUser, trackEvent, UserProperties } from '../services/analytics';
 
@@ -59,10 +59,11 @@ export const useAuth = () => {
                 updatedAt: Timestamp.now(),
               });
 
-              // Optionally delete the old document (or keep it for history)
-              // await existingUserDoc.ref.delete();
+              // Delete the old document to prevent duplicates
+              await deleteDoc(existingUserDoc.ref);
+              logger.log('[Auth] Deleted old user document:', existingUserDoc.id);
 
-              logger.log('[Auth] ✅ Migrated user document to Auth UID');
+              logger.log('[Auth] Migrated user document to Auth UID');
             } else {
               // SECURITY: User not pre-created by manager - REJECT login
               logger.error('[Auth] ❌ Unauthorized login attempt:', authUser.phoneNumber);

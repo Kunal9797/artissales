@@ -11,6 +11,7 @@ import { User, Search, Phone, MapPin, CheckCircle, XCircle } from 'lucide-react-
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
+import { formatLastActive, getLastActiveColor } from '../../utils/formatTime';
 
 // Phase 2A: Module-level cache with 30-minute TTL
 const teamCache: {
@@ -83,6 +84,23 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     loadUsers();
   }, []);
 
+  // Check if user is a manager/admin (non-field role)
+  const isManagerRole = (role: string): boolean => {
+    return ['admin', 'national_head', 'zonal_head', 'area_manager'].includes(role);
+  };
+
+  // Sort priority: reps first, then managers at bottom
+  const getRoleSortOrder = (role: string): number => {
+    switch (role) {
+      case 'rep': return 0;
+      case 'area_manager': return 1;
+      case 'zonal_head': return 2;
+      case 'national_head': return 3;
+      case 'admin': return 4;
+      default: return 5;
+    }
+  };
+
   useEffect(() => {
     let filtered = users;
 
@@ -102,6 +120,14 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         u.territory.toLowerCase().includes(term)
       );
     }
+
+    // Sort: reps first (alphabetically), then managers at bottom
+    filtered = [...filtered].sort((a, b) => {
+      const orderA = getRoleSortOrder(a.role);
+      const orderB = getRoleSortOrder(b.role);
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
 
     setFilteredUsers(filtered);
   }, [searchTerm, users, statusFilter]);
@@ -134,50 +160,92 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     }
   };
 
-  const renderUser = ({ item }: { item: UserListItem }) => (
-    <TouchableOpacity
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: '#E0E0E0',
-      }}
-      onPress={() => navigation?.navigate('UserDetail', { userId: item.id })}
-      activeOpacity={0.7}
-    >
-      {/* Name + Role Badge */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <Text
-          style={{
-            fontSize: 16,
-            fontWeight: '700',
-            color: '#1A1A1A',
-            flex: 1,
-          }}
-          numberOfLines={1}
-        >
-          {item.name || 'Unnamed User'}
-        </Text>
-        <View style={{
-          paddingHorizontal: 8,
-          paddingVertical: 4,
-          borderRadius: 4,
-          backgroundColor: getRoleColor(item.role),
-        }}>
-          <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>
-            {getRoleDisplay(item.role)}
-          </Text>
-        </View>
-      </View>
+  const renderUser = ({ item }: { item: UserListItem }) => {
+    const isManager = isManagerRole(item.role);
+    const lastActiveText = formatLastActive(item.lastActiveAt);
 
-      {/* Territory + Phone inline */}
-      <Text style={{ fontSize: 13, color: '#666666' }}>
-        {item.territory} • {item.phone}
-      </Text>
-    </TouchableOpacity>
-  );
+    const cardContent = (
+      <>
+        {/* Name + Role Badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: isManager ? '#666666' : '#1A1A1A',
+              flex: 1,
+            }}
+            numberOfLines={1}
+          >
+            {item.name || 'Unnamed User'}
+          </Text>
+          <View style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 4,
+            backgroundColor: isManager ? '#E0E0E0' : getRoleColor(item.role),
+          }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: isManager ? '#666666' : '#FFFFFF' }}>
+              {getRoleDisplay(item.role)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Territory + Phone + Last Active inline */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 13, color: '#999999', flex: 1 }} numberOfLines={1}>
+            {item.territory} • {item.phone}
+          </Text>
+          {lastActiveText ? (
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '500',
+              color: getLastActiveColor(item.lastActiveAt),
+              marginLeft: 8,
+            }}>
+              {lastActiveText}
+            </Text>
+          ) : null}
+        </View>
+      </>
+    );
+
+    // Managers/admins are not clickable
+    if (isManager) {
+      return (
+        <View
+          style={{
+            backgroundColor: '#F9F9F9',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 8,
+            borderWidth: 1,
+            borderColor: '#E8E8E8',
+          }}
+        >
+          {cardContent}
+        </View>
+      );
+    }
+
+    // Sales reps are clickable
+    return (
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 8,
+          borderWidth: 1,
+          borderColor: '#E0E0E0',
+        }}
+        onPress={() => navigation?.navigate('UserDetail', { userId: item.id })}
+        activeOpacity={0.7}
+      >
+        {cardContent}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>

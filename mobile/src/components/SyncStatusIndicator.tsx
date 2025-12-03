@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { Upload, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react-native';
+import { Upload, CheckCircle, AlertCircle, RefreshCw, X } from 'lucide-react-native';
 import { uploadQueue, QueueItem } from '../services/uploadQueue';
 import { dataQueue, DataQueueItem } from '../services/dataQueue';
 
@@ -79,6 +79,16 @@ export const SyncStatusIndicator: React.FC = () => {
     dataQueue.retryAllFailed();
   };
 
+  const handleDismissFailed = () => {
+    // Remove all failed items from both queues
+    uploadQueueItems
+      .filter(item => item.status === 'failed')
+      .forEach(item => uploadQueue.removeFromQueue(item.id));
+    dataQueueItems
+      .filter(item => item.status === 'failed')
+      .forEach(item => dataQueue.removeItem(item.id));
+  };
+
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       {totalPending > 0 && (
@@ -91,13 +101,22 @@ export const SyncStatusIndicator: React.FC = () => {
       )}
 
       {totalFailed > 0 && (
-        <TouchableOpacity style={styles.failedBadge} onPress={handleRetryFailed}>
-          <AlertCircle size={14} color="#FFFFFF" />
-          <Text style={styles.badgeText}>
-            {totalFailed} failed
-          </Text>
-          <RefreshCw size={12} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.failedContainer}>
+          <View style={styles.failedBadge}>
+            <AlertCircle size={14} color="#FFFFFF" />
+            <Text style={styles.badgeText}>
+              {totalFailed} failed
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.actionButton} onPress={handleRetryFailed}>
+            <RefreshCw size={14} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.dismissButton} onPress={handleDismissFailed}>
+            <X size={14} color="#FFFFFF" />
+            <Text style={styles.actionButtonText}>Dismiss</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </Animated.View>
   );
@@ -126,6 +145,12 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  failedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
   failedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -134,12 +159,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    marginTop: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1976D2',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  dismissButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#757575',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   badgeText: {
     fontSize: 13,

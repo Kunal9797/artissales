@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Modal,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Bell,
@@ -32,6 +33,7 @@ import {
   Moon,
   BookOpen,
   X,
+  Clock,
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -55,6 +57,20 @@ interface ManagerDashboardResponse {
     todayVisits: number;
     todaySheets: number;
   };
+}
+
+// Visits summary response type
+interface VisitsSummaryResponse {
+  ok: boolean;
+  date: string;
+  totalCount: number;
+  recentVisits: Array<{
+    id: string;
+    accountName: string;
+    accountType: string;
+    repName: string;
+    timestamp: string;
+  }>;
 }
 
 // Bottom sheet types
@@ -83,16 +99,60 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
-  // Prefetch Review tab data after dashboard loads
+  // Prefetch Review tab data and visits summary after dashboard loads
   useEffect(() => {
     if (!loading && dashboardData?.ok) {
+      // Prefetch pending items for Review tab
       queryClient.prefetchQuery({
         queryKey: ['pendingItems'],
         queryFn: () => api.getPendingItems(),
         staleTime: 5 * 60 * 1000,
       });
+
+      // Prefetch visits summary for popup (background fetch, zero impact on initial load)
+      queryClient.prefetchQuery({
+        queryKey: ['todayVisitsSummary', today],
+        queryFn: () => api.getTodayVisitsSummary({ date: today }),
+        staleTime: 2 * 60 * 1000,
+      });
     }
-  }, [loading, dashboardData, queryClient]);
+  }, [loading, dashboardData, queryClient, today]);
+
+  // Fetch visits summary when popup opens (uses prefetched data if available)
+  const {
+    data: visitsSummary,
+    isLoading: visitsSummaryLoading,
+  } = useQuery<VisitsSummaryResponse>({
+    queryKey: ['todayVisitsSummary', today],
+    queryFn: () => api.getTodayVisitsSummary({ date: today }),
+    staleTime: 2 * 60 * 1000,
+    enabled: activeSheet === 'visits', // Only fetch if popup is open and not prefetched
+  });
+
+  // Helper to format relative time (e.g., "10m ago")
+  const formatRelativeTime = (isoString: string): string => {
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
+
+  // Helper to get account type badge color
+  const getAccountTypeColor = (type: string): string => {
+    switch (type) {
+      case 'distributor': return '#1976D2';
+      case 'dealer': return '#388E3C';
+      case 'architect': return '#F57C00';
+      case 'OEM': return '#7B1FA2';
+      default: return '#666666';
+    }
+  };
 
   // Extract data from response
   const userName = dashboardData?.user?.name || 'Manager';
@@ -269,21 +329,56 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 </View>
                 <Text style={styles.sheetTitle}>Today's Visits</Text>
                 <Text style={styles.sheetValue}>{todayVisits}</Text>
-                <Text style={styles.sheetDescription}>
-                  {todayVisits === 0
-                    ? 'No visits logged by your team today'
-                    : todayVisits === 1
-                    ? '1 visit logged by your team today'
-                    : `${todayVisits} visits logged by your team today`}
-                </Text>
+
+                {/* Recent visits list */}
+                {visitsSummaryLoading ? (
+                  <ActivityIndicator size="small" color={featureColors.visits.primary} style={{ marginVertical: spacing.md }} />
+                ) : visitsSummary?.recentVisits && visitsSummary.recentVisits.length > 0 ? (
+                  <View style={styles.recentVisitsList}>
+                    <Text style={styles.recentVisitsHeader}>Recent Activity</Text>
+                    {visitsSummary.recentVisits.map((visit, index) => (
+                      <View key={visit.id} style={[
+                        styles.recentVisitItem,
+                        index === visitsSummary.recentVisits.length - 1 && { borderBottomWidth: 0 }
+                      ]}>
+                        <View style={styles.recentVisitContent}>
+                          <View style={styles.recentVisitRow}>
+                            <Text style={styles.recentVisitAccount} numberOfLines={1}>
+                              {visit.accountName}
+                            </Text>
+                            <View style={[styles.accountTypeBadge, { backgroundColor: getAccountTypeColor(visit.accountType) }]}>
+                              <Text style={styles.accountTypeBadgeText}>
+                                {visit.accountType.charAt(0).toUpperCase() + visit.accountType.slice(1)}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.recentVisitMeta}>
+                            <Text style={styles.recentVisitRep}>by {visit.repName}</Text>
+                            <View style={styles.recentVisitTimeRow}>
+                              <Clock size={12} color={colors.text.tertiary} />
+                              <Text style={styles.recentVisitTime}>{formatRelativeTime(visit.timestamp)}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <Text style={styles.sheetDescription}>
+                    {todayVisits === 0
+                      ? 'No visits logged by your team today'
+                      : 'Loading recent visits...'}
+                  </Text>
+                )}
+
                 <TouchableOpacity
                   style={styles.sheetButton}
                   onPress={() => {
                     setActiveSheet(null);
-                    navigation?.navigate('TeamTab');
+                    navigation?.navigate('AccountsList');
                   }}
                 >
-                  <Text style={styles.sheetButtonText}>View Team Details</Text>
+                  <Text style={styles.sheetButtonText}>View All Accounts</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -530,5 +625,79 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text.inverse,
+  },
+
+  // Recent visits list styles
+  recentVisitsList: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: spacing.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    marginBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  recentVisitsHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+  },
+  recentVisitItem: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+    backgroundColor: colors.surface,
+  },
+  recentVisitContent: {
+    gap: 4,
+  },
+  recentVisitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  recentVisitAccount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    flex: 1,
+  },
+  accountTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  accountTypeBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  recentVisitMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recentVisitRep: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  recentVisitTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  recentVisitTime: {
+    fontSize: 12,
+    color: colors.text.tertiary,
   },
 });

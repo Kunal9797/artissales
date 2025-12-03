@@ -12,6 +12,7 @@ import {ApiError, CatalogType} from "../types";
 import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
 import {invalidateTargetCache} from "./targets";
+import {updateUserLastActive} from "../utils/updateLastActive";
 
 interface LogSheetsRequest {
   date: string; // YYYY-MM-DD format
@@ -168,6 +169,9 @@ export const logSheetsSale = onRequest(async (request, response) => {
     };
 
     await saleRef.set(saleData);
+
+    // Update user's lastActiveAt (non-blocking)
+    await updateUserLastActive(auth.uid);
 
     // Invalidate target cache for this user's month
     const month = body.date.substring(0, 7); // YYYY-MM

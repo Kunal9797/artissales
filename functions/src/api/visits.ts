@@ -15,6 +15,7 @@ import {
 } from "../types";
 import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
+import {updateUserLastActive} from "../utils/updateLastActive";
 
 const db = firestore();
 
@@ -140,6 +141,9 @@ export const logVisit = onRequest({
     await db.collection("accounts").doc(body.accountId).update({
       lastVisitAt: firestore.Timestamp.now(),
     });
+
+    // Update user's lastActiveAt (non-blocking)
+    await updateUserLastActive(auth.uid);
 
     logger.info("Visit logged successfully", {
       visitId: visitRef.id,

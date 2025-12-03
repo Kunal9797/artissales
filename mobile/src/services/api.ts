@@ -229,6 +229,11 @@ export const api = {
     return callFunction('getManagerDashboard', data || {});
   },
 
+  // Today's visits summary for manager popup (returns last 5 visits with details)
+  getTodayVisitsSummary: async (data?: { date?: string }) => {
+    return callFunction('getTodayVisitsSummary', data || {});
+  },
+
   getUsersList: async (data: GetUsersListRequest) => {
     return callFunction('getUsersList', data);
   },

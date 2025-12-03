@@ -29,6 +29,7 @@ export interface User {
   territory?: string; // Area/zone assignment
   primaryDistributorId?: string; // For reps assigned to distributors
   profilePhotoUrl?: string; // Firebase Storage URL for profile photo
+  lastActiveAt?: Timestamp; // Auto-updated when user logs activity (visits, sales, expenses)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

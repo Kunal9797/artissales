@@ -633,13 +633,108 @@ if (userDoc.exists) {  // Note: exists is a property, not a method
 2. **Imports**: Import specific functions (`doc`, `getDoc`, etc.) from the package
 3. **Pattern**: Get firestore instance first (`const db = firestore()`), then use modular functions
 
-### Migration Checklist
+### Migration Checklist (Firestore)
 - [ ] Import modular functions: `doc`, `getDoc`, `setDoc`, `collection`, `query`, `where`, `getDocs`
 - [ ] Get firestore instance: `const db = firestore()`
 - [ ] Use `doc(db, collectionName, docId)` instead of `firestore().collection().doc()`
 - [ ] Use `getDoc(docRef)` instead of `docRef.get()`
 - [ ] Use `exists()` method instead of `exists` property
 - [ ] Use `getDocs(query)` for collection queries
+
+---
+
+### Analytics & Crashlytics - Modular API (Critical)
+
+These services also require the modular API pattern to avoid deprecation warnings.
+
+#### ✅ CORRECT - Analytics Modular API
+```typescript
+import {
+  getAnalytics,
+  logEvent,
+  setUserId,
+  setUserProperty,
+  logScreenView,
+  setAnalyticsCollectionEnabled,
+} from '@react-native-firebase/analytics';
+
+// Get instance once
+const analytics = getAnalytics();
+
+// Log event - pass instance as first parameter
+await logEvent(analytics, 'purchase', { item_id: 'SKU123', value: 99.99 });
+
+// Set user ID
+await setUserId(analytics, userId);
+
+// Set user property
+await setUserProperty(analytics, 'user_role', 'admin');
+
+// Log screen view
+await logScreenView(analytics, { screen_name: 'HomeScreen', screen_class: 'HomeScreen' });
+
+// Enable/disable collection
+await setAnalyticsCollectionEnabled(analytics, enabled);
+```
+
+#### ❌ WRONG - Deprecated Analytics API
+```typescript
+// DO NOT USE - This triggers deprecation warnings!
+import analytics from '@react-native-firebase/analytics';
+await analytics().logEvent('purchase', { item_id: 'SKU123' }); // WRONG
+await analytics().setUserId(userId);  // WRONG
+```
+
+#### ✅ CORRECT - Crashlytics Modular API
+```typescript
+import {
+  getCrashlytics,
+  recordError,
+  log,
+  setUserId,
+  setAttributes,
+  setAttribute,
+  crash,
+  setCrashlyticsCollectionEnabled,
+} from '@react-native-firebase/crashlytics';
+
+// Get instance once
+const crashlytics = getCrashlytics();
+
+// Record error - pass instance as first parameter
+recordError(crashlytics, new Error('Something went wrong'));
+
+// Log message
+log(crashlytics, 'User clicked checkout button');
+
+// Set user ID
+await setUserId(crashlytics, userId);
+
+// Set multiple attributes
+await setAttributes(crashlytics, { role: 'admin', territory: 'West' });
+
+// Set single attribute
+setAttribute(crashlytics, 'last_screen', 'HomeScreen');
+
+// Enable/disable collection
+await setCrashlyticsCollectionEnabled(crashlytics, enabled);
+```
+
+#### ❌ WRONG - Deprecated Crashlytics API
+```typescript
+// DO NOT USE - This triggers deprecation warnings!
+import crashlytics from '@react-native-firebase/crashlytics';
+crashlytics().recordError(error);  // WRONG
+crashlytics().log('message');  // WRONG
+```
+
+### Migration Checklist (Analytics & Crashlytics)
+- [ ] Import modular functions instead of default exports
+- [ ] Use `getAnalytics()` / `getCrashlytics()` to get instances
+- [ ] Pass instance as first parameter to all functions: `logEvent(analytics, ...)` not `analytics.logEvent(...)`
+- [ ] Store instances in variables to avoid repeated calls
+
+---
 
 ### Why This Matters
 - The old namespaced API will be **removed in the next major version**

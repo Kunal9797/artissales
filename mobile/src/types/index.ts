@@ -157,6 +157,7 @@ export interface UserListItem {
   role: string;
   territory: string;
   isActive: boolean;
+  lastActiveAt: string | null; // ISO timestamp of last activity, null if never
   createdAt: string;
 }
 

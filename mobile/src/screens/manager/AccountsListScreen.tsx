@@ -49,6 +49,22 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
       );
     }
 
+    // Sort by lastVisitAt (most recently visited first, never-visited at bottom)
+    filtered = [...filtered].sort((a, b) => {
+      const aTime = a.lastVisitAt ? new Date(a.lastVisitAt).getTime() : 0;
+      const bTime = b.lastVisitAt ? new Date(b.lastVisitAt).getTime() : 0;
+
+      // Both never visited - sort alphabetically
+      if (aTime === 0 && bTime === 0) return a.name.localeCompare(b.name);
+
+      // Never visited goes to bottom
+      if (aTime === 0) return 1;
+      if (bTime === 0) return -1;
+
+      // Most recent first
+      return bTime - aTime;
+    });
+
     setFilteredAccounts(filtered);
   }, [accounts, searchTerm, selectedType]);
 

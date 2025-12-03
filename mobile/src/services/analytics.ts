@@ -3,10 +3,29 @@
  *
  * Centralized service for Firebase Analytics and Crashlytics.
  * Provides event tracking, user identification, and error logging.
+ *
+ * Uses modular Firebase API (v9+ style) to avoid deprecation warnings.
  */
 
-import analytics from '@react-native-firebase/analytics';
-import crashlytics from '@react-native-firebase/crashlytics';
+import {
+  getAnalytics,
+  logEvent,
+  setUserId as setAnalyticsUserId,
+  setUserProperty,
+  logScreenView,
+} from '@react-native-firebase/analytics';
+import type { FirebaseAnalyticsTypes } from '@react-native-firebase/analytics';
+
+import {
+  getCrashlytics,
+  recordError,
+  log as crashlyticsLog,
+  setUserId as setCrashlyticsUserId,
+  setAttributes,
+  setAttribute,
+  crash,
+} from '@react-native-firebase/crashlytics';
+import type { FirebaseCrashlyticsTypes } from '@react-native-firebase/crashlytics';
 
 // ============================================================================
 // Safe Module Accessors
@@ -16,13 +35,19 @@ import crashlytics from '@react-native-firebase/crashlytics';
 let analyticsAvailable = true;
 let crashlyticsAvailable = true;
 
+// Cached instances
+let analyticsInstance: FirebaseAnalyticsTypes.Module | null = null;
+let crashlyticsInstance: FirebaseCrashlyticsTypes.Module | null = null;
+
 /**
  * Safely get analytics instance. Returns null if not available.
  */
-const getAnalytics = () => {
+const getAnalyticsInstance = (): FirebaseAnalyticsTypes.Module | null => {
   if (!analyticsAvailable) return null;
+  if (analyticsInstance) return analyticsInstance;
   try {
-    return analytics();
+    analyticsInstance = getAnalytics();
+    return analyticsInstance;
   } catch (e) {
     analyticsAvailable = false;
     console.warn('[Analytics] Module not available:', e);
@@ -33,10 +58,12 @@ const getAnalytics = () => {
 /**
  * Safely get crashlytics instance. Returns null if not available.
  */
-const getCrashlytics = () => {
+const getCrashlyticsInstance = (): FirebaseCrashlyticsTypes.Module | null => {
   if (!crashlyticsAvailable) return null;
+  if (crashlyticsInstance) return crashlyticsInstance;
   try {
-    return crashlytics();
+    crashlyticsInstance = getCrashlytics();
+    return crashlyticsInstance;
   } catch (e) {
     crashlyticsAvailable = false;
     console.warn('[Crashlytics] Module not available:', e);
@@ -92,9 +119,9 @@ export const trackEvent = async (
   params?: Record<string, string | number | boolean>
 ): Promise<void> => {
   try {
-    const instance = getAnalytics();
+    const instance = getAnalyticsInstance();
     if (instance) {
-      await instance.logEvent(eventName, params);
+      await logEvent(instance, eventName, params);
     }
   } catch (error) {
     // Don't let analytics errors crash the app
@@ -115,9 +142,9 @@ export const trackScreenView = async (
   screenClass?: string
 ): Promise<void> => {
   try {
-    const instance = getAnalytics();
+    const instance = getAnalyticsInstance();
     if (instance) {
-      await instance.logScreenView({
+      await logScreenView(instance, {
         screen_name: screenName,
         screen_class: screenClass || screenName,
       });
@@ -140,21 +167,21 @@ export const setAnalyticsUser = async (
   properties: UserProperties
 ): Promise<void> => {
   try {
-    const analyticsInstance = getAnalytics();
-    const crashlyticsInstance = getCrashlytics();
+    const analytics = getAnalyticsInstance();
+    const crashlytics = getCrashlyticsInstance();
 
     // Set user ID for both Analytics and Crashlytics
-    if (analyticsInstance) {
-      await analyticsInstance.setUserId(userId);
-      await analyticsInstance.setUserProperty('user_role', properties.role);
+    if (analytics) {
+      await setAnalyticsUserId(analytics, userId);
+      await setUserProperty(analytics, 'user_role', properties.role);
       if (properties.territory) {
-        await analyticsInstance.setUserProperty('territory', properties.territory);
+        await setUserProperty(analytics, 'territory', properties.territory);
       }
     }
 
-    if (crashlyticsInstance) {
-      await crashlyticsInstance.setUserId(userId);
-      await crashlyticsInstance.setAttributes({
+    if (crashlytics) {
+      await setCrashlyticsUserId(crashlytics, userId);
+      await setAttributes(crashlytics, {
         role: properties.role,
         territory: properties.territory || 'unknown',
       });
@@ -171,9 +198,9 @@ export const setAnalyticsUser = async (
  */
 export const clearAnalyticsUser = async (): Promise<void> => {
   try {
-    const instance = getAnalytics();
+    const instance = getAnalyticsInstance();
     if (instance) {
-      await instance.setUserId(null);
+      await setAnalyticsUserId(instance, null);
     }
     // Note: Crashlytics userId persists until next setUserId call
   } catch (error) {
@@ -198,18 +225,18 @@ export const logError = (
   context?: string
 ): void => {
   try {
-    const instance = getCrashlytics();
+    const instance = getCrashlyticsInstance();
     if (!instance) return;
 
     if (context) {
-      instance.log(`Context: ${context}`);
+      crashlyticsLog(instance, `Context: ${context}`);
     }
 
     if (error instanceof Error) {
-      instance.recordError(error);
+      recordError(instance, error);
     } else {
       // Convert non-Error objects to Error
-      instance.recordError(new Error(String(error)));
+      recordError(instance, new Error(String(error)));
     }
   } catch (e) {
     // Crashlytics itself failed - just log to console
@@ -226,9 +253,9 @@ export const logError = (
  */
 export const logMessage = (message: string): void => {
   try {
-    const instance = getCrashlytics();
+    const instance = getCrashlyticsInstance();
     if (instance) {
-      instance.log(message);
+      crashlyticsLog(instance, message);
     }
   } catch (e) {
     if (__DEV__) {
@@ -248,9 +275,9 @@ export const setCrashlyticsAttribute = (
   value: string
 ): void => {
   try {
-    const instance = getCrashlytics();
+    const instance = getCrashlyticsInstance();
     if (instance) {
-      instance.setAttribute(key, value);
+      setAttribute(instance, key, value);
     }
   } catch (e) {
     if (__DEV__) {
@@ -361,9 +388,9 @@ export const testCrash = (): void => {
   if (__DEV__) {
     console.log('[Crashlytics] Triggering test crash in 2 seconds...');
     setTimeout(() => {
-      const instance = getCrashlytics();
+      const instance = getCrashlyticsInstance();
       if (instance) {
-        instance.crash();
+        crash(instance);
       }
     }, 2000);
   } else {
@@ -376,10 +403,10 @@ export const testCrash = (): void => {
  * Use this to verify Crashlytics is working without crashing the app.
  */
 export const testNonFatalError = (): void => {
-  const instance = getCrashlytics();
+  const instance = getCrashlyticsInstance();
   if (instance) {
-    instance.log('Test non-fatal error triggered');
-    instance.recordError(new Error('Test non-fatal error from Artis Sales app'));
+    crashlyticsLog(instance, 'Test non-fatal error triggered');
+    recordError(instance, new Error('Test non-fatal error from Artis Sales app'));
     console.log('[Crashlytics] Test non-fatal error sent - check Firebase Console in a few minutes');
   }
 };

@@ -319,6 +319,7 @@ export const getUsersList = onRequest({cors: true}, async (request, response) =>
         role: data.role || "rep",
         territory: data.territory || "",
         isActive: data.isActive !== false,
+        lastActiveAt: data.lastActiveAt?.toDate().toISOString() || null,
         createdAt: data.createdAt?.toDate().toISOString() || "",
       };
     });

@@ -10,9 +10,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Search, MapPin, User, Plus, Edit2, WifiOff } from 'lucide-react-native';
+import { Search, MapPin, User, Plus, Edit2, WifiOff, Clock } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
+import { useMyVisits } from '../../hooks/useMyVisits';
 import { colors, spacing, typography, shadows } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
@@ -26,6 +27,7 @@ type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
   const { accounts, loading, error, isOffline, refreshAccounts } = useAccounts();
+  const { visitMap, loading: visitsLoading } = useMyVisits();
   const { user } = useAuth();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
@@ -51,7 +53,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     }
   }, [accounts, currentUserId]);
 
-  // Filter accounts based on search query and type, sort user-created accounts first
+  // Filter accounts based on search query and type, sort by user-created first, then my recent visits
   const filteredAccounts = useMemo(() => {
     let filtered = accounts;
 
@@ -72,21 +74,31 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       );
     }
 
-    // Sort: user-created accounts first, then alphabetical
+    // Sort: user-created accounts first, then by my recent visits, then alphabetical
     filtered = [...filtered].sort((a, b) => {
       const aIsUserCreated = a.createdByUserId === currentUserId;
       const bIsUserCreated = b.createdByUserId === currentUserId;
 
-      // User-created accounts come first
+      // Priority 1: User-created accounts come first
       if (aIsUserCreated && !bIsUserCreated) return -1;
       if (!aIsUserCreated && bIsUserCreated) return 1;
 
-      // Within same group, sort alphabetically
+      // Priority 2: Accounts I visited recently (from visitMap - my own visits)
+      const aMyVisit = visitMap.get(a.id) || 0;
+      const bMyVisit = visitMap.get(b.id) || 0;
+
+      // If both have visits or both don't, compare visit times
+      if (aMyVisit !== bMyVisit) {
+        // Most recent visit first (higher timestamp = more recent)
+        return bMyVisit - aMyVisit;
+      }
+
+      // Priority 3: Alphabetical for accounts with same visit status
       return a.name.localeCompare(b.name);
     });
 
     return filtered;
-  }, [accounts, searchQuery, selectedType, currentUserId]);
+  }, [accounts, searchQuery, selectedType, currentUserId, visitMap]);
 
   const handleSelectAccount = (account: Account) => {
     // Helper function to safely convert date to ISO string

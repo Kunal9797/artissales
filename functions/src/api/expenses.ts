@@ -16,6 +16,7 @@ import {
 } from "../types";
 import {validateRequiredFields} from "../utils/validation";
 import {requireAuth} from "../utils/auth";
+import {updateUserLastActive} from "../utils/updateLastActive";
 
 const db = firestore();
 
@@ -214,24 +215,15 @@ export const submitExpense = onRequest({cors: true}, async (request, response) =
         }
       }
 
-      // Validate description
-      if (!item.description || item.description.trim().length === 0) {
-        const error: ApiError = {
-          ok: false,
-          error: `Item ${i + 1}: Description cannot be empty`,
-          code: "EMPTY_ITEM_DESCRIPTION",
-          details: {itemIndex: i},
-        };
-        response.status(400).json(error);
-        return;
-      }
+      // Description is optional - just trim if provided
+      const trimmedDescription = item.description?.trim() || '';
 
       // Add validated item
       validatedItems.push({
         amount: item.amount,
         category: item.category,
         ...(item.categoryOther && {categoryOther: item.categoryOther.trim()}),
-        description: item.description.trim(),
+        description: trimmedDescription,
       });
 
       totalAmount += item.amount;
@@ -276,6 +268,9 @@ export const submitExpense = onRequest({cors: true}, async (request, response) =
 
     // Add expense to Firestore
     const expenseRef = await db.collection("expenses").add(expenseData);
+
+    // Update user's lastActiveAt (non-blocking)
+    await updateUserLastActive(auth.uid);
 
     logger.info("Expense report submitted successfully", {
       expenseId: expenseRef.id,

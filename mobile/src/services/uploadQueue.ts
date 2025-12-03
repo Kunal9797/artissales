@@ -311,6 +311,15 @@ class UploadQueueService {
     this.notifyListeners();
     this.processQueue();
   }
+
+  /**
+   * Remove a specific item from queue (user gives up on syncing)
+   */
+  async removeFromQueue(itemId: string) {
+    this.queue = this.queue.filter(i => i.id !== itemId);
+    await this.saveQueue();
+    this.notifyListeners();
+  }
 }
 
 // Singleton instance
