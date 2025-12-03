@@ -733,6 +733,41 @@ crashlytics().log('message');  // WRONG
 - [ ] Use `getAnalytics()` / `getCrashlytics()` to get instances
 - [ ] Pass instance as first parameter to all functions: `logEvent(analytics, ...)` not `analytics.logEvent(...)`
 - [ ] Store instances in variables to avoid repeated calls
+- [ ] Use `logEvent(analytics, 'screen_view', {...})` instead of `logScreenView()` (see note below)
+
+#### Important: logScreenView is Deprecated
+Even though `logScreenView` exists in the modular API, it internally calls the deprecated method. Use `logEvent` with 'screen_view' instead:
+```typescript
+// WRONG - triggers deprecation warning
+await logScreenView(analytics, { screen_name: 'Home', screen_class: 'Home' });
+
+// CORRECT - no warning
+await logEvent(analytics, 'screen_view', {
+  firebase_screen: 'Home',
+  firebase_screen_class: 'Home',
+});
+```
+
+---
+
+### Auth - Modular API (Critical)
+
+#### ✅ CORRECT - Auth Modular API
+```typescript
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
+
+const auth = getAuth();
+const user = auth.currentUser;
+
+// Get ID token - pass user as first parameter
+const token = await getIdToken(user);
+```
+
+#### ❌ WRONG - Deprecated Auth API
+```typescript
+// DO NOT USE - This triggers deprecation warnings!
+const token = await user.getIdToken();  // WRONG - method on user object
+```
 
 ---
 

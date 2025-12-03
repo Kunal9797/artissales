@@ -9,7 +9,7 @@
 
 // React Native Firebase - Using modular API (v9+ style)
 import { getApp } from '@react-native-firebase/app';
-import { getAuth } from '@react-native-firebase/auth';
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import { getFirestore } from '@react-native-firebase/firestore';
 import { getStorage } from '@react-native-firebase/storage';
 import {
@@ -61,7 +61,7 @@ export const getCurrentUserId = (): string | null => {
 export const getAuthToken = async (): Promise<string | null> => {
   const user = authInstance.currentUser;
   if (!user) return null;
-  return await user.getIdToken();
+  return await getIdToken(user);
 };
 
 // ============================================================================

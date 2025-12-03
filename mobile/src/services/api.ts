@@ -1,4 +1,4 @@
-import { getAuth } from '@react-native-firebase/auth';
+import { getAuth, getIdToken } from '@react-native-firebase/auth';
 import { logger } from '../utils/logger';
 import { isNetworkError, OFFLINE_SUBMIT_MESSAGE } from './network';
 
@@ -6,8 +6,8 @@ async function getAuthToken(): Promise<string | null> {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
   if (!user) return null;
-  // Call getIdToken as a method on the user object
-  return await user.getIdToken();
+  // Use modular API to get ID token
+  return await getIdToken(user);
 }
 import {
   CheckInRequest,

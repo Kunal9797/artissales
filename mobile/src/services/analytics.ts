@@ -12,7 +12,6 @@ import {
   logEvent,
   setUserId as setAnalyticsUserId,
   setUserProperty,
-  logScreenView,
 } from '@react-native-firebase/analytics';
 import type { FirebaseAnalyticsTypes } from '@react-native-firebase/analytics';
 
@@ -144,9 +143,10 @@ export const trackScreenView = async (
   try {
     const instance = getAnalyticsInstance();
     if (instance) {
-      await logScreenView(instance, {
-        screen_name: screenName,
-        screen_class: screenClass || screenName,
+      // Use logEvent with 'screen_view' to avoid deprecated logScreenView
+      await logEvent(instance, 'screen_view', {
+        firebase_screen: screenName,
+        firebase_screen_class: screenClass || screenName,
       });
     }
   } catch (error) {
