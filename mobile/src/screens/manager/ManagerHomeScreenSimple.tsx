@@ -197,7 +197,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
           <View style={styles.greetingRow}>
             <GreetingIcon size={20} color={colors.accent} />
             <Text style={styles.greetingText}>
-              {greeting.text}, {userName.charAt(0).toUpperCase() + userName.slice(1)}
+              {greeting.text}, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'Manager'}
             </Text>
           </View>
         </View>
