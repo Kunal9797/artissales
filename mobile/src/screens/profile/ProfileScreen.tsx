@@ -61,12 +61,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   // Check if current user is a manager
   const isManager = ['area_manager', 'zonal_head', 'national_head', 'admin'].includes(role);
 
-  // Sales Head contact (Shiv) - always available for sales reps
-  const SALES_HEAD_CONTACT = {
-    name: 'Shiv',
-    phone: '+917043045045',
-    title: 'Sales Head',
-  };
 
   // Load local cached photo on mount
   useEffect(() => {
@@ -448,61 +442,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           )}
         </Card>
 
-        {/* Quick Contacts */}
+        {/* Quick Contacts - Only show if user has a manager or distributor */}
+        {(managerInfo || distributorInfo) && (
         <Card elevation="sm" style={styles.contactsCard}>
           <Text style={styles.contactsTitle}>Contacts</Text>
 
-          {/* Sales Head Contact - Always visible */}
-          <View style={styles.contactItem}>
-            <View style={styles.contactInfo}>
-              <View style={styles.contactAvatar}>
-                <Text style={styles.contactAvatarText}>
-                  {SALES_HEAD_CONTACT.name.charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.contactDetails}>
-                <Text style={styles.contactName}>{SALES_HEAD_CONTACT.name}</Text>
-                <Text style={styles.contactRole}>{SALES_HEAD_CONTACT.title}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.contactCallButton}
-              onPress={() => handleCall(SALES_HEAD_CONTACT.phone, SALES_HEAD_CONTACT.name)}
-              activeOpacity={0.7}
-            >
-              <PhoneCall size={18} color="#4CAF50" />
-            </TouchableOpacity>
-          </View>
-
+          {/* Manager Contact - Based on reportsToUserId */}
           {managerInfo && (
-            <>
-              <View style={styles.contactDivider} />
-              <View style={styles.contactItem}>
-                <View style={styles.contactInfo}>
-                  <View style={[styles.contactAvatar, styles.contactAvatarSecondary]}>
-                    <Text style={[styles.contactAvatarText, styles.contactAvatarTextSecondary]}>
-                      {managerInfo.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.contactDetails}>
-                    <Text style={styles.contactName}>{managerInfo.name}</Text>
-                    <Text style={styles.contactRole}>Manager</Text>
-                  </View>
+            <View style={styles.contactItem}>
+              <View style={styles.contactInfo}>
+                <View style={styles.contactAvatar}>
+                  <Text style={styles.contactAvatarText}>
+                    {managerInfo.name.charAt(0).toUpperCase()}
+                  </Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.contactCallButton}
-                  onPress={() => handleCall(managerInfo.phone, managerInfo.name)}
-                  activeOpacity={0.7}
-                >
-                  <PhoneCall size={18} color="#4CAF50" />
-                </TouchableOpacity>
+                <View style={styles.contactDetails}>
+                  <Text style={styles.contactName}>{managerInfo.name}</Text>
+                  <Text style={styles.contactRole}>Manager</Text>
+                </View>
               </View>
-            </>
+              <TouchableOpacity
+                style={styles.contactCallButton}
+                onPress={() => handleCall(managerInfo.phone, managerInfo.name)}
+                activeOpacity={0.7}
+              >
+                <PhoneCall size={18} color="#4CAF50" />
+              </TouchableOpacity>
+            </View>
           )}
 
           {distributorInfo && (
             <>
-              <View style={styles.contactDivider} />
+              {managerInfo && <View style={styles.contactDivider} />}
               <View style={styles.contactItem}>
                 <View style={styles.contactInfo}>
                   <View style={[styles.contactAvatar, styles.contactAvatarSecondary]}>
@@ -526,6 +497,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             </>
           )}
         </Card>
+        )}
 
         {/* Sign Out button moved to header */}
       </ScrollView>

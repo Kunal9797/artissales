@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock } from 'lucide-react-native';
 import * as Location from 'expo-location';
+import { getAuth } from '@react-native-firebase/auth';
 import { api } from '../../services/api';
 import { uploadPhoto } from '../../services/storage';
 import { Account } from '../../hooks/useAccounts';
@@ -47,6 +48,8 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   const { account, editActivityId } = route.params;
   const isEditMode = !!editActivityId;
   const toast = useToast();
+  const authInstance = getAuth();
+  const currentUser = authInstance.currentUser;
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -233,7 +236,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         logger.log('[LogVisit] GPS capture disabled for performance - will add back later');
 
         // Generate unique requestId for idempotency (prevents duplicate visits on network retry)
-        const requestId = `${visitAccount.id}_${user?.uid}_${Date.now()}`;
+        const requestId = `${visitAccount.id}_${currentUser?.uid}_${Date.now()}`;
 
         const { uploadQueue } = await import('../../services/uploadQueue');
 
