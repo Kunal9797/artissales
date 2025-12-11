@@ -220,7 +220,14 @@ export const api = {
     return callFunction('createUserByManager', data);
   },
 
-  getTeamStats: async (data: { date?: string; range?: 'today' | 'week' | 'month'; filterByManagerId?: string }) => {
+  getTeamStats: async (data: {
+    date?: string;
+    range?: 'today' | 'week' | 'month' | 'custom';
+    startDate?: string;  // Required for custom range (YYYY-MM-DD)
+    endDate?: string;    // Required for custom range (YYYY-MM-DD)
+    filterByManagerId?: string;  // Filter to a specific manager's team
+    filterByUserId?: string;     // Filter to a single rep (returns visitDetails)
+  }) => {
     return callFunction('getTeamStats', data);
   },
 

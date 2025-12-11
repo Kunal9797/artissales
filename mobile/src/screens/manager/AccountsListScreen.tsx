@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -8,94 +8,59 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Building2, Search, Plus, Phone, MapPin, Edit2 } from 'lucide-react-native';
-import { api } from '../../services/api';
+import { Building2, Search, Plus, Edit2 } from 'lucide-react-native';
 import { colors, spacing, typography } from '../../theme';
 import { AccountType, AccountListItem } from '../../types';
 import { EmptyState, ErrorState, Skeleton } from '../../patterns';
+import { useAccounts, Account } from '../../hooks/useAccounts';
 
 type AccountsListScreenProps = NativeStackScreenProps<any, 'AccountsList'>;
 
 export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigation }) => {
-  const [accounts, setAccounts] = useState<AccountListItem[]>([]);
-  const [filteredAccounts, setFilteredAccounts] = useState<AccountListItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<AccountType | 'all'>('all');
 
+  // Use the updated hook with pagination - pass type filter to server
+  const {
+    accounts,
+    loading,
+    loadingMore,
+    error,
+    isOffline,
+    hasMore,
+    refreshAccounts,
+    loadMore,
+  } = useAccounts({
+    type: selectedType === 'all' ? undefined : selectedType,
+    sortBy: 'name',
+    sortDir: 'asc',
+  });
+
+  // Debounce search term (300ms delay)
   useEffect(() => {
-    loadAccounts();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  useEffect(() => {
-    // Filter accounts locally
-    let filtered = accounts;
-
-    // Filter by type
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(a => a.type === selectedType);
+  // Client-side search filter (Firestore doesn't support full-text search)
+  const filteredAccounts = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return accounts;
     }
-
-    // Filter by search term
-    if (searchTerm.trim().length > 0) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(a =>
-        a.name.toLowerCase().includes(term) ||
-        a.city.toLowerCase().includes(term) ||
-        a.phone.includes(term)
-      );
-    }
-
-    // Sort by lastVisitAt (most recently visited first, never-visited at bottom)
-    filtered = [...filtered].sort((a, b) => {
-      const aTime = a.lastVisitAt ? new Date(a.lastVisitAt).getTime() : 0;
-      const bTime = b.lastVisitAt ? new Date(b.lastVisitAt).getTime() : 0;
-
-      // Both never visited - sort alphabetically
-      if (aTime === 0 && bTime === 0) return a.name.localeCompare(b.name);
-
-      // Never visited goes to bottom
-      if (aTime === 0) return 1;
-      if (bTime === 0) return -1;
-
-      // Most recent first
-      return bTime - aTime;
-    });
-
-    setFilteredAccounts(filtered);
-  }, [accounts, searchTerm, selectedType]);
-
-  const loadAccounts = async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-      setError(null);
-      const response = await api.getAccountsList({});
-      if (response.ok) {
-        setAccounts(response.accounts);
-      } else {
-        setError('Failed to load accounts');
-      }
-    } catch (err) {
-      logger.error('Error loading accounts:', err);
-      setError('Network error. Please check your connection.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = useCallback(() => {
-    loadAccounts(true);
-  }, []);
+    const term = debouncedSearchTerm.toLowerCase();
+    return accounts.filter(a =>
+      a.name.toLowerCase().includes(term) ||
+      a.city.toLowerCase().includes(term) ||
+      (a.phone && a.phone.includes(term))
+    );
+  }, [accounts, debouncedSearchTerm]);
 
   const getAccountTypeColor = (type: AccountType): string => {
     switch (type) {
@@ -114,9 +79,9 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
-  // ✅ Performance: Memoized render function with useCallback
+  // Memoized render function
   const renderAccountCard = useCallback(
-    ({ item }: { item: AccountListItem }) => (
+    ({ item }: { item: Account }) => (
       <TouchableOpacity
         style={styles.accountCard}
         onPress={() => {
@@ -136,7 +101,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
               e.stopPropagation();
               navigation.navigate('EditAccount', {
                 account: item,
-                onAccountUpdated: () => loadAccounts(),
+                onAccountUpdated: refreshAccounts,
               });
             }}
             style={{
@@ -172,11 +137,24 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </View>
       </TouchableOpacity>
     ),
-    [navigation]
+    [navigation, refreshAccounts]
   );
 
-  // ✅ Performance: Memoized key extractor
-  const keyExtractor = useCallback((item: AccountListItem) => item.id, []);
+  // Memoized key extractor
+  const keyExtractor = useCallback((item: Account) => item.id, []);
+
+  // Footer component for loading more indicator
+  const ListFooterComponent = useCallback(() => {
+    if (loadingMore) {
+      return (
+        <View style={styles.loadingMoreContainer}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={styles.loadingMoreText}>Loading more...</Text>
+        </View>
+      );
+    }
+    return null;
+  }, [loadingMore]);
 
   // Prepare filter chips
   const filterChips = [
@@ -186,13 +164,6 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     { label: 'Architects', value: 'architect', active: selectedType === 'architect' },
     { label: 'OEMs', value: 'OEM', active: selectedType === 'OEM' },
   ];
-
-  // Calculate KPIs
-  const totalAccounts = accounts.length;
-  const distributorCount = accounts.filter(a => a.type === 'distributor').length;
-  const dealerCount = accounts.filter(a => a.type === 'dealer').length;
-  const architectCount = accounts.filter(a => a.type === 'architect').length;
-  const oemCount = accounts.filter(a => a.type === 'OEM').length;
 
   return (
     <View style={styles.container}>
@@ -210,6 +181,8 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
             </Text>
             <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
               {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
+              {hasMore && !debouncedSearchTerm ? '+' : ''}
+              {isOffline ? ' (offline)' : ''}
             </Text>
           </View>
 
@@ -232,7 +205,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </View>
       </View>
 
-      {/* Search Bar - Closer to header */}
+      {/* Search Bar */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
         <View style={{
           flexDirection: 'row',
@@ -261,7 +234,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </View>
       </View>
 
-      {/* Filter Pills - Horizontally scrollable to keep single row */}
+      {/* Filter Pills */}
       <View style={{ paddingBottom: 12 }}>
         <ScrollView
           horizontal
@@ -301,7 +274,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
           <Skeleton rows={3} avatar />
         </View>
       ) : error ? (
-        <ErrorState message={error} retry={loadAccounts} />
+        <ErrorState message={error} retry={refreshAccounts} />
       ) : filteredAccounts.length === 0 ? (
         <EmptyState
           icon={<Building2 size={48} color={colors.text.tertiary} />}
@@ -324,12 +297,15 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
+              refreshing={false}
+              onRefresh={refreshAccounts}
               colors={[colors.primary]}
               tintColor={colors.primary}
             />
           }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={ListFooterComponent}
           estimatedItemSize={80}
         />
       )}
@@ -460,5 +436,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  loadingMoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: colors.text.secondary,
   },
 });

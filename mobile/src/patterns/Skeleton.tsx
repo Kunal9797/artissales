@@ -16,11 +16,15 @@ export interface SkeletonProps {
   card?: boolean;
   /** Full width (ignores parent padding) */
   fullWidth?: boolean;
+  /** Custom width for inline skeleton */
+  width?: number | string;
+  /** Custom height for inline skeleton */
+  height?: number;
   /** Custom styles */
   style?: ViewStyle;
 }
 
-export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = false, style }: SkeletonProps) {
+export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = false, width, height, style }: SkeletonProps) {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
@@ -42,6 +46,20 @@ export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = f
 
     return () => animation.stop();
   }, [opacity]);
+
+  // Inline skeleton with custom width/height
+  if (width !== undefined || height !== undefined) {
+    return (
+      <Animated.View
+        style={[
+          styles.inlineSkeleton,
+          { width: width ?? '100%', height: height ?? 16 },
+          { opacity },
+          style as any,
+        ]}
+      />
+    );
+  }
 
   if (card) {
     console.log('[Skeleton] Rendering card with fullWidth:', fullWidth);
@@ -80,6 +98,10 @@ export function Skeleton({ rows = 3, avatar = false, card = false, fullWidth = f
 }
 
 const styles = StyleSheet.create({
+  inlineSkeleton: {
+    backgroundColor: colors.border.default,
+    borderRadius: spacing.borderRadius.sm,
+  },
   container: {
     flexDirection: 'row',
     padding: spacing.md,

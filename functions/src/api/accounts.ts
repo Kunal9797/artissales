@@ -17,6 +17,33 @@ import {getDirectReportIds} from "../utils/team";
 const db = getFirestore();
 
 /**
+ * Batch fetch user roles to avoid N+1 queries
+ * Firestore 'in' supports up to 30 items per query, so we chunk larger sets
+ */
+async function batchFetchUserRoles(userIds: string[]): Promise<Map<string, string>> {
+  const roleMap = new Map<string, string>();
+  if (userIds.length === 0) return roleMap;
+
+  // Firestore 'in' supports up to 30 items per query
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 30) {
+    chunks.push(userIds.slice(i, i + 30));
+  }
+
+  await Promise.all(chunks.map(async (chunk) => {
+    const usersSnapshot = await db.collection("users")
+      .where("__name__", "in", chunk)
+      .select("role")
+      .get();
+    usersSnapshot.docs.forEach((doc) => {
+      roleMap.set(doc.id, doc.data()?.role || "unknown");
+    });
+  }));
+
+  return roleMap;
+}
+
+/**
  * Helper function to check if user can create this account type
  */
 function canCreateAccount(
@@ -258,11 +285,21 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
 
 /**
  * Get Accounts List
- * Returns list of accounts with optional filters
+ * Returns list of accounts with optional filters and pagination
  *
  * POST /getAccountsList
  * Body: {
- *   type?: "distributor" | "dealer" | "architect"  // Filter by type
+ *   type?: "distributor" | "dealer" | "architect" | "OEM"  // Filter by type
+ *   limit?: number       // Max accounts per page (default 50, max 100)
+ *   startAfter?: string  // Last account ID for pagination cursor
+ *   sortBy?: "name" | "lastVisitAt"  // Sort field (default "name")
+ *   sortDir?: "asc" | "desc"         // Sort direction (default "asc")
+ * }
+ *
+ * Response: {
+ *   ok: true,
+ *   accounts: AccountListItem[],
+ *   pagination: { hasMore: boolean, nextCursor?: string }
  * }
  */
 export const getAccountsList = onRequest({invoker: "public"}, async (request, response) => {
@@ -290,11 +327,44 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
     const callerRole = userDoc.data()?.role;
 
-    // 2. Parse filters
-    const {type} = request.body;
+    // 2. Parse filters and pagination params
+    const {
+      type,
+      limit: requestedLimit = 50,
+      startAfter,
+      sortBy = "name",
+      sortDir = "asc",
+    } = request.body;
 
-    // 3. Build query
-    let query = db.collection("accounts")
+    // Validate and cap limit (max 100)
+    const limit = Math.min(Math.max(1, requestedLimit), 100);
+    // Fetch one extra to check if there are more results
+    const fetchLimit = limit + 1;
+
+    // Validate sortBy
+    if (!["name", "lastVisitAt"].includes(sortBy)) {
+      const error: ApiError = {
+        ok: false,
+        error: "Invalid sortBy. Must be 'name' or 'lastVisitAt'",
+        code: "INVALID_SORT",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // Validate sortDir
+    if (!["asc", "desc"].includes(sortDir)) {
+      const error: ApiError = {
+        ok: false,
+        error: "Invalid sortDir. Must be 'asc' or 'desc'",
+        code: "INVALID_SORT",
+      };
+      response.status(400).json(error);
+      return;
+    }
+
+    // 3. Build query with sorting and pagination
+    let query: FirebaseFirestore.Query = db.collection("accounts")
       .where("status", "==", "active");
 
     // Filter by type if provided
@@ -310,6 +380,20 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       }
       query = query.where("type", "==", type);
     }
+
+    // Add sorting
+    query = query.orderBy(sortBy, sortDir as "asc" | "desc");
+
+    // Apply cursor if provided (pagination)
+    if (startAfter) {
+      const cursorDoc = await db.collection("accounts").doc(startAfter).get();
+      if (cursorDoc.exists) {
+        query = query.startAfter(cursorDoc);
+      }
+    }
+
+    // Apply limit
+    query = query.limit(fetchLimit);
 
     // 4. Execute query
     const accountsSnap = await query.get();
@@ -353,24 +437,22 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       const teamMemberIds = new Set([userId, ...directReportIds]);
 
       // Get unique creator IDs to check which are admins
-      const creatorIds = new Set<string>(
-        accounts
-          .map((acc) => acc.createdByUserId)
-          .filter((id) => id && id.trim().length > 0)
-      );
+      const creatorIds = [
+        ...new Set(
+          accounts
+            .map((acc) => acc.createdByUserId)
+            .filter((id): id is string => !!id && id.trim().length > 0)
+        ),
+      ];
 
-      // Fetch creator roles to identify admins
+      // Batch fetch creator roles (fixes N+1 query problem)
+      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
+
+      // Identify admin creators
       const adminCreatorIds = new Set<string>();
-      if (creatorIds.size > 0) {
-        const creatorDocs = await Promise.all(
-          Array.from(creatorIds).map((id) => db.collection("users").doc(id).get())
-        );
-        creatorDocs.forEach((doc) => {
-          if (doc.exists && doc.data()?.role === "admin") {
-            adminCreatorIds.add(doc.id);
-          }
-        });
-      }
+      creatorRoleMap.forEach((role, id) => {
+        if (role === "admin") adminCreatorIds.add(id);
+      });
 
       // Filter accounts
       accounts = accounts.filter((account) => {
@@ -404,25 +486,23 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       const reportsToUserId = userDoc.data()?.reportsToUserId;
 
       // Get unique creator IDs to check their roles (filter out empty/undefined)
-      const creatorIds = new Set<string>(
-        accounts
-          .filter((acc) => ["dealer", "architect", "OEM"].includes(acc.type))
-          .map((acc) => acc.createdByUserId)
-          .filter((id) => id && id.trim().length > 0) // Filter out empty/undefined IDs
-      );
+      const creatorIds = [
+        ...new Set(
+          accounts
+            .filter((acc) => ["dealer", "architect", "OEM"].includes(acc.type))
+            .map((acc) => acc.createdByUserId)
+            .filter((id): id is string => !!id && id.trim().length > 0)
+        ),
+      ];
 
-      // Fetch creator roles to identify admins
+      // Batch fetch creator roles (fixes N+1 query problem)
+      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
+
+      // Identify admin creators
       const adminCreatorIds = new Set<string>();
-      if (creatorIds.size > 0) {
-        const creatorDocs = await Promise.all(
-          Array.from(creatorIds).map((id) => db.collection("users").doc(id).get())
-        );
-        creatorDocs.forEach((doc) => {
-          if (doc.exists && doc.data()?.role === "admin") {
-            adminCreatorIds.add(doc.id);
-          }
-        });
-      }
+      creatorRoleMap.forEach((role, id) => {
+        if (role === "admin") adminCreatorIds.add(id);
+      });
 
       // Filter accounts based on rep visibility rules
       accounts = accounts.filter((account) => {
@@ -457,11 +537,25 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       });
     }
 
-    logger.info(`[getAccountsList] ✅ Returned ${accounts.length} accounts for`, userId);
+    // 7. Apply pagination to filtered results
+    // Check if there are more results than requested
+    const hasMore = accounts.length > limit;
+    // Trim to requested limit
+    if (hasMore) {
+      accounts = accounts.slice(0, limit);
+    }
+    // Get cursor for next page (last account ID)
+    const nextCursor = accounts.length > 0 ? accounts[accounts.length - 1].id : undefined;
+
+    logger.info(`[getAccountsList] ✅ Returned ${accounts.length} accounts for`, userId, `hasMore: ${hasMore}`);
 
     response.status(200).json({
       ok: true,
       accounts: accounts,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore ? nextCursor : undefined,
+      },
     });
   } catch (error: any) {
     logger.error("[getAccountsList] ❌ Error:", error);

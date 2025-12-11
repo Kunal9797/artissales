@@ -98,6 +98,10 @@ export interface CreateAccountResponse {
 
 export interface GetAccountsListRequest {
   type?: AccountType;
+  limit?: number;          // Max accounts per page (default 50, max 100)
+  startAfter?: string;     // Last account ID for pagination cursor
+  sortBy?: 'name' | 'lastVisitAt';  // Sort field (default "name")
+  sortDir?: 'asc' | 'desc';         // Sort direction (default "asc")
 }
 
 export interface AccountListItem {
@@ -122,6 +126,10 @@ export interface AccountListItem {
 export interface GetAccountsListResponse {
   ok: true;
   accounts: AccountListItem[];
+  pagination?: {
+    hasMore: boolean;
+    nextCursor?: string;
+  };
 }
 
 export interface UpdateAccountRequest {

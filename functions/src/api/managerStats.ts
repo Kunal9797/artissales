@@ -18,9 +18,12 @@ const db = getFirestore();
  *
  * POST /getTeamStats
  * Body: {
- *   date: string           // YYYY-MM-DD (default: today)
- *   range: string          // 'today' | 'week' | 'month' (default: today)
+ *   date: string           // YYYY-MM-DD (default: today) - used for today/week/month ranges
+ *   range: string          // 'today' | 'week' | 'month' | 'custom' (default: today)
+ *   startDate?: string     // YYYY-MM-DD - required for custom range
+ *   endDate?: string       // YYYY-MM-DD - required for custom range
  *   filterByManagerId?: string  // Admin only: filter to specific manager's team
+ *   filterByUserId?: string     // View stats for a single user (rep)
  * }
  */
 export const getTeamStats = onRequest({cors: true}, async (request, response) => {
@@ -61,17 +64,29 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     }
 
     // 2. Parse parameters
-    const {date, range, filterByManagerId} = request.body;
+    const {date, range, startDate: customStartDate, endDate: customEndDate, filterByManagerId, filterByUserId} = request.body;
     let targetDate: string;
     let startDateStr: string;
     let endDateStr: string;
     let startDate: Date;
     let endDate: Date;
 
-    // Determine target date (date strings are in local device time, stored as YYYY-MM-DD)
-    if (date) {
-      // Validate date format YYYY-MM-DD
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    // Handle custom date range
+    if (range === "custom") {
+      // Validate custom dates are provided
+      if (!customStartDate || !customEndDate) {
+        const error: ApiError = {
+          ok: false,
+          error: "Custom range requires startDate and endDate",
+          code: "MISSING_DATES",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      // Validate date formats
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(customStartDate) || !dateRegex.test(customEndDate)) {
         const error: ApiError = {
           ok: false,
           error: "Invalid date format. Expected YYYY-MM-DD",
@@ -80,49 +95,80 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         response.status(400).json(error);
         return;
       }
-      targetDate = date;
-    } else {
-      // Default to today in UTC (client should send their local date)
-      const now = new Date();
-      targetDate = now.toISOString().split("T")[0];
-    }
 
-    // Calculate date range based on 'range' parameter
-    // Parse date in local context (don't force UTC)
-    const [year, month, day] = targetDate.split("-").map(Number);
-    const targetDateObj = new Date(year, month - 1, day);
+      // Validate start date is not after end date
+      if (customStartDate > customEndDate) {
+        const error: ApiError = {
+          ok: false,
+          error: "Start date cannot be after end date",
+          code: "INVALID_DATE_RANGE",
+        };
+        response.status(400).json(error);
+        return;
+      }
 
-    if (range === "week") {
-      // Get start of week (Sunday) in local time
-      const dayOfWeek = targetDateObj.getDay();
-      const startOfWeek = new Date(targetDateObj);
-      startOfWeek.setDate(targetDateObj.getDate() - dayOfWeek);
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-
-      startDateStr = startOfWeek.toISOString().split("T")[0];
-      endDateStr = endOfWeek.toISOString().split("T")[0];
-
-      // For timestamp queries (attendance, visits)
-      startDate = new Date(startDateStr + "T00:00:00Z");
-      endDate = new Date(endDateStr + "T23:59:59Z");
-    } else if (range === "month") {
-      // Get start and end of month
-      const startOfMonth = new Date(year, month - 1, 1);
-      const endOfMonth = new Date(year, month, 0); // Last day of month
-
-      startDateStr = startOfMonth.toISOString().split("T")[0];
-      endDateStr = endOfMonth.toISOString().split("T")[0];
-
-      // For timestamp queries
+      startDateStr = customStartDate;
+      endDateStr = customEndDate;
+      targetDate = customEndDate; // Use end date as reference
       startDate = new Date(startDateStr + "T00:00:00Z");
       endDate = new Date(endDateStr + "T23:59:59Z");
     } else {
-      // Default: single day (today)
-      startDateStr = targetDate;
-      endDateStr = targetDate;
-      startDate = new Date(targetDate + "T00:00:00Z");
-      endDate = new Date(targetDate + "T23:59:59Z");
+      // Determine target date (date strings are in local device time, stored as YYYY-MM-DD)
+      if (date) {
+        // Validate date format YYYY-MM-DD
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const error: ApiError = {
+            ok: false,
+            error: "Invalid date format. Expected YYYY-MM-DD",
+            code: "INVALID_DATE",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        targetDate = date;
+      } else {
+        // Default to today in UTC (client should send their local date)
+        const now = new Date();
+        targetDate = now.toISOString().split("T")[0];
+      }
+
+      // Calculate date range based on 'range' parameter
+      // Parse date in local context (don't force UTC)
+      const [year, month, day] = targetDate.split("-").map(Number);
+      const targetDateObj = new Date(year, month - 1, day);
+
+      if (range === "week") {
+        // Get start of week (Sunday) in local time
+        const dayOfWeek = targetDateObj.getDay();
+        const startOfWeek = new Date(targetDateObj);
+        startOfWeek.setDate(targetDateObj.getDate() - dayOfWeek);
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        startDateStr = startOfWeek.toISOString().split("T")[0];
+        endDateStr = endOfWeek.toISOString().split("T")[0];
+
+        // For timestamp queries (attendance, visits)
+        startDate = new Date(startDateStr + "T00:00:00Z");
+        endDate = new Date(endDateStr + "T23:59:59Z");
+      } else if (range === "month") {
+        // Get start and end of month
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0); // Last day of month
+
+        startDateStr = startOfMonth.toISOString().split("T")[0];
+        endDateStr = endOfMonth.toISOString().split("T")[0];
+
+        // For timestamp queries
+        startDate = new Date(startDateStr + "T00:00:00Z");
+        endDate = new Date(endDateStr + "T23:59:59Z");
+      } else {
+        // Default: single day (today)
+        startDateStr = targetDate;
+        endDateStr = targetDate;
+        startDate = new Date(targetDate + "T00:00:00Z");
+        endDate = new Date(targetDate + "T23:59:59Z");
+      }
     }
 
     logger.info(
@@ -134,8 +180,49 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     // 3. Get team members based on caller's role
     let teamMemberIds: string[];
     let allUsers: any[] = [];
+    let isSingleRepView = false; // Track if viewing a single rep
 
-    if (managerRole === "admin") {
+    // Handle filterByUserId (single rep view)
+    if (filterByUserId) {
+      // Verify the target user exists
+      const targetUserDoc = await db.collection("users").doc(filterByUserId).get();
+      if (!targetUserDoc.exists) {
+        const error: ApiError = {
+          ok: false,
+          error: "User not found",
+          code: "USER_NOT_FOUND",
+        };
+        response.status(404).json(error);
+        return;
+      }
+
+      const targetUserData = targetUserDoc.data();
+
+      // Permission check: admin can view anyone, managers can only view their direct reports
+      if (managerRole === "admin") {
+        // Admin can view any user
+        teamMemberIds = [filterByUserId];
+        allUsers = [{id: filterByUserId, ...targetUserData}];
+        isSingleRepView = true;
+        logger.info(`[getTeamStats] Admin viewing single rep: ${filterByUserId}`);
+      } else {
+        // NH/AM can only view their direct reports
+        const directReportIds = await getDirectReportIds(managerId);
+        if (!directReportIds.includes(filterByUserId)) {
+          const error: ApiError = {
+            ok: false,
+            error: "You can only view statistics for your direct reports",
+            code: "INSUFFICIENT_PERMISSIONS",
+          };
+          response.status(403).json(error);
+          return;
+        }
+        teamMemberIds = [filterByUserId];
+        allUsers = [{id: filterByUserId, ...targetUserData}];
+        isSingleRepView = true;
+        logger.info(`[getTeamStats] Manager ${managerId} viewing direct report: ${filterByUserId}`);
+      }
+    } else if (managerRole === "admin") {
       // Admin can filter by specific manager
       if (filterByManagerId) {
         // Get the specified manager's direct reports
@@ -304,6 +391,21 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     let architectVisits = 0;
     let oemVisits = 0;
 
+    // For month view: track daily activity (unique reps with visits per day)
+    const dailyVisitsByUser: Record<string, Set<string>> = {};
+    // For single rep view: track daily visit counts
+    const dailyVisitCounts: Record<string, number> = {};
+
+    // For single rep view: collect recent visits and account visit counts
+    const recentVisits: Array<{
+      id: string;
+      accountName: string;
+      accountType: string;
+      timestamp: string;
+      purpose: string;
+    }> = [];
+    const accountVisitCounts: Record<string, {accountId: string; accountName: string; count: number}> = {};
+
     visitsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (!isTeamMember(data.userId)) return; // Skip non-team members
@@ -312,6 +414,43 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       else if (data.accountType === "dealer") dealerVisits++;
       else if (data.accountType === "architect") architectVisits++;
       else if (data.accountType === "OEM") oemVisits++;
+
+      // Track daily activity for week/month/custom view heatmap
+      if ((range === "month" || range === "week" || range === "custom") && data.timestamp) {
+        // Convert Firestore timestamp to YYYY-MM-DD
+        const visitDate = data.timestamp.toDate().toISOString().split("T")[0];
+        if (!dailyVisitsByUser[visitDate]) {
+          dailyVisitsByUser[visitDate] = new Set();
+        }
+        dailyVisitsByUser[visitDate].add(data.userId);
+
+        // For single rep view: count actual visits per day
+        if (isSingleRepView) {
+          dailyVisitCounts[visitDate] = (dailyVisitCounts[visitDate] || 0) + 1;
+        }
+      }
+
+      // For single rep view: collect visit details
+      if (isSingleRepView && data.timestamp) {
+        recentVisits.push({
+          id: doc.id,
+          accountName: data.accountName || "Unknown",
+          accountType: data.accountType || "unknown",
+          timestamp: data.timestamp.toDate().toISOString(),
+          purpose: data.purpose || "other",
+        });
+
+        // Track visits per account for "most visited"
+        const accountId = data.accountId || "unknown";
+        if (!accountVisitCounts[accountId]) {
+          accountVisitCounts[accountId] = {
+            accountId,
+            accountName: data.accountName || "Unknown",
+            count: 0,
+          };
+        }
+        accountVisitCounts[accountId].count++;
+      }
     });
 
     logger.info(`[getTeamStats] Filtered to ${totalVisits} team visits (raw query returned ${visitsSnapshot.size})`);
@@ -337,6 +476,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     // Process pending sheets and expenses (filtered by team members)
     let pendingSheetsCount = 0;  // Total sheets count from pending entries
+    let pendingSheetsLogs = 0;   // Number of pending sheet log entries
     let pendingExpenses = 0;
 
     pendingSheetsSnapshot.docs.forEach((doc) => {
@@ -345,6 +485,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       if (data.rejectedAt) return;
       if (isTeamMember(data.userId)) {
         pendingSheetsCount += data.sheetsCount || 0;
+        pendingSheetsLogs++;
       }
     });
 
@@ -352,7 +493,113 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       if (isTeamMember(doc.data().userId)) pendingExpenses++;
     });
 
-    logger.info(`[getTeamStats] Found ${pendingSheetsCount} pending sheets (count), ${pendingExpenses} pending expenses`);
+    logger.info(`[getTeamStats] Found ${pendingSheetsLogs} pending sheet logs (${pendingSheetsCount} sheets total), ${pendingExpenses} pending expenses`);
+
+    // Build visitDetails for single rep view
+    let visitDetails: {
+      recent: Array<{
+        id: string;
+        accountName: string;
+        accountType: string;
+        timestamp: string;
+        purpose: string;
+      }>;
+      topAccounts: Array<{
+        accountId: string;
+        accountName: string;
+        visitCount: number;
+      }>;
+    } | undefined;
+
+    if (isSingleRepView && recentVisits.length > 0) {
+      // Sort recent visits by timestamp (most recent first) and take top 5
+      const sortedRecent = recentVisits
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, 5);
+
+      // Sort accounts by visit count (most visited first) and take top 3
+      const sortedAccounts = Object.values(accountVisitCounts)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3)
+        .map((acc) => ({
+          accountId: acc.accountId,
+          accountName: acc.accountName,
+          visitCount: acc.count,
+        }));
+
+      visitDetails = {
+        recent: sortedRecent,
+        topAccounts: sortedAccounts,
+      };
+
+      logger.info(`[getTeamStats] Built visitDetails: ${sortedRecent.length} recent, ${sortedAccounts.length} top accounts`);
+    }
+
+    // Build dailyActivity array for week/month/custom view heatmap
+    // For single rep view: visitCount is the actual number of visits that day
+    // For team view: activeCount is the number of unique reps with visits
+    let dailyActivity: Array<{date: string; activeCount: number; totalCount: number; visitCount?: number; isInRange?: boolean}> | undefined;
+    if (range === "month") {
+      // Parse year/month from startDateStr (first day of month)
+      const [monthYear, monthNum] = startDateStr.split("-").map(Number);
+      // Generate array for all days in the month
+      const daysInMonth = new Date(monthYear, monthNum, 0).getDate();
+      dailyActivity = [];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${monthYear}-${String(monthNum).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const activeOnDay = dailyVisitsByUser[dateStr]?.size || 0;
+        dailyActivity.push({
+          date: dateStr,
+          activeCount: activeOnDay,
+          totalCount: totalTeamMembers,
+          ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+        });
+      }
+      logger.info(`[getTeamStats] Built dailyActivity for ${daysInMonth} days`);
+    } else if (range === "week") {
+      // Generate array for 7 days of the week (Sunday to Saturday)
+      dailyActivity = [];
+      const startOfWeekDate = new Date(startDateStr + "T00:00:00");
+      for (let d = 0; d < 7; d++) {
+        const currentDate = new Date(startOfWeekDate);
+        currentDate.setDate(startOfWeekDate.getDate() + d);
+        const dateStr = currentDate.toISOString().split("T")[0];
+        const activeOnDay = dailyVisitsByUser[dateStr]?.size || 0;
+        dailyActivity.push({
+          date: dateStr,
+          activeCount: activeOnDay,
+          totalCount: totalTeamMembers,
+          ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+        });
+      }
+      logger.info(`[getTeamStats] Built dailyActivity for 7 days (week view)`);
+    } else if (range === "custom") {
+      // For custom range: only show heatmap if start and end are in the same month
+      const [startYear, startMonth] = startDateStr.split("-").map(Number);
+      const [endYear, endMonth] = endDateStr.split("-").map(Number);
+
+      if (startYear === endYear && startMonth === endMonth) {
+        // Same month - generate full month heatmap with range indicators
+        const daysInMonth = new Date(startYear, startMonth, 0).getDate();
+        dailyActivity = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+          const dateStr = `${startYear}-${String(startMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const activeOnDay = dailyVisitsByUser[dateStr]?.size || 0;
+          const isInRange = dateStr >= startDateStr && dateStr <= endDateStr;
+          dailyActivity.push({
+            date: dateStr,
+            activeCount: activeOnDay,
+            totalCount: totalTeamMembers,
+            isInRange, // Flag to indicate if day is within custom range
+            ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+          });
+        }
+        logger.info(`[getTeamStats] Built dailyActivity for custom range (same month: ${startMonth}/${startYear})`);
+      } else {
+        // Different months - no heatmap
+        logger.info(`[getTeamStats] Custom range spans multiple months, no heatmap`);
+      }
+    }
 
     // 9. Return aggregated stats
     response.status(200).json({
@@ -371,6 +618,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           inactive: inactiveCount,
           activePercentage: totalTeamMembers > 0 ?
             Math.round((activeCount / totalTeamMembers) * 100) : 0,
+          // Daily activity for month view heatmap
+          dailyActivity,
         },
         visits: {
           total: totalVisits,
@@ -384,9 +633,12 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           byCatalog: sheetsByCatalog,
         },
         pending: {
-          sheets: pendingSheetsCount,
-          expenses: pendingExpenses,
+          sheets: pendingSheetsCount,      // Sum of sheets from pending logs
+          sheetsLogs: pendingSheetsLogs,   // Number of pending sheet log entries
+          expenses: pendingExpenses,       // Number of pending expense log entries
         },
+        // Only included for single rep view
+        ...(visitDetails && {visitDetails}),
       },
     });
   } catch (error: any) {
