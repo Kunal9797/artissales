@@ -272,8 +272,12 @@ export const api = {
     return callFunction('getAccountsList', data);
   },
 
-  getAccountDetails: async (data: { accountId: string }) => {
+  getAccountDetails: async (data: { accountId: string; limit?: number; startAfter?: string }) => {
     return callFunction('getAccountDetails', data);
+  },
+
+  getVisitPhotos: async (data: { visitId: string }) => {
+    return callFunction('getVisitPhotos', data);
   },
 
   updateAccount: async (data: UpdateAccountRequest) => {

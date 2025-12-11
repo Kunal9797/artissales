@@ -26,8 +26,8 @@ function canCreateAccount(
   // Admin can create anything
   if (callerRole === "admin") return true;
 
-  // National Head can create anything
-  if (callerRole === "national_head") return true;
+  // National Head and Area Manager can create anything
+  if (callerRole === "national_head" || callerRole === "area_manager") return true;
 
   // Reps and Zonal Heads can only create dealers/architects/OEMs
   if (callerRole === "rep" || callerRole === "zonal_head") {
@@ -393,7 +393,16 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
         return false;
       });
     } else {
-      // Reps: existing visibility rules
+      // Reps: visibility rules
+      // Can see:
+      // - All distributors
+      // - Accounts created by self
+      // - Accounts created by their specific manager (reportsToUserId)
+      // - Accounts created by admin
+
+      // Get the rep's manager ID
+      const reportsToUserId = userDoc.data()?.reportsToUserId;
+
       // Get unique creator IDs to check their roles (filter out empty/undefined)
       const creatorIds = new Set<string>(
         accounts
@@ -402,15 +411,15 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
           .filter((id) => id && id.trim().length > 0) // Filter out empty/undefined IDs
       );
 
-      // Fetch creator roles
-      const creatorRoles = new Map<string, string>();
+      // Fetch creator roles to identify admins
+      const adminCreatorIds = new Set<string>();
       if (creatorIds.size > 0) {
         const creatorDocs = await Promise.all(
           Array.from(creatorIds).map((id) => db.collection("users").doc(id).get())
         );
         creatorDocs.forEach((doc) => {
-          if (doc.exists) {
-            creatorRoles.set(doc.id, doc.data()?.role || "");
+          if (doc.exists && doc.data()?.role === "admin") {
+            adminCreatorIds.add(doc.id);
           }
         });
       }
@@ -423,7 +432,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
         }
 
         // For dealer/architect/OEM:
-        // 1. If createdByUserId is empty/missing, show it (legacy data or created by managers)
+        // 1. If createdByUserId is empty/missing, show it (legacy data)
         if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
           return true;
         }
@@ -433,13 +442,17 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
           return true;
         }
 
-        // 3. Created by a manager (not a rep)
-        const creatorRole = creatorRoles.get(account.createdByUserId);
-        if (creatorRole && creatorRole !== "rep") {
+        // 3. Created by their specific manager (reportsToUserId)
+        if (reportsToUserId && account.createdByUserId === reportsToUserId) {
           return true;
         }
 
-        // Otherwise, hide (created by another rep)
+        // 4. Created by admin (shared accounts)
+        if (adminCreatorIds.has(account.createdByUserId)) {
+          return true;
+        }
+
+        // Otherwise, hide (created by another rep or another manager's team)
         return false;
       });
     }
@@ -712,10 +725,22 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
 });
 
 /**
- * Get Account Details with Visit History
+ * Get Account Details with Visit History (Optimized)
  *
  * POST /getAccountDetails
- * Body: { accountId: string }
+ * Body: {
+ *   accountId: string,
+ *   limit?: number (default 10),
+ *   startAfter?: string (visitId for pagination)
+ * }
+ *
+ * Response: {
+ *   ok: true,
+ *   account: {...},
+ *   visits: [...],
+ *   hasMore: boolean,
+ *   lastVisitId?: string
+ * }
  */
 export const getAccountDetails = onRequest(async (request, response) => {
   try {
@@ -725,7 +750,7 @@ export const getAccountDetails = onRequest(async (request, response) => {
       return;
     }
 
-    const {accountId} = request.body;
+    const {accountId, limit = 10, startAfter} = request.body;
     if (!accountId) {
       const error: ApiError = {ok: false, error: "accountId is required", code: "MISSING_FIELD"};
       response.status(400).json(error);
@@ -739,36 +764,126 @@ export const getAccountDetails = onRequest(async (request, response) => {
       return;
     }
 
-    const visitsSnapshot = await db.collection("visits")
+    // Build query with pagination support
+    // Fetch limit + 1 to check if there are more results
+    const fetchLimit = Math.min(limit, 50) + 1;
+    let visitsQuery = db.collection("visits")
       .where("accountId", "==", accountId)
       .orderBy("timestamp", "desc")
-      .limit(50)
-      .get();
+      .limit(fetchLimit);
 
-    const visitsWithUserNames = await Promise.all(
-      visitsSnapshot.docs.map(async (doc: any) => {
-        const visitData = doc.data();
-        const userDoc = await db.collection("users").doc(visitData.userId).get();
-        return {
-          id: doc.id,
-          timestamp: visitData.timestamp?.toDate().toISOString() || null,
-          userId: visitData.userId,
-          userName: userDoc.exists ? userDoc.data()?.name : "Unknown",
-          purpose: visitData.purpose || "follow_up",
-          notes: visitData.notes || "",
-          photos: visitData.photos || [], // Include photos for manager verification
-        };
-      })
-    );
+    // If paginating, start after the last visit
+    if (startAfter) {
+      const lastVisitDoc = await db.collection("visits").doc(startAfter).get();
+      if (lastVisitDoc.exists) {
+        visitsQuery = db.collection("visits")
+          .where("accountId", "==", accountId)
+          .orderBy("timestamp", "desc")
+          .startAfter(lastVisitDoc)
+          .limit(fetchLimit);
+      }
+    }
+
+    const visitsSnapshot = await visitsQuery.get();
+
+    // Check if there are more results
+    const hasMore = visitsSnapshot.docs.length > limit;
+    const visitsToProcess = hasMore
+      ? visitsSnapshot.docs.slice(0, limit)
+      : visitsSnapshot.docs;
+
+    // OPTIMIZATION: Batch fetch users instead of N+1 queries
+    // 1. Collect unique user IDs
+    const userIds = [...new Set(visitsToProcess.map((doc) => doc.data().userId).filter(Boolean))];
+
+    // 2. Batch fetch users (Firestore 'in' supports up to 30 items per query)
+    const userMap = new Map<string, string>();
+    if (userIds.length > 0) {
+      const chunks: string[][] = [];
+      for (let i = 0; i < userIds.length; i += 30) {
+        chunks.push(userIds.slice(i, i + 30));
+      }
+
+      await Promise.all(chunks.map(async (chunk) => {
+        const usersSnapshot = await db.collection("users")
+          .where("__name__", "in", chunk)
+          .get();
+        usersSnapshot.docs.forEach((doc) => {
+          userMap.set(doc.id, doc.data()?.name || "Unknown");
+        });
+      }));
+    }
+
+    // 3. Map visits with user names from lookup (no additional queries!)
+    const visitsWithUserNames = visitsToProcess.map((doc: any) => {
+      const visitData = doc.data();
+      const photos = visitData.photos || [];
+      return {
+        id: doc.id,
+        timestamp: visitData.timestamp?.toDate().toISOString() || null,
+        userId: visitData.userId,
+        userName: userMap.get(visitData.userId) || "Unknown",
+        purpose: visitData.purpose || "follow_up",
+        notes: visitData.notes || "",
+        // Return photo count for lazy loading, not full URLs
+        photoCount: photos.length,
+      };
+    });
+
+    const lastVisitId = visitsToProcess.length > 0
+      ? visitsToProcess[visitsToProcess.length - 1].id
+      : undefined;
 
     response.status(200).json({
       ok: true,
       account: {id: accountDoc.id, ...accountDoc.data()},
       visits: visitsWithUserNames,
+      hasMore,
+      lastVisitId,
     });
-    logger.info(`[getAccountDetails] ✅ ${accountId}: ${visitsWithUserNames.length} visits`);
+    logger.info(`[getAccountDetails] ✅ ${accountId}: ${visitsWithUserNames.length} visits, hasMore: ${hasMore}`);
   } catch (error: any) {
     logger.error("[getAccountDetails] ❌", error);
+    response.status(500).json({ok: false, error: "Internal error", code: "INTERNAL_ERROR", details: error.message});
+  }
+});
+
+/**
+ * Get Visit Photos (for lazy loading)
+ *
+ * POST /getVisitPhotos
+ * Body: { visitId: string }
+ */
+export const getVisitPhotos = onRequest(async (request, response) => {
+  try {
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const {visitId} = request.body;
+    if (!visitId) {
+      const error: ApiError = {ok: false, error: "visitId is required", code: "MISSING_FIELD"};
+      response.status(400).json(error);
+      return;
+    }
+
+    const visitDoc = await db.collection("visits").doc(visitId).get();
+    if (!visitDoc.exists) {
+      const error: ApiError = {ok: false, error: "Visit not found", code: "VISIT_NOT_FOUND"};
+      response.status(404).json(error);
+      return;
+    }
+
+    const visitData = visitDoc.data();
+    response.status(200).json({
+      ok: true,
+      photos: visitData?.photos || [],
+    });
+    logger.info(`[getVisitPhotos] ✅ ${visitId}: ${(visitData?.photos || []).length} photos`);
+  } catch (error: any) {
+    logger.error("[getVisitPhotos] ❌", error);
     response.status(500).json({ok: false, error: "Internal error", code: "INTERNAL_ERROR", details: error.message});
   }
 });

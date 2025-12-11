@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -22,6 +23,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const [accounts, setAccounts] = useState<AccountListItem[]>([]);
   const [filteredAccounts, setFilteredAccounts] = useState<AccountListItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<AccountType | 'all'>('all');
@@ -68,9 +70,13 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     setFilteredAccounts(filtered);
   }, [accounts, searchTerm, selectedType]);
 
-  const loadAccounts = async () => {
+  const loadAccounts = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError(null);
       const response = await api.getAccountsList({});
       if (response.ok) {
@@ -83,8 +89,13 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
       setError('Network error. Please check your connection.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  const onRefresh = useCallback(() => {
+    loadAccounts(true);
+  }, []);
 
   const getAccountTypeColor = (type: AccountType): string => {
     switch (type) {
@@ -311,8 +322,15 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
           renderItem={renderAccountCard}
           keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
-          // ✅ Performance: FlashList auto-calculates item size
-          // Account card height ≈ 64px (48px icon + padding)
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          estimatedItemSize={80}
         />
       )}
     </View>

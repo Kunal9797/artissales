@@ -1,13 +1,13 @@
 /**
  * AccountDetailScreen - View account details and visit history
- * Built with inline styles to avoid StyleSheet.create issues
+ * Optimized with pagination and lazy photo loading
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User, Camera } from 'lucide-react-native';
+import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User, Camera, ChevronDown } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Skeleton } from '../../patterns';
@@ -34,8 +34,10 @@ interface Visit {
   userName: string;
   purpose: string;
   notes?: string;
-  photos?: string[];
+  photoCount?: number; // New: just the count, not the URLs
 }
+
+const VISITS_PER_PAGE = 10;
 
 export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { accountId } = route.params;
@@ -44,23 +46,46 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Pagination state
+  const [hasMore, setHasMore] = useState(false);
+  const [lastVisitId, setLastVisitId] = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
+
   // Photo viewer state
   const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
   const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
+  const [loadingPhotos, setLoadingPhotos] = useState<string | null>(null); // visitId being loaded
 
-  const openPhotoViewer = (photos: string[]) => {
-    setViewingPhotos(photos);
-    setPhotoViewerVisible(true);
-  };
+  // Lazy load photos when user taps
+  const handlePhotoTap = useCallback(async (visitId: string, photoCount: number) => {
+    if (photoCount === 0) return;
 
-  const loadData = async () => {
+    setLoadingPhotos(visitId);
     try {
-      // Get account details from real API
-      const response = await api.getAccountDetails({ accountId });
+      const response = await api.getVisitPhotos({ visitId });
+      if (response.ok && response.photos?.length > 0) {
+        setViewingPhotos(response.photos);
+        setPhotoViewerVisible(true);
+      }
+    } catch (error) {
+      logger.error('Error loading photos:', error);
+    } finally {
+      setLoadingPhotos(null);
+    }
+  }, []);
+
+  const loadData = async (isRefresh = false) => {
+    try {
+      const response = await api.getAccountDetails({
+        accountId,
+        limit: VISITS_PER_PAGE,
+      });
 
       if (response.ok) {
         setAccount(response.account);
         setVisits(response.visits || []);
+        setHasMore(response.hasMore || false);
+        setLastVisitId(response.lastVisitId);
       } else {
         logger.error('API returned not ok:', response);
         setAccount(null);
@@ -68,12 +93,34 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     } catch (error) {
       logger.error('Error loading account details:', error);
-      // On error, set null to show "Account not found" message
       setAccount(null);
       setVisits([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const loadMoreVisits = async () => {
+    if (!hasMore || loadingMore || !lastVisitId) return;
+
+    setLoadingMore(true);
+    try {
+      const response = await api.getAccountDetails({
+        accountId,
+        limit: VISITS_PER_PAGE,
+        startAfter: lastVisitId,
+      });
+
+      if (response.ok) {
+        setVisits(prev => [...prev, ...(response.visits || [])]);
+        setHasMore(response.hasMore || false);
+        setLastVisitId(response.lastVisitId);
+      }
+    } catch (error) {
+      logger.error('Error loading more visits:', error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -83,7 +130,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(true);
   };
 
   const getTypeColor = (type: string) => {
@@ -157,7 +204,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             onPress={() => {
               navigation.navigate('EditAccount', {
                 account,
-                onAccountUpdated: loadData,
+                onAccountUpdated: () => loadData(),
               });
             }}
           >
@@ -226,7 +273,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         {/* Visit History */}
         <View style={{ marginBottom: 24 }}>
           <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A', marginBottom: 16 }}>
-            Visit History ({visits.length})
+            Visit History {visits.length > 0 && `(${visits.length}${hasMore ? '+' : ''})`}
           </Text>
 
           {visits.length === 0 ? (
@@ -242,77 +289,116 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </Text>
             </View>
           ) : (
-            visits.map((visit, index) => (
-              <View
-                key={visit.id}
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderWidth: 1,
-                  borderColor: '#E0E0E0',
-                  borderRadius: 8,
-                  padding: 16,
-                  marginBottom: 12,
-                }}
-              >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <User size={16} color="#666666" />
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>
-                      {visit.userName || 'Unknown'}
+            <>
+              {visits.map((visit) => (
+                <View
+                  key={visit.id}
+                  style={{
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 1,
+                    borderColor: '#E0E0E0',
+                    borderRadius: 8,
+                    padding: 16,
+                    marginBottom: 12,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <User size={16} color="#666666" />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A' }}>
+                        {visit.userName || 'Unknown'}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: '#999999' }}>
+                      {new Date(visit.timestamp).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
                     </Text>
                   </View>
-                  <Text style={{ fontSize: 12, color: '#999999' }}>
-                    {new Date(visit.timestamp).toLocaleDateString('en-IN', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </Text>
-                </View>
 
-                <View style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  backgroundColor: '#E3F2FD',
-                  borderRadius: 12,
-                  alignSelf: 'flex-start',
-                  marginBottom: 8,
-                }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#1976D2' }}>
-                    {visit.purpose}
-                  </Text>
-                </View>
-
-                {visit.notes && (
-                  <Text style={{ fontSize: 14, color: '#666666', marginTop: 4 }}>
-                    {visit.notes}
-                  </Text>
-                )}
-
-                {/* Photo indicator - tap to view photos */}
-                {visit.photos && visit.photos.length > 0 && (
-                  <TouchableOpacity
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      marginTop: 12,
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      backgroundColor: '#F5F5F5',
-                      borderRadius: 8,
-                      alignSelf: 'flex-start',
-                    }}
-                    onPress={() => openPhotoViewer(visit.photos!)}
-                  >
-                    <Camera size={16} color="#666666" />
-                    <Text style={{ fontSize: 13, color: '#666666', fontWeight: '500' }}>
-                      {visit.photos.length} {visit.photos.length === 1 ? 'Photo' : 'Photos'}
+                  <View style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    backgroundColor: '#E3F2FD',
+                    borderRadius: 12,
+                    alignSelf: 'flex-start',
+                    marginBottom: 8,
+                  }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#1976D2' }}>
+                      {visit.purpose}
                     </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))
+                  </View>
+
+                  {visit.notes && (
+                    <Text style={{ fontSize: 14, color: '#666666', marginTop: 4 }}>
+                      {visit.notes}
+                    </Text>
+                  )}
+
+                  {/* Photo indicator - tap to lazy load and view photos */}
+                  {visit.photoCount !== undefined && visit.photoCount > 0 && (
+                    <TouchableOpacity
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        marginTop: 12,
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        backgroundColor: '#F5F5F5',
+                        borderRadius: 8,
+                        alignSelf: 'flex-start',
+                      }}
+                      onPress={() => handlePhotoTap(visit.id, visit.photoCount!)}
+                      disabled={loadingPhotos === visit.id}
+                    >
+                      {loadingPhotos === visit.id ? (
+                        <ActivityIndicator size="small" color="#666666" />
+                      ) : (
+                        <Camera size={16} color="#666666" />
+                      )}
+                      <Text style={{ fontSize: 13, color: '#666666', fontWeight: '500' }}>
+                        {loadingPhotos === visit.id
+                          ? 'Loading...'
+                          : `${visit.photoCount} ${visit.photoCount === 1 ? 'Photo' : 'Photos'}`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+
+              {/* Load More Button */}
+              {hasMore && (
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    paddingVertical: 14,
+                    paddingHorizontal: 24,
+                    backgroundColor: '#F5F5F5',
+                    borderRadius: 8,
+                    marginTop: 4,
+                  }}
+                  onPress={loadMoreVisits}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? (
+                    <ActivityIndicator size="small" color="#666666" />
+                  ) : (
+                    <>
+                      <ChevronDown size={18} color="#666666" />
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#666666' }}>
+                        Load More Visits
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       </ScrollView>

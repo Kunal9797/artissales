@@ -21,7 +21,7 @@ export {updateProfile} from "./api/profile";
 export {createUserByManager, getUsersList, getUserStats, updateUser, getManagersList} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
 export {getManagerDashboard, getTodayVisitsSummary} from "./api/managerDashboard";
-export {createAccount, getAccountsList, updateAccount, getAccountDetails, deleteAccount} from "./api/accounts";
+export {createAccount, getAccountsList, updateAccount, getAccountDetails, getVisitPhotos, deleteAccount} from "./api/accounts";
 export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 export {uploadDocument, getDocuments, deleteDocument, createDocumentMetadata} from "./api/documents";
 export {getPendingItems, approveItem, rejectItem} from "./api/approvals";
@@ -39,6 +39,9 @@ export {autoCheckOut} from "./scheduled/autoCheckOut";
 export {onLeadCreated} from "./triggers/onLeadCreated";
 export {onLeadSLABreach} from "./triggers/onLeadSLAExpired";
 export {onVisitCreated} from "./triggers/onVisitEnded";
+
+// Auth Triggers (v1 API - onCreate/onDelete not available in v2)
+export {onUserCreated} from "./triggers/onUserCreated";
 
 // ============================================================================
 // ADMIN UTILITIES - Use with caution!
