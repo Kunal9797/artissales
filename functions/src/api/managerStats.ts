@@ -8,6 +8,7 @@ import * as logger from "firebase-functions/logger";
 import {getFirestore} from "firebase-admin/firestore";
 import {requireAuth} from "../utils/auth";
 import {ApiError} from "../types";
+import {getDirectReportIds} from "../utils/team";
 
 const db = getFirestore();
 
@@ -44,10 +45,13 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     }
 
     const managerRole = managerDoc.data()?.role;
-    if (managerRole !== "national_head" && managerRole !== "admin") {
+
+    // Check if caller has permission to view team stats
+    const canViewStats = ["admin", "national_head", "area_manager"].includes(managerRole);
+    if (!canViewStats) {
       const error: ApiError = {
         ok: false,
-        error: "Only National Head or Admin can view team statistics",
+        error: "Only Admin, National Head, or Area Manager can view team statistics",
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
@@ -125,22 +129,45 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       ` | Timestamps: ${startDate.toISOString()} to ${endDate.toISOString()}`
     );
 
-    // 3. Get all users (for national head, get ALL users)
-    const usersSnapshot = await db.collection("users")
-      .where("isActive", "==", true)
-      .get();
+    // 3. Get team members based on caller's role
+    let teamMemberIds: string[];
+    let allUsers: any[] = [];
 
-    const allUsers = usersSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    if (managerRole === "admin") {
+      // Admin sees all reps and managers
+      const usersSnapshot = await db.collection("users")
+        .where("isActive", "==", true)
+        .get();
 
-    // Filter to only reps and managers (exclude current user if needed)
-    const teamMembers = allUsers.filter((u: any) =>
-      ["rep", "area_manager", "zonal_head"].includes(u.role)
-    );
+      allUsers = usersSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-    const totalTeamMembers = teamMembers.length;
+      // Filter to only reps and managers
+      const teamMembers = allUsers.filter((u: any) =>
+        ["rep", "area_manager", "zonal_head"].includes(u.role)
+      );
+      teamMemberIds = teamMembers.map((u: any) => u.id);
+    } else {
+      // National Head / Area Manager - see only direct reports
+      teamMemberIds = await getDirectReportIds(managerId);
+
+      // Fetch user details for team members
+      if (teamMemberIds.length > 0) {
+        const userPromises = teamMemberIds.map((id) =>
+          db.collection("users").doc(id).get()
+        );
+        const userDocs = await Promise.all(userPromises);
+        allUsers = userDocs
+          .filter((doc) => doc.exists)
+          .map((doc) => ({id: doc.id, ...doc.data()}));
+      }
+    }
+
+    const totalTeamMembers = teamMemberIds.length;
+
+    logger.info(`[getTeamStats] Manager ${managerId} (${managerRole}) has ${totalTeamMembers} team members: ${JSON.stringify(teamMemberIds)}`);
 
     // 4-8. Execute all queries in parallel for better performance
     const [
@@ -199,11 +226,19 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     logger.info(`[getTeamStats] Found ${attendanceSnapshot.size} attendance records`);
 
+    // Create a Set for O(1) lookup of team member IDs
+    const teamMemberIdSet = new Set(teamMemberIds);
+
+    // Filter helper - only include data from team members
+    const isTeamMember = (userId: string) =>
+      managerRole === "admin" || teamMemberIdSet.has(userId);
+
     // Process attendance data (OLD - deprecated but kept for backwards compatibility)
     const attendanceByUser: Record<string, any[]> = {};
     attendanceSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       const userId = data.userId;
+      if (!isTeamMember(userId)) return; // Skip non-team members
       if (!attendanceByUser[userId]) {
         attendanceByUser[userId] = [];
       }
@@ -218,19 +253,26 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     const absentCount = totalTeamMembers - presentCount;
 
     // Calculate active users (NEW - activity-based metric)
-    // Active = any user who logged a visit, sheet sale, or expense in the date range
+    // Active = any team member who logged a visit, sheet sale, or expense in the date range
     const activeUserIds = new Set<string>();
-    visitsSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
-    sheetsSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
-    expensesSnapshot.docs.forEach((doc) => activeUserIds.add(doc.data().userId));
+    visitsSnapshot.docs.forEach((doc) => {
+      const userId = doc.data().userId;
+      if (isTeamMember(userId)) activeUserIds.add(userId);
+    });
+    sheetsSnapshot.docs.forEach((doc) => {
+      const userId = doc.data().userId;
+      if (isTeamMember(userId)) activeUserIds.add(userId);
+    });
+    expensesSnapshot.docs.forEach((doc) => {
+      const userId = doc.data().userId;
+      if (isTeamMember(userId)) activeUserIds.add(userId);
+    });
 
     const activeCount = activeUserIds.size;
     const inactiveCount = totalTeamMembers - activeCount;
 
-    // Process visits data
-    const totalVisits = visitsSnapshot.size;
-    logger.info(`[getTeamStats] Found ${totalVisits} visits`);
-
+    // Process visits data (filtered by team members)
+    let totalVisits = 0;
     let distributorVisits = 0;
     let dealerVisits = 0;
     let architectVisits = 0;
@@ -238,13 +280,17 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     visitsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
+      if (!isTeamMember(data.userId)) return; // Skip non-team members
+      totalVisits++;
       if (data.accountType === "distributor") distributorVisits++;
       else if (data.accountType === "dealer") dealerVisits++;
       else if (data.accountType === "architect") architectVisits++;
       else if (data.accountType === "OEM") oemVisits++;
     });
 
-    // Process sheets sales data
+    logger.info(`[getTeamStats] Filtered to ${totalVisits} team visits (raw query returned ${visitsSnapshot.size})`);
+
+    // Process sheets sales data (filtered by team members)
     let totalSheets = 0;
     const sheetsByCatalog: Record<string, number> = {
       "Fine Decor": 0,
@@ -255,16 +301,26 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     sheetsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
+      if (!isTeamMember(data.userId)) return; // Skip non-team members
       totalSheets += data.sheetsCount || 0;
       if (sheetsByCatalog[data.catalog] !== undefined) {
         sheetsByCatalog[data.catalog] += data.sheetsCount || 0;
       }
     });
 
-    // Process DSR and expenses data
-    const pendingDSRs = dsrSnapshot.size;
-    const pendingExpenses = expensesSnapshot.size;
-    logger.info(`[getTeamStats] Found ${pendingExpenses} pending expenses`);
+    // Process DSR and expenses data (filtered by team members)
+    let pendingDSRs = 0;
+    let pendingExpenses = 0;
+
+    dsrSnapshot.docs.forEach((doc) => {
+      if (isTeamMember(doc.data().userId)) pendingDSRs++;
+    });
+
+    expensesSnapshot.docs.forEach((doc) => {
+      if (isTeamMember(doc.data().userId)) pendingExpenses++;
+    });
+
+    logger.info(`[getTeamStats] Found ${pendingExpenses} team pending expenses`);
 
     // 9. Return aggregated stats
     response.status(200).json({

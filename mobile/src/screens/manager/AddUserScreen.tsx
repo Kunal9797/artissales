@@ -13,9 +13,9 @@ import {
   FlatList,
 } from 'react-native';
 import { colors, spacing, typography } from '../../theme';
-import { User, Phone, MapPin, Shield, Building2, X, Plus } from 'lucide-react-native';
+import { User, Phone, MapPin, Shield, Building2, X, Plus, Users } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { AccountListItem } from '../../types';
+import { AccountListItem, ManagerListItem } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 
 interface AddUserScreenProps {
@@ -63,6 +63,12 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
   const [distributors, setDistributors] = useState<AccountListItem[]>([]);
   const [loadingDistributors, setLoadingDistributors] = useState(false);
 
+  // Manager (Reports To) picker states - only used by Admin creating reps
+  const [selectedManager, setSelectedManager] = useState<ManagerListItem | null>(null);
+  const [showManagerModal, setShowManagerModal] = useState(false);
+  const [managers, setManagers] = useState<ManagerListItem[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
+
   // Validation states
   const [phoneError, setPhoneError] = useState('');
   const [nameError, setNameError] = useState('');
@@ -71,7 +77,11 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
   useEffect(() => {
     // Load distributors for picker
     loadDistributors();
-  }, []);
+    // Load managers for "Reports To" picker (only needed for Admin)
+    if (user?.role === 'admin') {
+      loadManagers();
+    }
+  }, [user?.role]);
 
   const loadDistributors = async () => {
     try {
@@ -84,6 +94,20 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
       logger.error('Error loading distributors:', error);
     } finally {
       setLoadingDistributors(false);
+    }
+  };
+
+  const loadManagers = async () => {
+    try {
+      setLoadingManagers(true);
+      const response = await api.getManagersList();
+      if (response.ok) {
+        setManagers(response.managers);
+      }
+    } catch (error) {
+      logger.error('Error loading managers:', error);
+    } finally {
+      setLoadingManagers(false);
     }
   };
 
@@ -167,13 +191,18 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
   };
 
   const isFormValid = (): boolean => {
+    // Admin must select a manager when creating a rep
+    const needsManager = user?.role === 'admin' && selectedRole === 'rep';
+    const hasRequiredManager = !needsManager || selectedManager !== null;
+
     return (
       phone.length === 10 &&
       name.trim().length >= 2 &&
       territory.trim().length >= 2 &&
       !phoneError &&
       !nameError &&
-      !territoryError
+      !territoryError &&
+      hasRequiredManager
     );
   };
 
@@ -188,6 +217,12 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
       return;
     }
 
+    // Admin must select manager when creating a rep
+    if (user?.role === 'admin' && selectedRole === 'rep' && !selectedManager) {
+      Alert.alert('Validation Error', 'Please select a manager for this sales rep');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -197,6 +232,8 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         role: selectedRole,
         territory: territory.trim(),
         primaryDistributorId: selectedDistributor?.id,
+        // Admin must specify manager for reps; NH/AM auto-assign to themselves on backend
+        reportsToUserId: user?.role === 'admin' && selectedRole === 'rep' ? selectedManager?.id : undefined,
       });
 
       Alert.alert(
@@ -340,6 +377,34 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
           {territoryError ? <Text style={styles.errorText}>{territoryError}</Text> : null}
         </View>
 
+        {/* Reports To (Manager) - only shown for Admin creating a rep */}
+        {user?.role === 'admin' && selectedRole === 'rep' && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Reports To *</Text>
+            <TouchableOpacity
+              style={[styles.dropdownButton, !selectedManager && styles.dropdownRequired]}
+              onPress={() => setShowManagerModal(true)}
+              disabled={loading}
+            >
+              <Users size={20} color={selectedManager ? colors.text.tertiary : colors.accent} />
+              <Text style={selectedManager ? styles.dropdownText : styles.dropdownPlaceholder}>
+                {selectedManager ? `${selectedManager.name} (${selectedManager.role.replace('_', ' ')})` : 'Select manager...'}
+              </Text>
+            </TouchableOpacity>
+            {selectedManager && (
+              <TouchableOpacity
+                onPress={() => setSelectedManager(null)}
+                style={styles.clearButton}
+              >
+                <Text style={styles.clearButtonText}>Clear selection</Text>
+              </TouchableOpacity>
+            )}
+            {!selectedManager && (
+              <Text style={styles.helperTextMuted}>Select the manager this rep will report to</Text>
+            )}
+          </View>
+        )}
+
         {/* Primary Distributor (only for rep role) */}
         {selectedRole === 'rep' && (
           <View style={styles.inputGroup}>
@@ -455,6 +520,59 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
           </View>
         </Modal>
       )}
+
+      {/* Manager Selection Modal (for "Reports To" dropdown) */}
+      {showManagerModal && (
+        <Modal visible={showManagerModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Manager</Text>
+                <TouchableOpacity onPress={() => setShowManagerModal(false)}>
+                  <X size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {loadingManagers ? (
+                <View style={styles.modalLoading}>
+                  <ActivityIndicator size="small" color={colors.accent} />
+                  <Text style={styles.modalLoadingText}>Loading managers...</Text>
+                </View>
+              ) : (
+                <FlatList
+                  data={managers}
+                  keyExtractor={(item) => item.id}
+                  style={styles.modalList}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.modalItem}
+                      onPress={() => {
+                        setSelectedManager(item);
+                        setShowManagerModal(false);
+                      }}
+                    >
+                      <View style={styles.modalItemMain}>
+                        <Text style={styles.modalItemName}>{item.name}</Text>
+                        <Text style={styles.modalItemMeta}>
+                          {item.role.replace('_', ' ')} • {item.territory}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.modalEmpty}>
+                      <Text style={styles.modalEmptyText}>No managers found</Text>
+                      <Text style={styles.modalEmptySubtext}>
+                        Create a manager account first
+                      </Text>
+                    </View>
+                  }
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -530,6 +648,11 @@ const styles = StyleSheet.create({
     color: colors.success,
     marginTop: spacing.xs,
   },
+  helperTextMuted: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.tertiary,
+    marginTop: spacing.xs,
+  },
   roleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -586,6 +709,10 @@ const styles = StyleSheet.create({
     borderRadius: spacing.borderRadius.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md + 4,
+  },
+  dropdownRequired: {
+    borderColor: colors.accent,
+    borderWidth: 2,
   },
   dropdownText: {
     flex: 1,

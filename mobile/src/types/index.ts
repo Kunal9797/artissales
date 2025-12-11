@@ -64,6 +64,7 @@ export interface CreateUserByManagerRequest {
   role: 'rep' | 'area_manager' | 'zonal_head' | 'national_head' | 'admin';
   territory: string;
   primaryDistributorId?: string; // Optional distributor assignment
+  reportsToUserId?: string; // Manager this user reports to (required for reps when created by admin)
 }
 
 export interface CreateUserByManagerResponse {
@@ -159,6 +160,21 @@ export interface UserListItem {
   isActive: boolean;
   lastActiveAt: string | null; // ISO timestamp of last activity, null if never
   createdAt: string;
+  reportsToUserId?: string; // Manager this user reports to
+  reportsToUserName?: string; // Manager name (denormalized for display)
+}
+
+// Manager List Types (for "Reports To" dropdown)
+export interface ManagerListItem {
+  id: string;
+  name: string;
+  role: string;
+  territory: string;
+}
+
+export interface GetManagersListResponse {
+  ok: true;
+  managers: ManagerListItem[];
 }
 
 export interface GetUsersListResponse {

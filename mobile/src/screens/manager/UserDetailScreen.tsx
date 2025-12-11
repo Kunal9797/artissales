@@ -40,7 +40,8 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { api } from '../../services/api';
 import { DetailedStatsView } from '../../components/DetailedStatsView';
 import { Skeleton } from '../../patterns';
-import { AccountListItem } from '../../types';
+import { AccountListItem, ManagerListItem } from '../../types';
+import { useAuth } from '../../hooks/useAuth';
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -61,6 +62,8 @@ interface UserData {
   territory: string;
   primaryDistributorId?: string;
   isActive?: boolean;
+  reportsToUserId?: string;
+  reportsToUserName?: string;
 }
 
 interface UserStats {
@@ -111,6 +114,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   route,
 }) => {
   const { userId } = route.params;
+  const { user: currentUser } = useAuth(); // Get logged-in user
   const [userData, setUserData] = useState<UserData | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('month'); // Default: This Month
@@ -135,6 +139,13 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [distributors, setDistributors] = useState<AccountListItem[]>([]);
   const [showDistributorModal, setShowDistributorModal] = useState(false);
   const [loadingDistributors, setLoadingDistributors] = useState(false);
+
+  // Manager (Reports To) picker states - Admin only
+  const [editManagerId, setEditManagerId] = useState<string | null>(null);
+  const [editManagerName, setEditManagerName] = useState<string>('');
+  const [managers, setManagers] = useState<ManagerListItem[]>([]);
+  const [showManagerModal, setShowManagerModal] = useState(false);
+  const [loadingManagers, setLoadingManagers] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -392,16 +403,38 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
     }
   };
 
+  // Load managers for "Reports To" picker (Admin only)
+  const loadManagers = async () => {
+    try {
+      setLoadingManagers(true);
+      const response = await api.getManagersList();
+      if (response.ok) {
+        setManagers(response.managers);
+      }
+    } catch (error) {
+      logger.error('Error loading managers:', error);
+    } finally {
+      setLoadingManagers(false);
+    }
+  };
+
   const handleEditPress = async () => {
     setEditName(userData?.name || '');
     setEditPhone(userData?.phone || '');
     setEditTerritory(userData?.territory || '');
     setEditDistributorId(userData?.primaryDistributorId || null);
     setEditIsActive(userData?.isActive !== false); // default to true if undefined
+    setEditManagerId(userData?.reportsToUserId || null);
+    setEditManagerName(userData?.reportsToUserName || '');
     setShowEditModal(true);
 
     // Load distributors in background
     loadDistributors();
+
+    // Load managers in background (Admin only)
+    if (currentUser?.role === 'admin') {
+      loadManagers();
+    }
 
     // If user has a distributor assigned, try to get its name
     if (userData?.primaryDistributorId) {
@@ -437,6 +470,8 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         territory: editTerritory.trim() || undefined,
         primaryDistributorId: editDistributorId,
         isActive: editIsActive,
+        // Admin can change who user reports to
+        reportsToUserId: currentUser?.role === 'admin' ? editManagerId : undefined,
       });
 
       Alert.alert('Success', 'User details updated successfully');
@@ -890,6 +925,35 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                 )}
               </View>
 
+              {/* Reports To (Manager) - Admin only */}
+              {currentUser?.role === 'admin' && userData?.role === 'rep' && (
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Reports To</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownButton}
+                    onPress={() => setShowManagerModal(true)}
+                    disabled={saving}
+                  >
+                    <Users size={18} color={colors.text.tertiary} />
+                    <Text style={editManagerName ? styles.dropdownText : styles.dropdownPlaceholder}>
+                      {editManagerName || 'Select manager...'}
+                    </Text>
+                    <ChevronDown size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                  {editManagerId && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditManagerId(null);
+                        setEditManagerName('');
+                      }}
+                      style={styles.clearButton}
+                    >
+                      <Text style={styles.clearButtonText}>Clear selection</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               {/* Active Status Toggle */}
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Account Status</Text>
@@ -981,6 +1045,58 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                 ListEmptyComponent={
                   <View style={styles.distributorEmpty}>
                     <Text style={styles.distributorEmptyText}>No distributors found</Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Manager Selection Modal (for "Reports To" - Admin only) */}
+      <Modal
+        visible={showManagerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowManagerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.distributorModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Select Manager</Text>
+              <TouchableOpacity onPress={() => setShowManagerModal(false)}>
+                <X size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+
+            {loadingManagers ? (
+              <View style={styles.distributorLoading}>
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={styles.distributorLoadingText}>Loading managers...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={managers}
+                keyExtractor={(item) => item.id}
+                style={styles.distributorList}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.distributorItem}
+                    onPress={() => {
+                      setEditManagerId(item.id);
+                      setEditManagerName(item.name);
+                      setShowManagerModal(false);
+                    }}
+                  >
+                    <Text style={styles.distributorName}>{item.name}</Text>
+                    <Text style={styles.distributorMeta}>
+                      {item.role.replace('_', ' ')} • {item.territory}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <View style={styles.distributorEmpty}>
+                    <Text style={styles.distributorEmptyText}>No managers found</Text>
                   </View>
                 }
               />

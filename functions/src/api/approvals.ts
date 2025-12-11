@@ -95,8 +95,8 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
     let teamIds: string[];
     const userNameMap: Record<string, string> = {};
 
-    if (role === "national_head" || role === "admin") {
-      // National heads see all reps
+    if (role === "admin") {
+      // Admin sees all reps
       const allRepsSnapshot = await db
         .collection("users")
         .where("role", "==", "rep")
@@ -108,7 +108,8 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
         userNameMap[doc.id] = doc.data()?.name || "Unknown";
       });
     } else {
-      // Area managers / zonal heads see direct reports
+      // National Head / Area Manager / Zonal Head - see ONLY direct reports
+      // Each manager only approves items from users who report directly to them
       const usersSnapshot = await db
         .collection("users")
         .where("reportsToUserId", "==", userId)

@@ -18,7 +18,7 @@ export {checkIn, checkOut} from "./api/attendance";
 export {logSheetsSale, getSheetsSales, updateSheetsSale, deleteSheetsSale} from "./api/sheetsSales";
 export {submitExpense, getExpense, updateExpense, deleteExpense} from "./api/expenses";
 export {updateProfile} from "./api/profile";
-export {createUserByManager, getUsersList, getUserStats, updateUser} from "./api/users";
+export {createUserByManager, getUsersList, getUserStats, updateUser, getManagersList} from "./api/users";
 export {getTeamStats} from "./api/managerStats";
 export {getManagerDashboard, getTodayVisitsSummary} from "./api/managerDashboard";
 export {createAccount, getAccountsList, updateAccount, getAccountDetails, deleteAccount} from "./api/accounts";

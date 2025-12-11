@@ -13,6 +13,7 @@ import * as logger from "firebase-functions/logger";
 import {getFirestore} from "firebase-admin/firestore";
 import {requireAuth} from "../utils/auth";
 import {ApiError} from "../types";
+import {getDirectReportIds} from "../utils/team";
 
 const db = getFirestore();
 
@@ -64,48 +65,8 @@ export const getManagerDashboard = onRequest({cors: true}, async (request, respo
 
     logger.info(`[getManagerDashboard] Fetching dashboard for ${targetDate}`);
 
-    // 3. Execute all queries in parallel for maximum speed
-    const [
-      userDoc,
-      teamSnapshot,
-      pendingSheetsAgg,
-      pendingExpensesAgg,
-      todayVisitsAgg,
-      todaySheetsSnapshot,
-    ] = await Promise.all([
-      // Query 1: User info
-      db.collection("users").doc(managerId).get(),
-
-      // Query 2: Team size (active users who are reps/managers)
-      db.collection("users")
-        .where("isActive", "==", true)
-        .get(),
-
-      // Query 3: Pending sheets count (using aggregate count - fastest)
-      db.collection("sheetsSales")
-        .where("verified", "==", false)
-        .count()
-        .get(),
-
-      // Query 4: Pending expenses count (using aggregate count)
-      db.collection("expenses")
-        .where("status", "==", "pending")
-        .count()
-        .get(),
-
-      // Query 5: Today's visits count (using aggregate count)
-      db.collection("visits")
-        .where("timestamp", ">=", startOfDay)
-        .where("timestamp", "<=", endOfDay)
-        .count()
-        .get(),
-
-      // Query 6: Today's sheets (need docs to sum sheetsCount field)
-      db.collection("sheetsSales")
-        .where("date", "==", targetDate)
-        .select("sheetsCount")
-        .get(),
-    ]);
+    // 3. Get user info first to determine role
+    const userDoc = await db.collection("users").doc(managerId).get();
 
     // Check user exists and has manager permissions
     if (!userDoc.exists) {
@@ -133,34 +94,86 @@ export const getManagerDashboard = onRequest({cors: true}, async (request, respo
       return;
     }
 
-    // Calculate team size (reps + lower managers, deduplicated by phone)
-    const teamRoles = ["rep", "area_manager", "zonal_head"];
-    const seenPhones = new Set<string>();
-    const teamMembers = teamSnapshot.docs.filter((doc) => {
-      const data = doc.data();
-      const role = data.role;
-      const phone = data.phone;
+    // 4. Get team member IDs based on role
+    let teamMemberIds: string[];
 
-      // Skip if not a team role
-      if (!teamRoles.includes(role)) return false;
+    if (userRole === "admin") {
+      // Admin sees all reps
+      const allRepsSnapshot = await db.collection("users")
+        .where("role", "==", "rep")
+        .where("isActive", "==", true)
+        .get();
+      teamMemberIds = allRepsSnapshot.docs.map((doc) => doc.id);
+    } else {
+      // National Head / Area Manager / Zonal Head - see ONLY direct reports
+      teamMemberIds = await getDirectReportIds(managerId);
+    }
 
-      // Skip duplicates by phone number (safety net)
-      if (phone && seenPhones.has(phone)) return false;
-      if (phone) seenPhones.add(phone);
+    const teamSize = teamMemberIds.length;
+    const teamMemberIdSet = new Set(teamMemberIds);
 
-      return true;
+    logger.info(`[getManagerDashboard] Manager ${managerId} (${userRole}) has ${teamSize} team members`);
+
+    // 5. Execute data queries in parallel
+    // Note: Firestore doesn't support 'in' with count(), so we fetch and filter
+    const [
+      pendingSheetsSnapshot,
+      pendingExpensesSnapshot,
+      todayVisitsSnapshot,
+      todaySheetsSnapshot,
+    ] = await Promise.all([
+      // Pending sheets (unverified)
+      db.collection("sheetsSales")
+        .where("verified", "==", false)
+        .get(),
+
+      // Pending expenses
+      db.collection("expenses")
+        .where("status", "==", "pending")
+        .get(),
+
+      // Today's visits
+      db.collection("visits")
+        .where("timestamp", ">=", startOfDay)
+        .where("timestamp", "<=", endOfDay)
+        .get(),
+
+      // Today's sheets
+      db.collection("sheetsSales")
+        .where("date", "==", targetDate)
+        .select("sheetsCount", "userId")
+        .get(),
+    ]);
+
+    // Helper to check if userId belongs to team
+    const isTeamMember = (userId: string) =>
+      userRole === "admin" || teamMemberIdSet.has(userId);
+
+    // Filter and count pending sheets by team members
+    let pendingSheetsCount = 0;
+    pendingSheetsSnapshot.docs.forEach((doc) => {
+      if (isTeamMember(doc.data().userId)) pendingSheetsCount++;
     });
-    const teamSize = teamMembers.length;
 
-    // Get counts from aggregate results
-    const pendingSheetsCount = pendingSheetsAgg.data().count;
-    const pendingExpensesCount = pendingExpensesAgg.data().count;
-    const todayVisitsCount = todayVisitsAgg.data().count;
+    // Filter and count pending expenses by team members
+    let pendingExpensesCount = 0;
+    pendingExpensesSnapshot.docs.forEach((doc) => {
+      if (isTeamMember(doc.data().userId)) pendingExpensesCount++;
+    });
 
-    // Sum today's sheets (need to iterate since we need sum, not count)
+    // Filter and count today's visits by team members
+    let todayVisitsCount = 0;
+    todayVisitsSnapshot.docs.forEach((doc) => {
+      if (isTeamMember(doc.data().userId)) todayVisitsCount++;
+    });
+
+    // Filter and sum today's sheets by team members
     let todaySheetsTotal = 0;
     todaySheetsSnapshot.docs.forEach((doc) => {
-      todaySheetsTotal += doc.data().sheetsCount || 0;
+      const data = doc.data();
+      if (isTeamMember(data.userId)) {
+        todaySheetsTotal += data.sheetsCount || 0;
+      }
     });
 
     logger.info(
@@ -280,26 +293,45 @@ export const getTodayVisitsSummary = onRequest({cors: true}, async (request, res
 
     logger.info(`[getTodayVisitsSummary] Fetching visits summary for ${targetDate}`);
 
-    // 4. Execute queries in parallel
-    const [visitsSnapshot, countResult] = await Promise.all([
-      // Get last 5 visits with full details
-      db.collection("visits")
-        .where("timestamp", ">=", startOfDay)
-        .where("timestamp", "<=", endOfDay)
-        .orderBy("timestamp", "desc")
-        .limit(5)
-        .get(),
+    // 4. Get team member IDs based on role
+    const userRole = userData?.role;
+    let teamMemberIds: string[];
 
-      // Get total count
-      db.collection("visits")
-        .where("timestamp", ">=", startOfDay)
-        .where("timestamp", "<=", endOfDay)
-        .count()
-        .get(),
-    ]);
+    if (userRole === "admin") {
+      // Admin sees all reps
+      const allRepsSnapshot = await db.collection("users")
+        .where("role", "==", "rep")
+        .where("isActive", "==", true)
+        .get();
+      teamMemberIds = allRepsSnapshot.docs.map((doc) => doc.id);
+    } else {
+      // National Head / Area Manager / Zonal Head - see ONLY direct reports
+      teamMemberIds = await getDirectReportIds(managerId);
+    }
 
-    // 5. Get rep names for visits (batch lookup)
-    const userIds = [...new Set(visitsSnapshot.docs.map((doc) => doc.data().userId))];
+    const teamMemberIdSet = new Set(teamMemberIds);
+    const isTeamMember = (userId: string) =>
+      userRole === "admin" || teamMemberIdSet.has(userId);
+
+    // 5. Get all visits for today (we'll filter by team)
+    const visitsSnapshot = await db.collection("visits")
+      .where("timestamp", ">=", startOfDay)
+      .where("timestamp", "<=", endOfDay)
+      .orderBy("timestamp", "desc")
+      .get();
+
+    // Filter visits by team members
+    const teamVisitDocs = visitsSnapshot.docs.filter((doc) =>
+      isTeamMember(doc.data().userId)
+    );
+
+    const totalCount = teamVisitDocs.length;
+
+    // Get last 5 team visits
+    const recentVisitDocs = teamVisitDocs.slice(0, 5);
+
+    // 6. Get rep names for visits (batch lookup)
+    const userIds = [...new Set(recentVisitDocs.map((doc) => doc.data().userId))];
     const userDocs = await Promise.all(
       userIds.map((uid) => db.collection("users").doc(uid).get())
     );
@@ -310,8 +342,8 @@ export const getTodayVisitsSummary = onRequest({cors: true}, async (request, res
       }
     });
 
-    // 6. Format response
-    const recentVisits = visitsSnapshot.docs.map((doc) => {
+    // 7. Format response
+    const recentVisits = recentVisitDocs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -321,8 +353,6 @@ export const getTodayVisitsSummary = onRequest({cors: true}, async (request, res
         timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
       };
     });
-
-    const totalCount = countResult.data().count;
 
     logger.info(`[getTodayVisitsSummary] Found ${totalCount} visits, returning ${recentVisits.length}`);
 

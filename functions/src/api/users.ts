@@ -13,20 +13,27 @@ import {
 import {requireAuth} from "../utils/auth";
 import {UserRole, ApiError} from "../types";
 import {setUserRoleClaim} from "../utils/customClaims";
+import {isManagerRole} from "../utils/team";
 
 const db = getFirestore();
 
 /**
  * Create User By Manager
- * Allows National Head/Admin to create new user accounts
+ * Allows Admin, National Head, or Area Manager to create new user accounts
  *
  * POST /createUserByManager
  * Body: {
- *   phone: string,      // 10-digit Indian mobile
- *   name: string,       // User's full name
- *   role: UserRole,     // rep | zonal_head | national_head | admin
- *   territory: string   // City name
+ *   phone: string,           // 10-digit Indian mobile
+ *   name: string,            // User's full name
+ *   role: UserRole,          // rep | area_manager | zonal_head | national_head | admin
+ *   territory: string,       // City name
+ *   reportsToUserId?: string // Manager to assign (Admin only - NH/AM auto-assign to self)
  * }
+ *
+ * Permission rules:
+ * - Admin: Can create any role, can assign to any manager
+ * - National Head: Can create rep/area_manager/zonal_head, auto-assigns reps to self
+ * - Area Manager: Can only create rep, auto-assigns to self
  */
 export const createUserByManager = onRequest(async (request, response) => {
   try {
@@ -52,12 +59,14 @@ export const createUserByManager = onRequest(async (request, response) => {
     }
 
     const managerRole = managerDoc.data()?.role;
-    if (managerRole !== "national_head" && managerRole !== "admin") {
-      logger.error("[createUserByManager] Insufficient permissions:",
-        managerRole);
+
+    // Check if caller has permission to create users
+    const canCreateUsers = ["admin", "national_head", "area_manager"].includes(managerRole);
+    if (!canCreateUsers) {
+      logger.error("[createUserByManager] Insufficient permissions:", managerRole);
       const error: ApiError = {
         ok: false,
-        error: "Only National Head or Admin can create users",
+        error: "Only Admin, National Head, or Area Manager can create users",
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
@@ -65,7 +74,7 @@ export const createUserByManager = onRequest(async (request, response) => {
     }
 
     // 2. Validate request body
-    const {phone, name, role, territory, primaryDistributorId} = request.body;
+    const {phone, name, role, territory, primaryDistributorId, reportsToUserId} = request.body;
 
     // Validate phone
     if (!phone || typeof phone !== "string") {
@@ -129,6 +138,82 @@ export const createUserByManager = onRequest(async (request, response) => {
       response.status(400).json(error);
       return;
     }
+
+    // Check role-based creation permissions
+    // Admin can create any role
+    // National Head can create rep, area_manager, zonal_head (not admin or national_head)
+    // Area Manager can only create rep
+    if (managerRole === "national_head") {
+      if (role === "admin" || role === "national_head") {
+        const error: ApiError = {
+          ok: false,
+          error: "National Head cannot create Admin or National Head users",
+          code: "ROLE_NOT_ALLOWED",
+        };
+        response.status(403).json(error);
+        return;
+      }
+    } else if (managerRole === "area_manager") {
+      if (role !== "rep") {
+        const error: ApiError = {
+          ok: false,
+          error: "Area Manager can only create Sales Rep users",
+          code: "ROLE_NOT_ALLOWED",
+        };
+        response.status(403).json(error);
+        return;
+      }
+    }
+
+    // Determine reportsToUserId based on caller's role
+    // - Admin: can specify any manager, or leave blank
+    // - National Head / Area Manager: auto-assign to themselves
+    let finalReportsToUserId: string | null = null;
+
+    if (role === "rep") {
+      // Reps MUST have a manager
+      if (managerRole === "admin") {
+        // Admin can specify reportsToUserId
+        if (reportsToUserId) {
+          // Validate the specified manager exists and is a manager role
+          const targetManagerDoc = await db.collection("users").doc(reportsToUserId).get();
+          if (!targetManagerDoc.exists) {
+            const error: ApiError = {
+              ok: false,
+              error: "Specified manager not found",
+              code: "INVALID_MANAGER",
+            };
+            response.status(400).json(error);
+            return;
+          }
+          const targetManagerRole = targetManagerDoc.data()?.role;
+          if (!isManagerRole(targetManagerRole)) {
+            const error: ApiError = {
+              ok: false,
+              error: "reportsToUserId must reference a manager (area_manager, zonal_head, national_head, or admin)",
+              code: "INVALID_MANAGER_ROLE",
+            };
+            response.status(400).json(error);
+            return;
+          }
+          finalReportsToUserId = reportsToUserId;
+        } else {
+          // Admin didn't specify - they must provide a manager for reps
+          const error: ApiError = {
+            ok: false,
+            error: "reportsToUserId is required when creating a rep",
+            code: "MANAGER_REQUIRED",
+          };
+          response.status(400).json(error);
+          return;
+        }
+      } else {
+        // National Head or Area Manager - auto-assign to themselves
+        finalReportsToUserId = managerId;
+        logger.info(`[createUserByManager] Auto-assigning rep to manager: ${managerId}`);
+      }
+    }
+    // For non-rep roles (area_manager, zonal_head, etc.), reportsToUserId is not required
 
     // Validate territory
     if (!territory || typeof territory !== "string" ||
@@ -196,6 +281,11 @@ export const createUserByManager = onRequest(async (request, response) => {
           newUser.primaryDistributorId = primaryDistributorId;
         }
 
+        // Add reportsToUserId if set (for reps)
+        if (finalReportsToUserId) {
+          newUser.reportsToUserId = finalReportsToUserId;
+        }
+
         transaction.set(newUserRef, newUser);
         return newUserId;
       });
@@ -221,8 +311,13 @@ export const createUserByManager = onRequest(async (request, response) => {
       // Don't fail the request - claims can be set later via migration
     }
 
-    logger.info("[createUserByManager] ✅ User created successfully:",
-      userId, normalizedPhone, role, primaryDistributorId);
+    logger.info("[createUserByManager] ✅ User created successfully:", {
+      userId,
+      phone: normalizedPhone,
+      role,
+      reportsToUserId: finalReportsToUserId,
+      primaryDistributorId,
+    });
 
     // 6. Return success
     response.status(200).json({
@@ -249,7 +344,10 @@ export const createUserByManager = onRequest(async (request, response) => {
 
 /**
  * Get Users List
- * Returns list of all users with optional filters
+ * Returns list of users with optional filters
+ * Results are filtered based on caller's role:
+ * - Admin: sees all users
+ * - National Head / Area Manager: sees only their direct reports
  *
  * POST /getUsersList
  * Body: {
@@ -282,10 +380,13 @@ export const getUsersList = onRequest({cors: true}, async (request, response) =>
     }
 
     const managerRole = managerDoc.data()?.role;
-    if (managerRole !== "national_head" && managerRole !== "admin") {
+
+    // Check if caller has permission to view users list
+    const canViewUsers = ["admin", "national_head", "area_manager"].includes(managerRole);
+    if (!canViewUsers) {
       const error: ApiError = {
         ok: false,
-        error: "Only National Head or Admin can view users list",
+        error: "Only Admin, National Head, or Area Manager can view users list",
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
@@ -295,18 +396,33 @@ export const getUsersList = onRequest({cors: true}, async (request, response) =>
     // 2. Parse filters
     const {role, territory, searchTerm} = request.body;
 
-    // Build query
-    let query = db.collection("users").where("isActive", "==", true);
+    // 3. Build query based on caller's role
+    let usersSnapshot;
 
-    if (role) {
-      query = query.where("role", "==", role);
+    if (managerRole === "admin") {
+      // Admin sees all users
+      let query = db.collection("users").where("isActive", "==", true);
+      if (role) {
+        query = query.where("role", "==", role);
+      }
+      if (territory) {
+        query = query.where("territory", "==", territory);
+      }
+      usersSnapshot = await query.get();
+    } else {
+      // National Head / Area Manager - see only direct reports
+      let query = db.collection("users")
+        .where("reportsToUserId", "==", managerId)
+        .where("isActive", "==", true);
+
+      if (role) {
+        query = query.where("role", "==", role);
+      }
+      // Note: Can't combine reportsToUserId with territory in Firestore without composite index
+      // Territory filtering will be done client-side for non-admin
+
+      usersSnapshot = await query.get();
     }
-
-    if (territory) {
-      query = query.where("territory", "==", territory);
-    }
-
-    const usersSnapshot = await query.get();
 
     // Get all users and filter by search term if provided
     let users = usersSnapshot.docs.map((doc) => {
@@ -321,8 +437,14 @@ export const getUsersList = onRequest({cors: true}, async (request, response) =>
         isActive: data.isActive !== false,
         lastActiveAt: data.lastActiveAt?.toDate().toISOString() || null,
         createdAt: data.createdAt?.toDate().toISOString() || "",
+        reportsToUserId: data.reportsToUserId || null,
       };
     });
+
+    // Client-side territory filter for non-admin (can't combine with reportsToUserId in Firestore)
+    if (territory && managerRole !== "admin") {
+      users = users.filter((user) => user.territory === territory);
+    }
 
     // Client-side search filter (since Firestore doesn't support full-text search)
     if (searchTerm && searchTerm.trim().length > 0) {
@@ -641,6 +763,9 @@ export const getUserStats = onRequest(async (request, response) => {
         role: userData?.role,
         territory: userData?.territory,
         phone: userData?.phone,
+        primaryDistributorId: userData?.primaryDistributorId || null,
+        reportsToUserId: userData?.reportsToUserId || null,
+        isActive: userData?.isActive !== false,
       },
       stats: {
         attendance: {
@@ -681,8 +806,13 @@ export const getUserStats = onRequest(async (request, response) => {
 
 /**
  * POST /updateUser
- * Update user details (name, phone, territory, primaryDistributorId, isActive)
- * Only accessible by National Head or Admin
+ * Update user details (name, phone, territory, primaryDistributorId, isActive, reportsToUserId)
+ *
+ * Permission rules:
+ * - Admin: Can update any user, can change reportsToUserId
+ * - National Head: Can update their direct reports
+ * - Area Manager: Can update their direct reports
+ * - reportsToUserId can ONLY be changed by Admin
  */
 export const updateUser = onRequest({invoker: "public"}, async (request, response) => {
   try {
@@ -708,10 +838,13 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
     }
 
     const managerRole = managerDoc.data()?.role;
-    if (managerRole !== "national_head" && managerRole !== "admin") {
+
+    // Check if caller has permission to update users
+    const canUpdateUsers = ["admin", "national_head", "area_manager"].includes(managerRole);
+    if (!canUpdateUsers) {
       const error: ApiError = {
         ok: false,
-        error: "Only National Head or Admin can update user details",
+        error: "Only Admin, National Head, or Area Manager can update user details",
         code: "INSUFFICIENT_PERMISSIONS",
       };
       response.status(403).json(error);
@@ -719,7 +852,7 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
     }
 
     // 2. Parse parameters
-    const {userId, name, phone, territory, primaryDistributorId, isActive} = request.body;
+    const {userId, name, phone, territory, primaryDistributorId, isActive, reportsToUserId} = request.body;
 
     if (!userId) {
       const error: ApiError = {
@@ -743,6 +876,22 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
       };
       response.status(404).json(error);
       return;
+    }
+
+    const targetUserData = userDoc.data();
+
+    // For non-admin managers, verify they can only update their direct reports
+    if (managerRole !== "admin") {
+      const targetReportsTo = targetUserData?.reportsToUserId;
+      if (targetReportsTo !== managerId) {
+        const error: ApiError = {
+          ok: false,
+          error: "You can only update users who report directly to you",
+          code: "NOT_YOUR_REPORT",
+        };
+        response.status(403).json(error);
+        return;
+      }
     }
 
     // 3. Build update object
@@ -846,6 +995,57 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
       updates.isActive = Boolean(isActive);
     }
 
+    // Handle reportsToUserId change (Admin only)
+    if (reportsToUserId !== undefined) {
+      if (managerRole !== "admin") {
+        const error: ApiError = {
+          ok: false,
+          error: "Only Admin can change user's reporting manager",
+          code: "ADMIN_ONLY",
+        };
+        response.status(403).json(error);
+        return;
+      }
+
+      if (reportsToUserId === null || reportsToUserId === "") {
+        // Allow clearing the manager (for non-rep roles)
+        updates.reportsToUserId = null;
+      } else {
+        // Validate the new manager exists and has a manager role
+        const newManagerDoc = await db.collection("users").doc(reportsToUserId).get();
+        if (!newManagerDoc.exists) {
+          const error: ApiError = {
+            ok: false,
+            error: "Specified manager not found",
+            code: "INVALID_MANAGER",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        const newManagerRole = newManagerDoc.data()?.role;
+        if (!isManagerRole(newManagerRole)) {
+          const error: ApiError = {
+            ok: false,
+            error: "reportsToUserId must reference a manager (area_manager, zonal_head, national_head, or admin)",
+            code: "INVALID_MANAGER_ROLE",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        // Prevent circular reporting (user can't report to themselves)
+        if (reportsToUserId === userId) {
+          const error: ApiError = {
+            ok: false,
+            error: "User cannot report to themselves",
+            code: "CIRCULAR_REPORTING",
+          };
+          response.status(400).json(error);
+          return;
+        }
+        updates.reportsToUserId = reportsToUserId;
+      }
+    }
+
     // 4. Update user
     await userRef.update(updates);
 
@@ -857,6 +1057,93 @@ export const updateUser = onRequest({invoker: "public"}, async (request, respons
     });
   } catch (error: any) {
     logger.error("[updateUser] ❌ Error:", error);
+    const apiError: ApiError = {
+      ok: false,
+      error: "Internal server error",
+      code: "INTERNAL_ERROR",
+      details: error.message,
+    };
+    response.status(500).json(apiError);
+  }
+});
+
+
+/**
+ * Get Managers List
+ * Returns list of users who can be assigned as managers (for "Reports To" dropdown)
+ *
+ * POST /getManagersList
+ * Body: {} (no parameters needed)
+ *
+ * Returns: {
+ *   ok: true,
+ *   managers: Array<{id, name, role, territory}>
+ * }
+ */
+export const getManagersList = onRequest({cors: true}, async (request, response) => {
+  try {
+    // 1. Verify authentication
+    const auth = await requireAuth(request);
+    if (!("valid" in auth) || !auth.valid) {
+      response.status(401).json(auth);
+      return;
+    }
+
+    const callerId = auth.uid;
+
+    // Get caller's role (only managers can fetch this list)
+    const callerDoc = await db.collection("users").doc(callerId).get();
+    if (!callerDoc.exists) {
+      const error: ApiError = {
+        ok: false,
+        error: "User not found in system",
+        code: "USER_NOT_FOUND",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    const callerRole = callerDoc.data()?.role;
+    const canFetchManagers = ["admin", "national_head", "area_manager"].includes(callerRole);
+    if (!canFetchManagers) {
+      const error: ApiError = {
+        ok: false,
+        error: "Only managers can fetch the managers list",
+        code: "INSUFFICIENT_PERMISSIONS",
+      };
+      response.status(403).json(error);
+      return;
+    }
+
+    // 2. Query users with manager roles
+    // Include area_manager, zonal_head, national_head (exclude admin from list)
+    const managersSnapshot = await db.collection("users")
+      .where("isActive", "==", true)
+      .where("role", "in", ["area_manager", "zonal_head", "national_head"])
+      .get();
+
+    const managers = managersSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name || "",
+        role: data.role || "",
+        territory: data.territory || "",
+      };
+    });
+
+    // Sort by name
+    managers.sort((a, b) => a.name.localeCompare(b.name));
+
+    logger.info(`[getManagersList] ✅ Returned ${managers.length} managers`);
+
+    response.status(200).json({
+      ok: true,
+      managers,
+      count: managers.length,
+    });
+  } catch (error: any) {
+    logger.error("[getManagersList] ❌ Error:", error);
     const apiError: ApiError = {
       ok: false,
       error: "Internal server error",

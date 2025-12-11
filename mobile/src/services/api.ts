@@ -249,8 +249,14 @@ export const api = {
     territory?: string;
     primaryDistributorId?: string | null;
     isActive?: boolean;
+    reportsToUserId?: string | null; // Admin only - change who user reports to
   }) => {
     return callFunction('updateUser', data);
+  },
+
+  // Get list of managers (for "Reports To" dropdown)
+  getManagersList: async () => {
+    return callFunction('getManagersList', {});
   },
 
   getPendingExpenses: async (data: {}) => {

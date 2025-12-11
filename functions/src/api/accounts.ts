@@ -12,6 +12,7 @@ import {
 } from "../utils/validation";
 import {requireAuth} from "../utils/auth";
 import {AccountType, ApiError} from "../types";
+import {getDirectReportIds} from "../utils/team";
 
 const db = getFirestore();
 
@@ -336,13 +337,63 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       };
     });
 
-    // 6. Apply visibility rules for reps
-    // Managers (admin, national_head) can see all accounts
-    // Reps can see:
-    //   - All distributors
-    //   - Their own created dealer/architect/OEM
-    //   - Dealer/architect/OEM created by managers
-    if (callerRole !== "admin" && callerRole !== "national_head") {
+    // 6. Apply visibility rules based on role
+    // - Admin: sees all accounts
+    // - National Head / Area Manager: sees accounts created by self + direct reports + admin
+    // - Reps: see all distributors + their own created accounts + manager-created accounts
+
+    if (callerRole === "admin") {
+      // Admin sees all - no filtering needed
+    } else if (callerRole === "national_head" || callerRole === "area_manager") {
+      // National Head / Area Manager: filter to accounts created by:
+      // - Themselves
+      // - Their direct reports
+      // - Admin (admin-created accounts are shared)
+      const directReportIds = await getDirectReportIds(userId);
+      const teamMemberIds = new Set([userId, ...directReportIds]);
+
+      // Get unique creator IDs to check which are admins
+      const creatorIds = new Set<string>(
+        accounts
+          .map((acc) => acc.createdByUserId)
+          .filter((id) => id && id.trim().length > 0)
+      );
+
+      // Fetch creator roles to identify admins
+      const adminCreatorIds = new Set<string>();
+      if (creatorIds.size > 0) {
+        const creatorDocs = await Promise.all(
+          Array.from(creatorIds).map((id) => db.collection("users").doc(id).get())
+        );
+        creatorDocs.forEach((doc) => {
+          if (doc.exists && doc.data()?.role === "admin") {
+            adminCreatorIds.add(doc.id);
+          }
+        });
+      }
+
+      // Filter accounts
+      accounts = accounts.filter((account) => {
+        // Legacy data (no createdByUserId) - show it
+        if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
+          return true;
+        }
+
+        // Created by self or a direct report
+        if (teamMemberIds.has(account.createdByUserId)) {
+          return true;
+        }
+
+        // Created by admin (shared accounts)
+        if (adminCreatorIds.has(account.createdByUserId)) {
+          return true;
+        }
+
+        // Hide accounts created by other teams
+        return false;
+      });
+    } else {
+      // Reps: existing visibility rules
       // Get unique creator IDs to check their roles (filter out empty/undefined)
       const creatorIds = new Set<string>(
         accounts
