@@ -182,6 +182,7 @@ class UploadQueueService {
           notes: item.metadata.notes,
           geo: item.metadata.geo,
           photos,
+          requestId: item.metadata.requestId, // For idempotency - prevents duplicates on retry
         });
       } else if (item.type === 'visit-update') {
         const photos: string[] = [];

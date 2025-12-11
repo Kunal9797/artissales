@@ -479,12 +479,18 @@ export const getUserStats = onRequest(async (request, response) => {
       const data = doc.data();
       return {
         id: doc.id,
+        accountId: data.accountId,
         accountName: data.accountName,
         accountType: data.accountType,
         purpose: data.purpose,
+        notes: data.notes || "",
+        photos: data.photos || [], // Include photos for manager verification
         timestamp: data.timestamp?.toDate().toISOString(),
       };
     });
+
+    // Recent visits with photos (for manager quick view)
+    const recentVisits = visits.slice(0, 10);
 
     // Count by type
     const visitsByType = {
@@ -645,6 +651,7 @@ export const getUserStats = onRequest(async (request, response) => {
           total: visits.length,
           byType: visitsByType,
           records: visits,
+          recentWithPhotos: recentVisits, // Latest 10 visits with photo URLs
         },
         sheets: {
           total: totalSheets,

@@ -705,6 +705,7 @@ export const getAccountDetails = onRequest(async (request, response) => {
           userName: userDoc.exists ? userDoc.data()?.name : "Unknown",
           purpose: visitData.purpose || "follow_up",
           notes: visitData.notes || "",
+          photos: visitData.photos || [], // Include photos for manager verification
         };
       })
     );

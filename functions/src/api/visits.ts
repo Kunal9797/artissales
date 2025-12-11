@@ -113,6 +113,34 @@ export const logVisit = onRequest({
 
     const accountData = accountDoc.data();
 
+    // IDEMPOTENCY CHECK: Prevent duplicate visits on network retries
+    if (body.requestId) {
+      const existingVisit = await db
+        .collection("visits")
+        .where("requestId", "==", body.requestId)
+        .where("userId", "==", auth.uid)
+        .limit(1)
+        .get();
+
+      if (!existingVisit.empty) {
+        // Return existing visit (idempotent response)
+        const existing = existingVisit.docs[0].data();
+        logger.info("Duplicate request detected, returning existing visit", {
+          visitId: existing.id,
+          requestId: body.requestId,
+          userId: auth.uid,
+        });
+        const result: VisitLogResponse = {
+          ok: true,
+          visitId: existing.id,
+          timestamp: existing.timestamp?.toDate().toISOString() || "",
+          autoCheckedIn: false,
+        };
+        response.status(200).json(result);
+        return;
+      }
+    }
+
     // Create visit reference first to get ID
     const visitRef = db.collection("visits").doc();
 
@@ -128,6 +156,11 @@ export const logVisit = onRequest({
       photos: body.photos || [], // Default to empty array if no photos
       createdAt: firestore.Timestamp.now(),
     };
+
+    // Store requestId for idempotency (if provided)
+    if (body.requestId) {
+      visitData.requestId = body.requestId;
+    }
 
     // Only add notes if it's provided (Firestore rejects undefined)
     if (body.notes) {

@@ -123,6 +123,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+
   const [editTerritory, setEditTerritory] = useState('');
   const [editDistributorId, setEditDistributorId] = useState<string | null>(null);
   const [editDistributorName, setEditDistributorName] = useState<string>('');
@@ -987,6 +988,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           </View>
         </View>
       </Modal>
+
     </View>
   );
 };

@@ -7,10 +7,11 @@
 
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MapPin, FileText, IndianRupee, Building2, Clock } from 'lucide-react-native';
+import { MapPin, FileText, IndianRupee, Building2, Clock, Camera } from 'lucide-react-native';
 import { colors, spacing, featureColors } from '../theme';
 import { getCatalogDisplayName } from '../types';
 import { KpiCard } from '../patterns';
+import { PhotoViewer } from './PhotoViewer';
 
 // Helper to format relative time
 const formatRelativeTime = (timestamp: any): string => {
@@ -44,6 +45,7 @@ interface DetailedStatsProps {
         OEM: number;
       };
       records?: any[]; // For top visited accounts
+      recentWithPhotos?: any[]; // Recent visits with photo URLs for manager verification
     };
     sheets: {
       total: number;
@@ -92,31 +94,14 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('visits');
 
-  // Calculate top visited accounts (group by accountName since API doesn't return accountId)
-  const topVisitedAccounts = useMemo(() => {
-    if (!stats.visits?.records || stats.visits.records.length === 0) return [];
+  // Photo viewer state
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
+  const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
 
-    // Group by accountName and count
-    const accountCounts: Record<string, { name: string; count: number; type: string }> = {};
-    stats.visits.records.forEach((visit: any) => {
-      const name = visit.accountName;
-      if (!name) return;
-      if (!accountCounts[name]) {
-        accountCounts[name] = {
-          name: name,
-          count: 0,
-          type: visit.accountType || 'dealer',
-        };
-      }
-      accountCounts[name].count++;
-    });
-
-    // Sort by count and take top 5
-    return Object.entries(accountCounts)
-      .map(([name, data]) => ({ id: name, ...data }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-  }, [stats.visits?.records]);
+  const openPhotoViewer = (photos: string[]) => {
+    setViewingPhotos(photos);
+    setPhotoViewerVisible(true);
+  };
 
   // Calculate pending sheets total and records
   const pendingSheets = useMemo(() => {
@@ -358,21 +343,31 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
               </View>
             </View>
 
-            {/* Top Visited Accounts */}
-            {topVisitedAccounts.length > 0 && (
+            {/* Recent Visits with Photos */}
+            {stats.visits?.recentWithPhotos && stats.visits.recentWithPhotos.length > 0 && (
               <View style={styles.pendingSection}>
-                <Text style={styles.pendingSectionTitle}>TOP VISITED ACCOUNTS</Text>
-                {topVisitedAccounts.map((account, index) => (
-                  <View key={account.id} style={styles.activityCard}>
+                <Text style={styles.pendingSectionTitle}>RECENT VISITS</Text>
+                {stats.visits.recentWithPhotos.slice(0, 5).map((visit: any) => (
+                  <View key={visit.id} style={styles.activityCard}>
                     <Building2 size={20} color={colors.info} />
                     <View style={styles.activityContent}>
                       <Text style={styles.activityValue} numberOfLines={1}>
-                        {account.name}
+                        {visit.accountName}
                       </Text>
                       <Text style={styles.activityMeta}>
-                        {account.type} • {account.count} {account.count === 1 ? 'visit' : 'visits'}
+                        {visit.purpose} • {new Date(visit.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                       </Text>
                     </View>
+                    {/* Photo indicator */}
+                    {visit.photos && visit.photos.length > 0 && (
+                      <TouchableOpacity
+                        style={styles.photoIndicator}
+                        onPress={() => openPhotoViewer(visit.photos)}
+                      >
+                        <Camera size={14} color="#666666" />
+                        <Text style={styles.photoCount}>{visit.photos.length}</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))}
               </View>
@@ -550,6 +545,13 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
           </View>
         )}
       </View>
+
+      {/* Photo Viewer Modal */}
+      <PhotoViewer
+        visible={photoViewerVisible}
+        photos={viewingPhotos}
+        onClose={() => setPhotoViewerVisible(false)}
+      />
     </View>
   );
 };
@@ -824,6 +826,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text.secondary,
     marginTop: 2,
+  },
+  // Photo indicator styles
+  photoIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 8,
+  },
+  photoCount: {
+    fontSize: 12,
+    color: '#666666',
+    fontWeight: '500',
   },
   // View All button for pending items
   viewAllButton: {

@@ -232,6 +232,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         const gpsData = null;
         logger.log('[LogVisit] GPS capture disabled for performance - will add back later');
 
+        // Generate unique requestId for idempotency (prevents duplicate visits on network retry)
+        const requestId = `${visitAccount.id}_${user?.uid}_${Date.now()}`;
+
         const { uploadQueue } = await import('../../services/uploadQueue');
 
         if (photoUri && !photoUri.startsWith('http')) {
@@ -247,6 +250,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
               purpose: purpose as any,
               notes: notes.trim() || undefined,
               geo: gpsData || undefined,
+              requestId, // For idempotency - prevents duplicates on retry
             },
           });
 
@@ -275,6 +279,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
               notes: notes.trim() || undefined,
               geo: gpsData || undefined,
               existingPhotoUrl: photoUri?.startsWith('http') ? photoUri : undefined,
+              requestId, // For idempotency - prevents duplicates on retry
             },
           });
 

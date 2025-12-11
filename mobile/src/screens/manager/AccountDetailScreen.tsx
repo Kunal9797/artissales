@@ -7,11 +7,12 @@ import React, { useState, useEffect } from 'react';
 import { logger } from '../../utils/logger';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User } from 'lucide-react-native';
+import { ArrowLeft, Building2, Phone, MapPin, Edit, Calendar, User, Camera } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Skeleton } from '../../patterns';
 import { spacing } from '../../theme';
+import { PhotoViewer } from '../../components/PhotoViewer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AccountDetail'>;
 
@@ -33,6 +34,7 @@ interface Visit {
   userName: string;
   purpose: string;
   notes?: string;
+  photos?: string[];
 }
 
 export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -41,6 +43,15 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Photo viewer state
+  const [photoViewerVisible, setPhotoViewerVisible] = useState(false);
+  const [viewingPhotos, setViewingPhotos] = useState<string[]>([]);
+
+  const openPhotoViewer = (photos: string[]) => {
+    setViewingPhotos(photos);
+    setPhotoViewerVisible(true);
+  };
 
   const loadData = async () => {
     try {
@@ -277,11 +288,41 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     {visit.notes}
                   </Text>
                 )}
+
+                {/* Photo indicator - tap to view photos */}
+                {visit.photos && visit.photos.length > 0 && (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      marginTop: 12,
+                      paddingVertical: 8,
+                      paddingHorizontal: 12,
+                      backgroundColor: '#F5F5F5',
+                      borderRadius: 8,
+                      alignSelf: 'flex-start',
+                    }}
+                    onPress={() => openPhotoViewer(visit.photos!)}
+                  >
+                    <Camera size={16} color="#666666" />
+                    <Text style={{ fontSize: 13, color: '#666666', fontWeight: '500' }}>
+                      {visit.photos.length} {visit.photos.length === 1 ? 'Photo' : 'Photos'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))
           )}
         </View>
       </ScrollView>
+
+      {/* Photo Viewer Modal */}
+      <PhotoViewer
+        visible={photoViewerVisible}
+        photos={viewingPhotos}
+        onClose={() => setPhotoViewerVisible(false)}
+      />
     </View>
   );
 };
