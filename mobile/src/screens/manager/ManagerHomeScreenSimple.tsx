@@ -34,6 +34,7 @@ import {
   BookOpen,
   X,
   Clock,
+  BarChart3,
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -282,6 +283,24 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
           )}
         </View>
 
+        {/* Team Performance Card */}
+        <TouchableOpacity
+          style={styles.teamPerformanceCard}
+          onPress={() => navigation?.navigate('TeamStats')}
+          activeOpacity={0.7}
+        >
+          <View style={styles.documentsHeader}>
+            <View style={[styles.documentsIconCircle, { backgroundColor: '#EDE7F6' }]}>
+              <BarChart3 size={20} color="#7B1FA2" />
+            </View>
+            <View style={styles.documentsTextContainer}>
+              <Text style={styles.documentsTitle}>Team Performance</Text>
+              <Text style={styles.documentsSubtitle}>Monthly stats & breakdowns</Text>
+            </View>
+            <ChevronRight size={20} color={colors.text.tertiary} />
+          </View>
+        </TouchableOpacity>
+
         {/* Document Library Card */}
         <TouchableOpacity
           style={styles.documentsCard}
@@ -520,6 +539,16 @@ const styles = StyleSheet.create({
   sheetsCard: {
     backgroundColor: featureColors.sheets.primary + '14',
     borderColor: featureColors.sheets.primary + '26',
+  },
+
+  // Team Performance Card
+  teamPerformanceCard: {
+    backgroundColor: '#7B1FA2' + '14', // 8% opacity - purple
+    borderRadius: spacing.borderRadius.xl,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#7B1FA2' + '26', // 15% opacity
+    marginBottom: spacing.sm,
   },
 
   // Documents Card

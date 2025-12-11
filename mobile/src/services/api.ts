@@ -220,7 +220,7 @@ export const api = {
     return callFunction('createUserByManager', data);
   },
 
-  getTeamStats: async (data: { date?: string }) => {
+  getTeamStats: async (data: { date?: string; range?: 'today' | 'week' | 'month'; filterByManagerId?: string }) => {
     return callFunction('getTeamStats', data);
   },
 

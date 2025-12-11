@@ -32,6 +32,7 @@ import { DocumentsScreen } from '../screens/DocumentsScreen';
 import { UploadDocumentScreen } from '../screens/UploadDocumentScreen';
 import { ManageDownloadsScreen } from '../screens/ManageDownloadsScreen';
 import { AttendanceHistoryScreen } from '../screens/AttendanceHistoryScreen';
+import { TeamStatsScreen } from '../screens/manager/TeamStatsScreen';
 
 export type RootStackParamList = {
   Home: undefined;
@@ -55,6 +56,7 @@ export type RootStackParamList = {
   EditAccount: { account: any; onAccountUpdated?: () => void };
   SetTarget: { userId: string; userName: string; currentMonth: string };
   TeamTargets: undefined;
+  TeamStats: undefined;
   Documents: undefined;
   UploadDocument: { onUploadSuccess?: () => void };
   ManageDownloads: { onDelete?: () => void };
@@ -162,6 +164,7 @@ export const RootNavigator: React.FC = () => {
 
           {/* TODO: Re-enable these as we build/test them */}
           {/* <Stack.Screen name="TeamTargets" component={TeamTargetsScreen} /> */}
+          <Stack.Screen name="TeamStats" component={TeamStatsScreen} />
           <Stack.Screen name="Documents" component={DocumentsScreen} />
           <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />
           <Stack.Screen name="ManageDownloads" component={ManageDownloadsScreen} />

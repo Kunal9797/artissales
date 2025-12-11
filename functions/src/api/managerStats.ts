@@ -18,7 +18,9 @@ const db = getFirestore();
  *
  * POST /getTeamStats
  * Body: {
- *   date: string  // YYYY-MM-DD (default: today)
+ *   date: string           // YYYY-MM-DD (default: today)
+ *   range: string          // 'today' | 'week' | 'month' (default: today)
+ *   filterByManagerId?: string  // Admin only: filter to specific manager's team
  * }
  */
 export const getTeamStats = onRequest({cors: true}, async (request, response) => {
@@ -58,8 +60,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       return;
     }
 
-    // 2. Parse date parameter (default: today) and range
-    const {date, range} = request.body;
+    // 2. Parse parameters
+    const {date, range, filterByManagerId} = request.body;
     let targetDate: string;
     let startDateStr: string;
     let endDateStr: string;
@@ -134,21 +136,40 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     let allUsers: any[] = [];
 
     if (managerRole === "admin") {
-      // Admin sees all reps and managers
-      const usersSnapshot = await db.collection("users")
-        .where("isActive", "==", true)
-        .get();
+      // Admin can filter by specific manager
+      if (filterByManagerId) {
+        // Get the specified manager's direct reports
+        teamMemberIds = await getDirectReportIds(filterByManagerId);
 
-      allUsers = usersSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+        // Fetch user details for filtered team members
+        if (teamMemberIds.length > 0) {
+          const userPromises = teamMemberIds.map((id) =>
+            db.collection("users").doc(id).get()
+          );
+          const userDocs = await Promise.all(userPromises);
+          allUsers = userDocs
+            .filter((doc) => doc.exists)
+            .map((doc) => ({id: doc.id, ...doc.data()}));
+        }
 
-      // Filter to only reps and managers
-      const teamMembers = allUsers.filter((u: any) =>
-        ["rep", "area_manager", "zonal_head"].includes(u.role)
-      );
-      teamMemberIds = teamMembers.map((u: any) => u.id);
+        logger.info(`[getTeamStats] Admin filtering by manager ${filterByManagerId}`);
+      } else {
+        // Admin sees all reps (no manager filter)
+        const usersSnapshot = await db.collection("users")
+          .where("isActive", "==", true)
+          .get();
+
+        allUsers = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        // Filter to only reps (exclude managers from stats)
+        const teamMembers = allUsers.filter((u: any) =>
+          u.role === "rep"
+        );
+        teamMemberIds = teamMembers.map((u: any) => u.id);
+      }
     } else {
       // National Head / Area Manager - see only direct reports
       teamMemberIds = await getDirectReportIds(managerId);
@@ -174,7 +195,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       attendanceSnapshot,
       visitsSnapshot,
       sheetsSnapshot,
-      dsrSnapshot,
+      pendingSheetsSnapshot,
       expensesSnapshot,
     ] = await Promise.all([
       // Query 1: Attendance
@@ -189,26 +210,29 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         .where("timestamp", "<=", endDate)
         .get(),
 
-      // Query 3: Sheets Sales
+      // Query 3: Approved/Verified Sheets Sales
+      // Sheets use `verified: true` for approved
       (range === "week" || range === "month")
         ? db.collection("sheetsSales")
             .where("date", ">=", startDateStr)
             .where("date", "<=", endDateStr)
+            .where("verified", "==", true)
             .get()
         : db.collection("sheetsSales")
             .where("date", "==", targetDate)
+            .where("verified", "==", true)
             .get(),
 
-      // Query 4: DSR Reports
+      // Query 4: Pending Sheets (verified === false)
       (range === "week" || range === "month")
-        ? db.collection("dsrReports")
+        ? db.collection("sheetsSales")
             .where("date", ">=", startDateStr)
             .where("date", "<=", endDateStr)
-            .where("status", "==", "pending")
+            .where("verified", "==", false)
             .get()
-        : db.collection("dsrReports")
+        : db.collection("sheetsSales")
             .where("date", "==", targetDate)
-            .where("status", "==", "pending")
+            .where("verified", "==", false)
             .get(),
 
       // Query 5: Expenses
@@ -230,8 +254,10 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
     const teamMemberIdSet = new Set(teamMemberIds);
 
     // Filter helper - only include data from team members
-    const isTeamMember = (userId: string) =>
-      managerRole === "admin" || teamMemberIdSet.has(userId);
+    // For admin without filter: include all reps (teamMemberIdSet has all reps)
+    // For admin with filter: only include filtered manager's team
+    // For other managers: only include their direct reports
+    const isTeamMember = (userId: string) => teamMemberIdSet.has(userId);
 
     // Process attendance data (OLD - deprecated but kept for backwards compatibility)
     const attendanceByUser: Record<string, any[]> = {};
@@ -299,6 +325,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       "Artis 1MM": 0,
     };
 
+    // Process verified sheets (Query 3 already filtered to verified === true)
     sheetsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
       if (!isTeamMember(data.userId)) return; // Skip non-team members
@@ -308,19 +335,24 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       }
     });
 
-    // Process DSR and expenses data (filtered by team members)
-    let pendingDSRs = 0;
+    // Process pending sheets and expenses (filtered by team members)
+    let pendingSheetsCount = 0;  // Total sheets count from pending entries
     let pendingExpenses = 0;
 
-    dsrSnapshot.docs.forEach((doc) => {
-      if (isTeamMember(doc.data().userId)) pendingDSRs++;
+    pendingSheetsSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      // Skip rejected sheets (they have rejectedAt timestamp)
+      if (data.rejectedAt) return;
+      if (isTeamMember(data.userId)) {
+        pendingSheetsCount += data.sheetsCount || 0;
+      }
     });
 
     expensesSnapshot.docs.forEach((doc) => {
       if (isTeamMember(doc.data().userId)) pendingExpenses++;
     });
 
-    logger.info(`[getTeamStats] Found ${pendingExpenses} team pending expenses`);
+    logger.info(`[getTeamStats] Found ${pendingSheetsCount} pending sheets (count), ${pendingExpenses} pending expenses`);
 
     // 9. Return aggregated stats
     response.status(200).json({
@@ -352,7 +384,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           byCatalog: sheetsByCatalog,
         },
         pending: {
-          dsrs: pendingDSRs,
+          sheets: pendingSheetsCount,
           expenses: pendingExpenses,
         },
       },

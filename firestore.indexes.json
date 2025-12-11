@@ -177,6 +177,22 @@
       ]
     },
     {
+      "collectionGroup": "sheetsSales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "verified", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sheetsSales",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "verified", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "expenses",
       "queryScope": "COLLECTION",
       "fields": [
