@@ -8,6 +8,10 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { getAuth, signInWithPhoneNumber } from '@react-native-firebase/auth';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
@@ -112,51 +116,65 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <View style={styles.logoSection}>
-          <Logo variant="full" size="large" style={styles.logo} />
-        </View>
-
-        <View style={styles.formSection}>
-          <Text style={styles.title}>Artis Sales Team</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your phone number"
-              placeholderTextColor="rgba(0,0,0,0.4)"
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              autoFocus
-              editable={!loading}
-            />
-            <Text style={styles.hint}>
-              Enter 10-digit number (e.g., 9876543210)
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.button,
-              isPhoneValid && styles.buttonActive,
-              loading && styles.buttonDisabled
-            ]}
-            onPress={handleSendCode}
-            disabled={loading}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {loading ? (
-              <ActivityIndicator color={isPhoneValid ? colors.primary : colors.text.inverse} />
-            ) : (
-              <Text style={[styles.buttonText, isPhoneValid && styles.buttonTextActive]}>
-                Send Code
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+            <View style={styles.content}>
+              <View style={styles.logoSection}>
+                <Logo variant="full" size="large" style={styles.logo} />
+              </View>
+
+              <View style={styles.formSection}>
+                <Text style={styles.title}>Artis Sales Team</Text>
+                <Text style={styles.subtitle}>Sign in to continue</Text>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Phone Number</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your phone number"
+                    placeholderTextColor={colors.text.tertiary}
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    autoFocus
+                    editable={!loading}
+                  />
+                  <Text style={styles.hint}>
+                    Enter 10-digit number (e.g., 9876543210)
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    isPhoneValid && styles.buttonActive,
+                    loading && styles.buttonDisabled
+                  ]}
+                  onPress={handleSendCode}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={isPhoneValid ? colors.primary : colors.text.inverse} />
+                  ) : (
+                    <Text style={[styles.buttonText, isPhoneValid && styles.buttonTextActive]}>
+                      Send Code
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -164,93 +182,93 @@ export const LoginScreen: React.FC<Props> = ({ onCodeSent }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary, // Brand Background #393735
+    backgroundColor: colors.primary,
+  },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing['2xl'],
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: spacing['2xl'],
+    marginBottom: spacing.lg,
   },
   logo: {
-    width: 180,
-    height: 180,
+    width: 160,
+    height: 160,
   },
   formSection: {
     width: '100%',
   },
   title: {
-    ...typography.styles.h1,
+    fontSize: 26,
+    fontWeight: '600',
     color: colors.text.inverse,
     marginBottom: spacing.xs,
     textAlign: 'center',
-    fontWeight: '600',
-    fontSize: 28,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   subtitle: {
-    ...typography.styles.body,
-    color: colors.text.inverse,
-    opacity: 0.8,
-    marginBottom: spacing.xl,
-    textAlign: 'center',
     fontSize: 15,
     fontWeight: '400',
+    color: colors.text.inverse,
+    opacity: 0.75,
+    marginBottom: spacing['2xl'],
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: spacing.lg,
-    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
   },
   label: {
-    ...typography.styles.label,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text.inverse,
     marginBottom: spacing.sm,
-    fontSize: 15,
-    fontWeight: '600',
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md + 2,
-    fontSize: typography.fontSize.base,
+    backgroundColor: colors.background,
+    borderWidth: 0,
+    borderRadius: spacing.borderRadius.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    fontSize: 17,
     color: colors.text.primary,
   },
   hint: {
-    ...typography.styles.caption,
-    color: colors.text.inverse,
-    opacity: 0.7,
-    marginTop: spacing.sm,
     fontSize: 13,
+    color: colors.text.inverse,
+    opacity: 0.6,
+    marginTop: spacing.sm,
   },
   button: {
     backgroundColor: 'transparent',
     borderRadius: spacing.borderRadius.full,
-    paddingVertical: spacing.md + 4,
-    paddingHorizontal: spacing.xl + spacing.lg,
+    paddingVertical: spacing.md + 2,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: 56,
     borderWidth: 2,
     borderColor: colors.accent,
-    alignSelf: 'center',
-    width: '85%',
+    marginTop: spacing.sm,
   },
   buttonActive: {
     backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    ...typography.styles.button,
-    color: colors.text.inverse,
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text.inverse,
   },
   buttonTextActive: {
     color: colors.primary,

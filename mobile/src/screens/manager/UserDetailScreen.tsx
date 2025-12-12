@@ -42,6 +42,7 @@ import { DetailedStatsView } from '../../components/DetailedStatsView';
 import { Skeleton } from '../../patterns';
 import { AccountListItem, ManagerListItem } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -113,6 +114,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   navigation,
   route,
 }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const { userId } = route.params;
   const { user: currentUser } = useAuth(); // Get logged-in user
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -591,7 +593,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
         }
       >
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
           {/* Date Range Selector - iOS Segmented Control Style */}
           <View style={styles.segmentedControl}>
             {(['today', 'week', 'month', 'custom'] as TimeRange[]).map((range, index) => {
@@ -1258,7 +1260,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.screenPadding,
     paddingTop: 12,
-    paddingBottom: spacing.screenPadding,
+    paddingBottom: 80, // Base padding, dynamic safe area added in component
   },
   // Pill-style date picker
   segmentedControl: {

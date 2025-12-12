@@ -30,6 +30,7 @@ import { useQuery } from '@tanstack/react-query';
 import { colors, spacing } from '../theme';
 import { api } from '../services/api';
 import { logger } from '../utils/logger';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 
 interface AttendanceHistoryScreenProps {
   navigation: any;
@@ -45,6 +46,7 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryScreenProps> = (
   navigation,
   route,
 }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const authInstance = getAuth();
   const currentUser = authInstance.currentUser;
 
@@ -225,7 +227,7 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryScreenProps> = (
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
@@ -360,7 +362,7 @@ const styles = StyleSheet.create({
   content: {
     padding: spacing.screenPadding,
     gap: 16,
-    paddingBottom: 40,
+    paddingBottom: 80, // Base padding, dynamic safe area added in component
   },
   summaryCard: {
     backgroundColor: '#FFFFFF',

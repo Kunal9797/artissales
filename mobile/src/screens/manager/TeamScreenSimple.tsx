@@ -12,6 +12,7 @@ import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
 import { formatLastActive, getLastActiveColor } from '../../utils/formatTime';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 // Phase 2A: Module-level cache with 30-minute TTL
 const teamCache: {
@@ -44,6 +45,7 @@ export const invalidateTeamCache = () => {
 };
 
 export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -357,7 +359,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           data={filteredUsers}
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 80 + bottomPadding }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={{ padding: 40, alignItems: 'center' }}>

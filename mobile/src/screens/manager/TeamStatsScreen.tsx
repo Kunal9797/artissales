@@ -56,9 +56,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { useQuery } from '@tanstack/react-query';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { Skeleton } from '../../patterns/Skeleton';
 import { TargetProgress } from '../../types';
 
@@ -787,7 +787,7 @@ const calendarStyles = StyleSheet.create({
 
 export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user } = useAuth();
-  const insets = useSafeAreaInsets();
+  const bottomPadding = useBottomSafeArea(12);
   const [selectedRange, setSelectedRange] = useState<TimeRange>('month');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [teamCardExpanded, setTeamCardExpanded] = useState(false);
@@ -1106,7 +1106,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
@@ -1955,7 +1955,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             </ScrollView>
 
             {/* Action Buttons - with safe area padding for Android nav bar */}
-            <View style={[styles.editRepButtons, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View style={[styles.editRepButtons, { paddingBottom: bottomPadding }]}>
               <TouchableOpacity
                 style={styles.editRepCancelBtn}
                 onPress={() => setEditRepModalVisible(false)}

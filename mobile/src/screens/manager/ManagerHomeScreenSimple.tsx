@@ -34,7 +34,6 @@ import {
   BookOpen,
   X,
   Clock,
-  BarChart3,
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -186,6 +185,14 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     <View style={styles.container}>
       {/* Header with Greeting */}
       <View style={styles.header}>
+        {/* Time icon + Hi, Name */}
+        <View style={styles.greetingRow}>
+          <GreetingIcon size={22} color={colors.accent} />
+          <Text style={styles.greetingText}>
+            Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'Manager'}
+          </Text>
+        </View>
+
         {/* Artis Logo - Tappable, opens Profile Sheet */}
         <TouchableOpacity
           onPress={showProfileSheet}
@@ -198,23 +205,16 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             resizeMode="contain"
           />
         </TouchableOpacity>
-
-        {/* Greeting content */}
-        <View style={styles.headerContent}>
-          <View style={styles.greetingRow}>
-            <GreetingIcon size={20} color={colors.accent} />
-            <Text style={styles.greetingText}>
-              {greeting.text}, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'Manager'}
-            </Text>
-          </View>
-        </View>
       </View>
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: 60 + bottomPadding }]}
+        contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* Section Header */}
+        <Text style={styles.sectionHeader}>Today's Overview</Text>
+
         {/* KPI Cards - Feature Color Coded */}
         <View style={styles.kpiSection}>
           {loading ? (
@@ -234,7 +234,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 {/* Team Size - Green tint */}
                 <TouchableOpacity
                   style={[styles.kpiCard, styles.teamCard]}
-                  onPress={() => navigation?.navigate('TeamTab')}
+                  onPress={() => navigation?.navigate('UserList')}
                   activeOpacity={0.7}
                 >
                   <View style={styles.kpiIconRow}>
@@ -289,23 +289,8 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
           )}
         </View>
 
-        {/* Team Performance Card */}
-        <TouchableOpacity
-          style={styles.teamPerformanceCard}
-          onPress={() => navigation?.navigate('TeamStats')}
-          activeOpacity={0.7}
-        >
-          <View style={styles.documentsHeader}>
-            <View style={[styles.documentsIconCircle, { backgroundColor: '#EDE7F6' }]}>
-              <BarChart3 size={20} color="#7B1FA2" />
-            </View>
-            <View style={styles.documentsTextContainer}>
-              <Text style={styles.documentsTitle}>Team Performance</Text>
-              <Text style={styles.documentsSubtitle}>Monthly stats & breakdowns</Text>
-            </View>
-            <ChevronRight size={20} color={colors.text.tertiary} />
-          </View>
-        </TouchableOpacity>
+        {/* Section Header */}
+        <Text style={styles.sectionHeader}>Quick Access</Text>
 
         {/* Document Library Card */}
         <TouchableOpacity
@@ -426,10 +411,10 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                   style={styles.sheetButton}
                   onPress={() => {
                     setActiveSheet(null);
-                    navigation?.navigate('TeamTab');
+                    navigation?.navigate('StatsTab');
                   }}
                 >
-                  <Text style={styles.sheetButtonText}>View Team Details</Text>
+                  <Text style={styles.sheetButtonText}>View Stats</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -450,23 +435,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing.screenPadding,
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.lg,
+  },
+
+  // Section Header
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: spacing.md,
   },
 
   // Header
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.screenPadding,
-    paddingTop: 52,
-    paddingBottom: spacing.lg, // Increased to accommodate logo after removing subtitle
-    borderBottomWidth: 2,
-    borderBottomColor: colors.accent + '99', // Gold accent line at 60% opacity
-    position: 'relative',
+    paddingTop: 50,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   logoButton: {
-    position: 'absolute',
-    right: 16,
-    top: 48,
     zIndex: 10,
     // Stronger glow effect
     shadowColor: '#C9A961',
@@ -485,35 +478,34 @@ const styles = StyleSheet.create({
   greetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 10,
   },
   greetingText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '600',
     color: colors.text.inverse,
-    flex: 1,
   },
   // KPI Section
   kpiSection: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   skeletonCard: {
     flex: 1,
-    height: 110,
+    height: 130,
   },
 
   // KPI Card base
   kpiCard: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderRadius: spacing.borderRadius.xl,
     borderWidth: 1,
-    minHeight: 110,
+    minHeight: 130,
     justifyContent: 'space-between',
   },
   kpiIconRow: {
@@ -522,14 +514,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   kpiLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   kpiValue: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: '700',
     color: colors.text.primary,
   },
@@ -552,21 +544,11 @@ const styles = StyleSheet.create({
     borderColor: featureColors.sheets.primary + '26',
   },
 
-  // Team Performance Card
-  teamPerformanceCard: {
-    backgroundColor: '#7B1FA2' + '14', // 8% opacity - purple
-    borderRadius: spacing.borderRadius.xl,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: '#7B1FA2' + '26', // 15% opacity
-    marginBottom: spacing.sm,
-  },
-
   // Documents Card
   documentsCard: {
     backgroundColor: featureColors.documents.primary + '14', // 8% opacity like KPI cards
     borderRadius: spacing.borderRadius.xl,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: featureColors.documents.primary + '26', // 15% opacity
   },
@@ -575,26 +557,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   documentsIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: featureColors.documents.light,
     alignItems: 'center',
     justifyContent: 'center',
   },
   documentsTextContainer: {
     flex: 1,
-    marginLeft: spacing.sm + 4,
+    marginLeft: spacing.md,
   },
   documentsTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: colors.text.primary,
   },
   documentsSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text.secondary,
-    marginTop: 2,
+    marginTop: 4,
   },
 
   // Bottom Sheet Modal

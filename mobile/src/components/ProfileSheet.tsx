@@ -21,6 +21,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot, getDoc } from '@react-native-firebase/firestore';
@@ -37,18 +38,23 @@ import {
 import { colors, spacing, typography } from '../theme';
 import { getLocalProfilePhoto } from '../services/storage';
 import { logger } from '../utils/logger';
-import { Platform } from 'react-native';
 
 interface ProfileSheetProps {
   visible: boolean;
   onClose: () => void;
 }
 
+// Safe area bottom padding for ProfileSheet
+// NOTE: This component renders OUTSIDE SafeAreaProvider (in ProfileSheetProvider which is above SafeAreaProvider)
+// So we cannot use useSafeAreaInsets() hook here. Using conservative defaults instead.
+// Android 3-button nav: ~48px, Android gesture nav: ~0px, iOS home indicator: ~34px
+// Using 48px to cover worst case (Android 3-button nav)
+const BOTTOM_SAFE_AREA_PADDING = Platform.OS === 'android' ? 48 : 34;
+
 export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
-  // Use a safe default for bottom padding (no SafeAreaProvider dependency)
-  const bottomPadding = Platform.OS === 'ios' ? 34 : 16;
+  const bottomPadding = BOTTOM_SAFE_AREA_PADDING;
 
   // User data state
   const [name, setName] = useState('');

@@ -17,6 +17,7 @@ import { User, Phone, MapPin, Shield, Building2, X, Plus, Users } from 'lucide-r
 import { api } from '../../services/api';
 import { AccountListItem, ManagerListItem } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface AddUserScreenProps {
   navigation: any;
@@ -34,6 +35,7 @@ const ROLES: { value: UserRole; label: string }[] = [
 
 export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
   const { user } = useAuth();
+  const bottomPadding = useBottomSafeArea(12);
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<UserRole>('rep');
@@ -289,7 +291,7 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
         </Text>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
         {/* Phone Number Input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Phone Number *</Text>
@@ -446,7 +448,6 @@ export const AddUserScreen: React.FC<AddUserScreenProps> = ({ navigation }) => {
           )}
         </TouchableOpacity>
 
-        <View style={{ height: spacing.xl }} />
       </ScrollView>
 
       {/* Distributor Selection Modal */}

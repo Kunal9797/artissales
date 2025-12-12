@@ -16,6 +16,7 @@ import { ArrowLeft, Save } from 'lucide-react-native';
 import { colors, spacing, typography } from '../../theme';
 import { api } from '../../services/api';
 import { TargetsByCatalog, TargetsByAccountType } from '../../types';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 type SetTargetScreenProps = NativeStackScreenProps<any, 'SetTarget'>;
 
@@ -24,6 +25,7 @@ const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect',
 
 export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, route }) => {
   const { userId, userName, currentMonth } = route.params;
+  const bottomPadding = useBottomSafeArea(12);
 
   const [month, setMonth] = useState<string>(currentMonth || getCurrentMonth());
   const [targets, setTargets] = useState<TargetsByCatalog>({});
@@ -246,7 +248,7 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 80 + bottomPadding }}>
         <View style={styles.content}>
           {/* Month Display */}
           <View style={styles.monthCard}>

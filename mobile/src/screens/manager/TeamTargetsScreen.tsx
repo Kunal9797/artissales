@@ -16,10 +16,12 @@ import { colors, spacing, typography } from '../../theme';
 import { api } from '../../services/api';
 import { UserTargetSummary } from '../../types';
 import { Skeleton } from '../../patterns';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 type TeamTargetsScreenProps = NativeStackScreenProps<any, 'TeamTargets'>;
 
 export const TeamTargetsScreen: React.FC<TeamTargetsScreenProps> = ({ navigation }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const [month, setMonth] = useState<string>(getCurrentMonth());
   const [targets, setTargets] = useState<UserTargetSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -248,7 +250,7 @@ export const TeamTargetsScreen: React.FC<TeamTargetsScreenProps> = ({ navigation
           data={filteredTargets}
           renderItem={renderTargetCard}
           keyExtractor={(item) => item.userId}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: 80 + bottomPadding }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} />
           }
@@ -334,6 +336,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: spacing.screenPadding,
+    paddingBottom: 80, // Base padding, dynamic safe area added in component
   },
   card: {
     backgroundColor: colors.surface,

@@ -31,6 +31,7 @@ import { api } from '../services/api';
 import { documentCache, DownloadProgress } from '../services/documentCache';
 import { Document } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 import { EmptyState, Skeleton } from '../patterns';
 import {
   FileText,
@@ -52,6 +53,7 @@ type FilterMode = 'all' | 'offline';
 export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) => {
   const route = useRoute();
   const { user } = useAuth();
+  const bottomPadding = useBottomSafeArea(12);
 
   // Determine if this is a stack screen (managers) or tab screen (sales reps)
   const isStackScreen = route.name === 'Documents';
@@ -700,7 +702,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
           contentContainerStyle={{
             paddingHorizontal: spacing.screenPadding,
             paddingTop: spacing.screenPadding,
-            paddingBottom: isStackScreen ? 24 : 100,
+            paddingBottom: isStackScreen ? bottomPadding + 24 : 80 + bottomPadding,
           }}
           refreshControl={
             <RefreshControl

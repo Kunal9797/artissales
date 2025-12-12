@@ -14,10 +14,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { FileText, Upload } from 'lucide-react-native';
 import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 
 type UploadDocumentScreenProps = NativeStackScreenProps<any, 'UploadDocument'>;
 
 export const UploadDocumentScreen: React.FC<UploadDocumentScreenProps> = ({ navigation, route }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<any>(null);
@@ -120,7 +122,7 @@ export const UploadDocumentScreen: React.FC<UploadDocumentScreenProps> = ({ navi
         <Text style={styles.subtitle}>Add catalogs, brochures, or resources</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 80 + bottomPadding }} showsVerticalScrollIndicator={false}>
         {/* File Picker */}
         <TouchableOpacity
           style={[styles.filePickerButton, selectedFile && styles.filePickerButtonSelected]}

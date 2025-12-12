@@ -1060,7 +1060,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         backgroundColor: '#393735',
         paddingHorizontal: 20,
         paddingTop: 50,
-        paddingBottom: 12,
+        paddingBottom: 16,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -1071,7 +1071,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           {greeting.icon === 'sun' && <Sun size={22} color="#C9A961" />}
           {greeting.icon === 'moon' && <Moon size={22} color="#C9A961" />}
           <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>
-            Welcome, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'User'}
+            Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'User'}
           </Text>
         </View>
 

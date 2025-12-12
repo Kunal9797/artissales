@@ -18,10 +18,12 @@ import { api } from '../../services/api';
 import { colors, spacing, typography } from '../../theme';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 type UserListScreenProps = NativeStackScreenProps<any, 'UserList'>;
 
 export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -201,7 +203,7 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
           data={filteredUsers}
           renderItem={renderUserCard}
           keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={{ ...styles.listContent, paddingBottom: 80 + bottomPadding }}
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={loadUsers} colors={[colors.accent]} />
           }

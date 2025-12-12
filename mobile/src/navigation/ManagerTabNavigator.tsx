@@ -1,14 +1,19 @@
 /**
  * ManagerTabNavigator - Bottom Tab Navigation for Managers
  * Built incrementally to avoid module initialization issues
+ *
+ * Features:
+ * - Pending badge on Review tab (red notification indicator)
+ * - Animated tab icons with scale effect
  */
 
-import React, { useRef, useEffect } from 'react';
-import { View, Text, Animated, Platform } from 'react-native';
+import React, { useRef, useEffect, useMemo } from 'react';
+import { View, Text, Animated, Platform, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Users, Building2, CheckCircle } from 'lucide-react-native';
+import { Home, Users, Building2, CheckCircle, BarChart3 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Animated Icon Wrapper with subtle scale on focus
 const AnimatedTabIcon: React.FC<{
@@ -41,10 +46,61 @@ const AnimatedTabIcon: React.FC<{
     </Animated.View>
   );
 };
+
+// Review Tab Icon with Dot Indicator
+const ReviewTabIcon: React.FC<{
+  color: string;
+  focused: boolean;
+  badgeCount: number;
+}> = ({ color, focused, badgeCount }) => {
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.08 : 0.88,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 7,
+    }).start();
+  }, [focused]);
+
+  return (
+    <View style={badgeStyles.container}>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <CheckCircle
+          size={28}
+          color={color}
+          strokeWidth={focused ? 2.5 : 2}
+        />
+      </Animated.View>
+      {badgeCount > 0 && (
+        <View style={badgeStyles.dot} />
+      )}
+    </View>
+  );
+};
+
+const badgeStyles = StyleSheet.create({
+  container: {
+    position: 'relative',
+  },
+  dot: {
+    position: 'absolute',
+    top: 0,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E53935',
+    borderWidth: 1.5,
+    borderColor: '#393735', // Match nav bar background
+  },
+});
 import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
 // import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen'; // TODO: Has StyleSheet.create issue
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreenSimple';
 import { TeamScreen } from '../screens/manager/TeamScreenSimple';
+import { TeamStatsScreen } from '../screens/manager/TeamStatsScreen';
 import { ReviewHomeScreen } from '../screens/manager/ReviewHomeScreen';
 
 const Tab = createBottomTabNavigator();
@@ -58,6 +114,32 @@ const Placeholder: React.FC<{ title: string }> = ({ title }) => (
 
 export const ManagerTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
+  // Get today's date to match the query key used in ManagerHomeScreen
+  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
+
+  // State for pending count badge
+  const [pendingCount, setPendingCount] = React.useState(0);
+
+  // Subscribe to query cache changes and update pending count
+  useEffect(() => {
+    // Initial read from cache
+    const readFromCache = () => {
+      const cachedData = queryClient.getQueryData<{ summary?: { pendingTotal?: number } }>(['managerDashboard', today]);
+      return cachedData?.summary?.pendingTotal ?? 0;
+    };
+
+    setPendingCount(readFromCache());
+
+    // Subscribe to cache updates
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      const newCount = readFromCache();
+      setPendingCount(prev => prev !== newCount ? newCount : prev);
+    });
+
+    return () => unsubscribe();
+  }, [queryClient, today]);
 
   // Set Android navigation bar color to match navbar
   useEffect(() => {
@@ -109,12 +191,12 @@ export const ManagerTabNavigator: React.FC = () => {
       />
 
       <Tab.Screen
-        name="TeamTab"
-        component={TeamScreen}
+        name="StatsTab"
+        component={TeamStatsScreen}
         options={{
-          title: 'Team',
+          title: 'Stats',
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon Icon={Users} color={color} focused={focused} />
+            <AnimatedTabIcon Icon={BarChart3} color={color} focused={focused} />
           ),
         }}
       />
@@ -136,7 +218,7 @@ export const ManagerTabNavigator: React.FC = () => {
         options={{
           title: 'Review',
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon Icon={CheckCircle} color={color} focused={focused} />
+            <ReviewTabIcon color={color} focused={focused} badgeCount={pendingCount} />
           ),
         }}
       />

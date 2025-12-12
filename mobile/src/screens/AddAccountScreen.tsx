@@ -15,6 +15,7 @@ import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 import { AccountType } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 
 type AddAccountScreenProps = NativeStackScreenProps<any, 'AddAccount'>;
 
@@ -29,6 +30,7 @@ const INDIAN_STATES = [
 
 export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
+  const bottomPadding = useBottomSafeArea(12);
   const preSelectedAccountId = route.params?.preSelectedAccountId;
   const onAccountCreated = route.params?.onAccountCreated;
 
@@ -175,7 +177,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         <Text style={styles.subtitle}>Create a new {accountType}</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
         {/* Account Type Selector */}
         <Text style={styles.sectionLabel}>Account Type *</Text>
         <View style={styles.accountTypeContainer}>
@@ -436,7 +438,6 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
           )}
         </TouchableOpacity>
 
-        <View style={{ height: spacing.xl }} />
       </ScrollView>
 
       {/* State Selection Modal */}

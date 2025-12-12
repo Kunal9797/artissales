@@ -7,8 +7,14 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography } from '../theme';
 import { Logo } from '../components/ui/Logo';
 
@@ -56,54 +62,70 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7}>
+              <Ionicons name="chevron-back" size={32} color={colors.accent} />
+            </TouchableOpacity>
 
-        <Logo variant="full" style={{ width: 280, height: 120, alignSelf: 'center' }} />
+            <View style={styles.content}>
+              <View style={styles.logoSection}>
+                <Logo variant="full" style={styles.logo} />
+              </View>
 
-        <Text style={styles.title}>Enter Verification Code</Text>
-        <Text style={styles.subtitle}>
-          We've sent a 6-digit code to your phone
-        </Text>
+              <Text style={styles.title}>Enter Verification Code</Text>
+              <Text style={styles.subtitle}>
+                We've sent a 6-digit code to your phone
+              </Text>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="000000"
-            placeholderTextColor="#999"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            maxLength={6}
-            autoFocus
-            editable={!loading}
-          />
-        </View>
+              <View style={styles.inputContainer}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="000000"
+                  placeholderTextColor={colors.text.tertiary}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  autoFocus
+                  editable={!loading}
+                />
+              </View>
 
-        <TouchableOpacity
-          style={[
-            styles.button,
-            isCodeValid && styles.buttonActive,
-            loading && styles.buttonDisabled,
-          ]}
-          onPress={handleVerifyCode}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color={isCodeValid ? colors.primary : '#fff'} />
-          ) : (
-            <Text style={[styles.buttonText, isCodeValid && styles.buttonTextActive]}>
-              Verify Code
-            </Text>
-          )}
-        </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  isCodeValid && styles.buttonActive,
+                  loading && styles.buttonDisabled,
+                ]}
+                onPress={handleVerifyCode}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color={isCodeValid ? colors.primary : colors.text.inverse} />
+                ) : (
+                  <Text style={[styles.buttonText, isCodeValid && styles.buttonTextActive]}>
+                    Verify Code
+                  </Text>
+                )}
+              </TouchableOpacity>
 
-        <TouchableOpacity style={styles.resendButton} onPress={onBack}>
-          <Text style={styles.resendButtonText}>Didn't receive code? Try again</Text>
-        </TouchableOpacity>
-      </View>
+              <TouchableOpacity style={styles.resendButton} onPress={onBack} activeOpacity={0.7}>
+                <Text style={styles.resendButtonText}>Didn't receive code? Try again</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -111,83 +133,98 @@ export const OTPScreen: React.FC<Props> = ({ confirmation, onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.primary, // Dark brand background
+    backgroundColor: colors.primary,
+  },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  backButton: {
+    paddingTop: Platform.OS === 'ios' ? 56 : 44,
+    paddingLeft: spacing.md,
+    paddingBottom: spacing.sm,
+    alignSelf: 'flex-start',
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing['2xl'],
   },
-  backButton: {
-    position: 'absolute',
-    top: 60,
-    left: spacing.xl,
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
-  backButtonText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: '600',
-    color: colors.accent, // Gold
+  logo: {
+    width: 160,
+    height: 160,
   },
   title: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    color: '#fff',
-    marginBottom: spacing.sm,
-    marginTop: spacing.xl,
+    fontSize: 26,
+    fontWeight: '600',
+    color: colors.text.inverse,
+    marginBottom: spacing.xs,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
   subtitle: {
-    fontSize: typography.fontSize.base,
-    color: '#ccc',
-    marginBottom: spacing.xl * 2,
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.text.inverse,
+    opacity: 0.75,
+    marginBottom: spacing['2xl'],
     textAlign: 'center',
   },
   inputContainer: {
     marginBottom: spacing.xl,
   },
   input: {
-    backgroundColor: '#fff',
-    borderWidth: 2,
-    borderColor: colors.border.default,
+    backgroundColor: colors.background,
+    borderWidth: 0,
     borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
-    fontSize: typography.fontSize['3xl'],
-    fontWeight: typography.fontWeight.semiBold,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    fontSize: 32,
+    fontWeight: '600',
     color: colors.text.primary,
     textAlign: 'center',
-    letterSpacing: 12,
+    letterSpacing: 16,
   },
   button: {
     backgroundColor: 'transparent',
-    borderRadius: spacing.borderRadius.full, // Pill shape
+    borderRadius: spacing.borderRadius.full,
+    paddingVertical: spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
     borderWidth: 2,
     borderColor: colors.accent,
-    padding: spacing.lg,
-    alignItems: 'center',
-    alignSelf: 'center',
-    width: '85%',
   },
   buttonActive: {
-    backgroundColor: colors.accent, // Gold when valid
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   buttonDisabled: {
-    opacity: 0.6,
+    opacity: 0.5,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.inverse,
   },
   buttonTextActive: {
-    color: colors.primary, // Dark text on gold background
+    color: colors.primary,
   },
   resendButton: {
     marginTop: spacing.xl,
     alignItems: 'center',
+    paddingVertical: spacing.sm,
   },
   resendButtonText: {
     color: colors.accent,
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

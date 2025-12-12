@@ -15,6 +15,7 @@ import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 import { AccountType } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
 
 type EditAccountScreenProps = NativeStackScreenProps<any, 'EditAccount'>;
 
@@ -29,6 +30,7 @@ const INDIAN_STATES = [
 
 export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
+  const bottomPadding = useBottomSafeArea(12);
   const account = route.params?.account; // Account to edit
   const onAccountUpdated = route.params?.onAccountUpdated;
 
@@ -228,7 +230,7 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
         <Text style={styles.subtitle}>Update {accountType} details</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
         {/* Account Type Display (read-only) */}
         <Text style={styles.sectionLabel}>Account Type</Text>
         <View style={styles.accountTypeDisplayContainer}>
@@ -495,7 +497,6 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
           </TouchableOpacity>
         )}
 
-        <View style={{ height: spacing.xl }} />
       </ScrollView>
 
       {/* State Selection Modal */}

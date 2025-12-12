@@ -13,6 +13,7 @@ import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Skeleton } from '../../patterns';
 import { spacing } from '../../theme';
 import { PhotoViewer } from '../../components/PhotoViewer';
+import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AccountDetail'>;
 
@@ -40,6 +41,7 @@ interface Visit {
 const VISITS_PER_PAGE = 10;
 
 export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
+  const bottomPadding = useBottomSafeArea(12);
   const { accountId } = route.params;
   const [account, setAccount] = useState<AccountData | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -267,7 +269,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
+        contentContainerStyle={{ padding: 24, paddingBottom: 80 + bottomPadding }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Visit History */}
