@@ -62,3 +62,4 @@ export {checkPendingData} from "./utils/check-pending";
 // Keep for one-time migration (can remove after migration complete)
 export {migrateToCustomClaims} from "./utils/migrate-custom-claims";
 export {syncStorageDocuments} from "./utils/sync-storage-documents";
+export {migrateUserData, getUserIdByPhone} from "./utils/fix-user-id-migration";

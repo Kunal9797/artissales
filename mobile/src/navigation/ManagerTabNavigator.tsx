@@ -130,7 +130,10 @@ export const ManagerTabNavigator: React.FC = () => {
       return cachedData?.summary?.pendingTotal ?? 0;
     };
 
-    setPendingCount(readFromCache());
+    // Defer initial read to avoid setState during render
+    const initialTimer = setTimeout(() => {
+      setPendingCount(readFromCache());
+    }, 0);
 
     // Subscribe to cache updates
     const unsubscribe = queryClient.getQueryCache().subscribe(() => {
@@ -138,7 +141,10 @@ export const ManagerTabNavigator: React.FC = () => {
       setPendingCount(prev => prev !== newCount ? newCount : prev);
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(initialTimer);
+      unsubscribe();
+    };
   }, [queryClient, today]);
 
   // Set Android navigation bar color to match navbar

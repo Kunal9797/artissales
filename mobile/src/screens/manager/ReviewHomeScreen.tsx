@@ -13,6 +13,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  InteractionManager,
   Alert,
   Modal,
   TextInput,
@@ -64,9 +65,13 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Apply filter from navigation params when they change
+  // Use InteractionManager to defer state update and avoid "setState during render" warning
   useEffect(() => {
     if (route?.params?.filterUserName) {
-      setUserFilter(route.params.filterUserName);
+      const task = InteractionManager.runAfterInteractions(() => {
+        setUserFilter(route.params.filterUserName);
+      });
+      return () => task.cancel();
     }
   }, [route?.params?.filterUserName]);
 

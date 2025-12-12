@@ -105,7 +105,13 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
       teamIds = allRepsSnapshot.docs.map((doc) => doc.id);
       // Build user name map from the same query (no extra reads!)
       allRepsSnapshot.docs.forEach((doc) => {
-        userNameMap[doc.id] = doc.data()?.name || "Unknown";
+        const data = doc.data();
+        userNameMap[doc.id] = data?.name || "Unknown";
+        // Also include migratedFrom IDs for data aggregation
+        if (data?.migratedFrom) {
+          teamIds.push(data.migratedFrom);
+          userNameMap[data.migratedFrom] = data?.name || "Unknown";
+        }
       });
     } else {
       // National Head / Area Manager / Zonal Head - see ONLY direct reports
@@ -118,7 +124,13 @@ export const getPendingItems = onRequest({cors: true}, async (request, response)
       teamIds = usersSnapshot.docs.map((doc) => doc.id);
       // Build user name map from the same query (no extra reads!)
       usersSnapshot.docs.forEach((doc) => {
-        userNameMap[doc.id] = doc.data()?.name || "Unknown";
+        const data = doc.data();
+        userNameMap[doc.id] = data?.name || "Unknown";
+        // Also include migratedFrom IDs for data aggregation
+        if (data?.migratedFrom) {
+          teamIds.push(data.migratedFrom);
+          userNameMap[data.migratedFrom] = data?.name || "Unknown";
+        }
       });
     }
 

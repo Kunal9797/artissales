@@ -198,10 +198,21 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
       const targetUserData = targetUserDoc.data();
 
+      // Check if user was migrated - if so, include both old and new IDs for data aggregation
+      // This handles the case where data was logged with old ID before migration
+      const migratedFromId = targetUserData?.migratedFrom;
+      const userIdsToInclude = migratedFromId
+        ? [filterByUserId, migratedFromId]
+        : [filterByUserId];
+
+      if (migratedFromId) {
+        logger.info(`[getTeamStats] User ${filterByUserId} was migrated from ${migratedFromId}, including both IDs`);
+      }
+
       // Permission check: admin can view anyone, managers can only view their direct reports
       if (managerRole === "admin") {
         // Admin can view any user
-        teamMemberIds = [filterByUserId];
+        teamMemberIds = userIdsToInclude;
         allUsers = [{id: filterByUserId, ...targetUserData}];
         isSingleRepView = true;
         logger.info(`[getTeamStats] Admin viewing single rep: ${filterByUserId}`);
@@ -217,7 +228,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           response.status(403).json(error);
           return;
         }
-        teamMemberIds = [filterByUserId];
+        teamMemberIds = userIdsToInclude;
         allUsers = [{id: filterByUserId, ...targetUserData}];
         isSingleRepView = true;
         logger.info(`[getTeamStats] Manager ${managerId} viewing direct report: ${filterByUserId}`);
@@ -275,7 +286,20 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
     const totalTeamMembers = teamMemberIds.length;
 
-    logger.info(`[getTeamStats] Manager ${managerId} (${managerRole}) has ${totalTeamMembers} team members: ${JSON.stringify(teamMemberIds)}`);
+    // For team view: also include migratedFrom IDs so we aggregate data from both old and new IDs
+    // This is needed because some data may have been logged with the old user ID before migration
+    if (!isSingleRepView && allUsers.length > 0) {
+      const migratedFromIds = allUsers
+        .filter((u: any) => u.migratedFrom && !teamMemberIds.includes(u.migratedFrom))
+        .map((u: any) => u.migratedFrom);
+
+      if (migratedFromIds.length > 0) {
+        logger.info(`[getTeamStats] Including ${migratedFromIds.length} migrated-from IDs for data aggregation`);
+        teamMemberIds = [...teamMemberIds, ...migratedFromIds];
+      }
+    }
+
+    logger.info(`[getTeamStats] Manager ${managerId} (${managerRole}) has ${totalTeamMembers} team members (${teamMemberIds.length} IDs including migrations)`);
 
     // 4-8. Execute all queries in parallel for better performance
     const [

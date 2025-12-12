@@ -995,6 +995,28 @@ docs/
 
 ---
 
-**Last Updated**: Oct 17, 2025
+## 🚀 Next Session Priority Tasks
+
+**READ FIRST:** [`docs/NEXT_SESSION_HANDOFF.md`](docs/NEXT_SESSION_HANDOFF.md)
+
+### High Priority
+1. **Sales Rep StatsScreen Redesign** - Remake to match TeamStatsScreen design
+   - Add heatmap, NumberGridCard layout, expense breakdown
+   - Keep using `getUserStats` API (already has `expenses.byCategory`)
+   - Plan file: `/Users/kunal/.claude/plans/glowing-plotting-squid.md`
+
+2. **Permissions & Data Access Audit** - Verify proper data scoping
+   - Reps see only their data + their manager + admins
+   - Managers see only their direct reports' data
+   - Check Firestore rules + API filtering + UI visibility
+
+### Medium Priority
+3. **Navigation Bar Optimization** - Bottom nav for sales rep view
+4. **Replace UserDetailScreen** - Finish consolidation into TeamStatsScreen
+5. **Speed Optimization** - Audit all screens for loading time improvements
+
+---
+
+**Last Updated**: December 12, 2024
 **Owner**: Kunal Gupta (Artis Laminates)
-**AI Context Version**: 1.2
+**AI Context Version**: 1.3

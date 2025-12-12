@@ -835,6 +835,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
   const [loadingDistributors, setLoadingDistributors] = useState(false);
 
   const isAdmin = user?.role === 'admin';
+  // Get the actual user ID - Firebase user object may have uid directly or nested in _user
+  const currentUserId = user?.uid || (user as any)?._user?.uid;
 
   // Check if current range supports heatmap
   // Custom range only supports heatmap if start and end are in the same month
@@ -902,8 +904,21 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
   const { managers, reps, repsByManager } = useMemo(() => {
     const allUsers: FilterUser[] = usersData || [];
     const managerRoles = ['national_head', 'area_manager'];
-    const mgrs = allUsers.filter(u => managerRoles.includes(u.role));
+    let mgrs = allUsers.filter(u => managerRoles.includes(u.role));
     const salesReps = allUsers.filter(u => u.role === 'rep');
+
+    // For AM/NH: if current user isn't in managers list, add them
+    // This allows their reps to be shown in the expandable filter
+    if (user && currentUserId && managerRoles.includes(user.role) && !mgrs.find(m => m.id === currentUserId)) {
+      mgrs = [{
+        id: currentUserId,
+        name: (user as any)?.displayName || (user as any)?._user?.displayName || 'My Team',
+        role: user.role,
+        territory: '',
+        reportsToUserId: null,
+        isActive: true,
+      }, ...mgrs];
+    }
 
     // Group reps by their manager
     const byManager: Record<string, FilterUser[]> = {};
@@ -914,7 +929,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
     });
 
     return { managers: mgrs, reps: salesReps, repsByManager: byManager };
-  }, [usersData]);
+  }, [usersData, user, currentUserId]);
 
   // Get display name for current filter
   const filterDisplayName = useMemo(() => {
@@ -1579,162 +1594,172 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               ref={modalScrollRef}
               contentContainerStyle={{ paddingBottom: 80 }}
             >
-              {/* All Users option (admin only) */}
-              {isAdmin && (
-                <TouchableOpacity
-                  style={[
-                    styles.modalOption,
-                    filterType === 'all' && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setFilterType('all');
-                    setSelectedManagerId(undefined);
-                    setSelectedRepId(undefined);
-                    setFilterModalVisible(false);
-                  }}
-                >
-                  <View style={styles.modalOptionLeft}>
-                    <View style={styles.modalOptionAvatar}>
-                      <Users size={16} color="#666" />
-                    </View>
-                    <Text style={styles.modalOptionName}>All Users</Text>
-                  </View>
-                  {filterType === 'all' && <Check size={20} color="#2E7D32" />}
-                </TouchableOpacity>
-              )}
+              {/* Build filter options as a single array to avoid key issues */}
+              {(() => {
+                const options: React.ReactNode[] = [];
 
-              {/* Manager rows with expandable reps */}
-              {managers.filter(m => {
-                // For non-admin (NH/AM), only show their own entry
-                if (!isAdmin) {
-                  return m.id === user?.uid;
-                }
-                // For admin, show all managers
-                return true;
-              }).map((manager) => {
-                const managerReps = repsByManager[manager.id] || [];
-                const isExpanded = expandedManagerIds.has(manager.id);
-                const isManagerTeamSelected = filterType === 'manager' && selectedManagerId === manager.id;
-
-                return (
-                  <View
-                    key={manager.id}
-                    onLayout={(e) => {
-                      managerRowPositions.current[manager.id] = e.nativeEvent.layout.y;
-                    }}
-                  >
-                    {/* Manager Row */}
+                // All Users option (admin only)
+                if (isAdmin) {
+                  options.push(
                     <TouchableOpacity
+                      key="all-users"
                       style={[
                         styles.modalOption,
-                        isManagerTeamSelected && styles.modalOptionSelected,
+                        filterType === 'all' && styles.modalOptionSelected,
                       ]}
                       onPress={() => {
-                        // Toggle expand/collapse
-                        const newSet = new Set(expandedManagerIds);
-                        if (isExpanded) {
-                          newSet.delete(manager.id);
-                        } else {
-                          newSet.add(manager.id);
-                          // Scroll to this manager row after a brief delay (for animation)
-                          setTimeout(() => {
-                            const y = managerRowPositions.current[manager.id];
-                            if (y !== undefined && modalScrollRef.current) {
-                              modalScrollRef.current.scrollTo({ y, animated: true });
-                            }
-                          }, 100);
-                        }
-                        setExpandedManagerIds(newSet);
+                        setFilterType('all');
+                        setSelectedManagerId(undefined);
+                        setSelectedRepId(undefined);
+                        setFilterModalVisible(false);
                       }}
                     >
                       <View style={styles.modalOptionLeft}>
-                        {/* Expand chevron */}
-                        {managerReps.length > 0 ? (
-                          isExpanded ? (
-                            <ChevronDown size={16} color="#888" style={{ marginRight: 8 }} />
-                          ) : (
-                            <ChevronRight size={16} color="#888" style={{ marginRight: 8 }} />
-                          )
-                        ) : (
-                          <View style={{ width: 24 }} />
-                        )}
                         <View style={styles.modalOptionAvatar}>
                           <Users size={16} color="#666" />
                         </View>
-                        <View>
-                          <Text style={styles.modalOptionName}>{manager.name}</Text>
-                          <Text style={styles.modalOptionRole}>
-                            {manager.role === 'area_manager' ? 'Area Manager' :
-                             manager.role === 'national_head' ? 'National Head' :
-                             manager.role}
-                            {managerReps.length > 0 && ` • ${managerReps.length} reps`}
-                          </Text>
-                        </View>
+                        <Text style={styles.modalOptionName}>All Users</Text>
                       </View>
-                      {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
+                      {filterType === 'all' && <Check size={20} color="#2E7D32" />}
                     </TouchableOpacity>
+                  );
+                }
 
-                    {/* Expanded content: Team option + Individual reps */}
-                    {isExpanded && managerReps.length > 0 && (
-                      <View style={styles.expandedSection}>
-                        {/* Team aggregate option */}
-                        <TouchableOpacity
-                          style={[
-                            styles.modalOption,
-                            styles.modalOptionIndented,
-                            isManagerTeamSelected && styles.modalOptionSelected,
-                          ]}
-                          onPress={() => {
-                            setFilterType('manager');
-                            setSelectedManagerId(manager.id);
-                            setSelectedRepId(undefined);
-                            setFilterModalVisible(false);
-                          }}
-                        >
-                          <View style={styles.modalOptionLeft}>
-                            <View style={[styles.modalOptionAvatar, { backgroundColor: '#E3F2FD' }]}>
-                              <Users size={14} color="#1976D2" />
-                            </View>
-                            <Text style={styles.modalOptionName}>Team ({managerReps.length} reps)</Text>
+                // Manager rows with expandable reps
+                managers.filter(m => {
+                  // For non-admin (NH/AM), only show their own entry
+                  if (!isAdmin) {
+                    return m.id === currentUserId;
+                  }
+                  // For admin, show all managers
+                  return true;
+                }).forEach((manager) => {
+                  const managerReps = repsByManager[manager.id] || [];
+                  const isExpanded = expandedManagerIds.has(manager.id);
+                  const isManagerTeamSelected = filterType === 'manager' && selectedManagerId === manager.id;
+
+                  options.push(
+                    <View
+                      key={`manager-${manager.id}`}
+                      onLayout={(e) => {
+                        managerRowPositions.current[manager.id] = e.nativeEvent.layout.y;
+                      }}
+                    >
+                      {/* Manager Row */}
+                      <TouchableOpacity
+                        style={[
+                          styles.modalOption,
+                          isManagerTeamSelected && styles.modalOptionSelected,
+                        ]}
+                        onPress={() => {
+                          // Toggle expand/collapse
+                          const newSet = new Set(expandedManagerIds);
+                          if (isExpanded) {
+                            newSet.delete(manager.id);
+                          } else {
+                            newSet.add(manager.id);
+                            // Scroll to this manager row after a brief delay (for animation)
+                            setTimeout(() => {
+                              const y = managerRowPositions.current[manager.id];
+                              if (y !== undefined && modalScrollRef.current) {
+                                modalScrollRef.current.scrollTo({ y, animated: true });
+                              }
+                            }, 100);
+                          }
+                          setExpandedManagerIds(newSet);
+                        }}
+                      >
+                        <View style={styles.modalOptionLeft}>
+                          {/* Expand chevron */}
+                          {managerReps.length > 0 ? (
+                            isExpanded ? (
+                              <ChevronDown size={16} color="#888" style={{ marginRight: 8 }} />
+                            ) : (
+                              <ChevronRight size={16} color="#888" style={{ marginRight: 8 }} />
+                            )
+                          ) : (
+                            <View style={{ width: 24 }} />
+                          )}
+                          <View style={styles.modalOptionAvatar}>
+                            <Users size={16} color="#666" />
                           </View>
-                          {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
-                        </TouchableOpacity>
+                          <View>
+                            <Text style={styles.modalOptionName}>{manager.name}</Text>
+                            <Text style={styles.modalOptionRole}>
+                              {manager.role === 'area_manager' ? 'Area Manager' :
+                               manager.role === 'national_head' ? 'National Head' :
+                               manager.role}
+                              {managerReps.length > 0 && ` • ${managerReps.length} reps`}
+                            </Text>
+                          </View>
+                        </View>
+                        {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
+                      </TouchableOpacity>
 
-                        {/* Individual rep options */}
-                        {managerReps.map((rep) => {
-                          const isRepSelected = filterType === 'rep' && selectedRepId === rep.id;
-                          return (
-                            <TouchableOpacity
-                              key={rep.id}
-                              style={[
-                                styles.modalOption,
-                                styles.modalOptionIndented,
-                                isRepSelected && styles.modalOptionSelected,
-                              ]}
-                              onPress={() => {
-                                setFilterType('rep');
-                                setSelectedManagerId(manager.id);
-                                setSelectedRepId(rep.id);
-                                setFilterModalVisible(false);
-                              }}
-                            >
-                              <View style={styles.modalOptionLeft}>
-                                <View style={[styles.modalOptionAvatar, { backgroundColor: '#F5F5F5' }]}>
-                                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>
-                                    {rep.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                                  </Text>
-                                </View>
-                                <Text style={styles.modalOptionName}>{rep.name}</Text>
+                      {/* Expanded content: Team option + Individual reps */}
+                      {isExpanded && managerReps.length > 0 && (
+                        <View style={styles.expandedSection}>
+                          {/* Team aggregate option */}
+                          <TouchableOpacity
+                            style={[
+                              styles.modalOption,
+                              styles.modalOptionIndented,
+                              isManagerTeamSelected && styles.modalOptionSelected,
+                            ]}
+                            onPress={() => {
+                              setFilterType('manager');
+                              setSelectedManagerId(manager.id);
+                              setSelectedRepId(undefined);
+                              setFilterModalVisible(false);
+                            }}
+                          >
+                            <View style={styles.modalOptionLeft}>
+                              <View style={[styles.modalOptionAvatar, { backgroundColor: '#E3F2FD' }]}>
+                                <Users size={14} color="#1976D2" />
                               </View>
-                              {isRepSelected && <Check size={20} color="#2E7D32" />}
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+                              <Text style={styles.modalOptionName}>Team ({managerReps.length} reps)</Text>
+                            </View>
+                            {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
+                          </TouchableOpacity>
+
+                          {/* Individual rep options */}
+                          {managerReps.map((rep) => {
+                            const isRepSelected = filterType === 'rep' && selectedRepId === rep.id;
+                            return (
+                              <TouchableOpacity
+                                key={rep.id}
+                                style={[
+                                  styles.modalOption,
+                                  styles.modalOptionIndented,
+                                  isRepSelected && styles.modalOptionSelected,
+                                ]}
+                                onPress={() => {
+                                  setFilterType('rep');
+                                  setSelectedManagerId(manager.id);
+                                  setSelectedRepId(rep.id);
+                                  setFilterModalVisible(false);
+                                }}
+                              >
+                                <View style={styles.modalOptionLeft}>
+                                  <View style={[styles.modalOptionAvatar, { backgroundColor: '#F5F5F5' }]}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>
+                                      {rep.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                                    </Text>
+                                  </View>
+                                  <Text style={styles.modalOptionName}>{rep.name}</Text>
+                                </View>
+                                {isRepSelected && <Check size={20} color="#2E7D32" />}
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  );
+                });
+
+                return options;
+              })()}
             </ScrollView>
           </View>
         </TouchableOpacity>
