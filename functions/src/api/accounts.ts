@@ -330,6 +330,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
     // 2. Parse filters and pagination params
     const {
       type,
+      createdBy,  // 'mine' | 'all' - filter by creator
       limit: requestedLimit = 50,
       startAfter,
       sortBy = "name",
@@ -381,11 +382,32 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       query = query.where("type", "==", type);
     }
 
+    // Filter by createdBy if provided
+    // 'mine' = only accounts created by the current user
+    // 'all' or undefined = all visible accounts (based on role)
+    if (createdBy === "mine") {
+      query = query.where("createdByUserId", "==", userId);
+    }
+
     // Add sorting
     query = query.orderBy(sortBy, sortDir as "asc" | "desc");
 
-    // Apply cursor if provided (pagination)
-    if (startAfter) {
+    // NOTE: For reps/managers, we need to fetch more accounts because visibility
+    // filtering happens AFTER the query. If we only fetch 50 and most are hidden,
+    // the user sees fewer accounts than expected.
+    //
+    // Strategy:
+    // - For admins: Use normal pagination (they see all accounts)
+    // - For reps/managers: Fetch a larger batch, filter, then paginate
+    //
+    // We'll fetch up to 500 accounts for non-admins to ensure enough visible results
+    // after filtering. This is a tradeoff between query size and user experience.
+    const isAdmin = callerRole === "admin";
+    const actualFetchLimit = isAdmin ? fetchLimit : 500;
+
+    // Apply cursor if provided (pagination) - only for admins
+    // For non-admins, we handle pagination after filtering
+    if (startAfter && isAdmin) {
       const cursorDoc = await db.collection("accounts").doc(startAfter).get();
       if (cursorDoc.exists) {
         query = query.startAfter(cursorDoc);
@@ -393,7 +415,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
     }
 
     // Apply limit
-    query = query.limit(fetchLimit);
+    query = query.limit(actualFetchLimit);
 
     // 4. Execute query
     const accountsSnap = await query.get();
@@ -538,6 +560,16 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
     }
 
     // 7. Apply pagination to filtered results
+    // For non-admins, we need to handle cursor-based pagination after filtering
+    if (!isAdmin && startAfter) {
+      // Find the cursor position in the filtered results
+      const cursorIndex = accounts.findIndex((a) => a.id === startAfter);
+      if (cursorIndex !== -1) {
+        // Start after the cursor
+        accounts = accounts.slice(cursorIndex + 1);
+      }
+    }
+
     // Check if there are more results than requested
     const hasMore = accounts.length > limit;
     // Trim to requested limit

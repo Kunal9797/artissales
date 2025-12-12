@@ -14,7 +14,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, BarChart2, Plus, Folder, User, CheckSquare } from 'lucide-react-native';
+import { Home, BarChart2, Plus, Folder, CheckSquare, User } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -46,7 +46,6 @@ const AnimatedTabIcon: React.FC<{
 import { HomeScreen } from '../screens/HomeScreen_v2';
 import { StatsScreen } from '../screens/StatsScreen';
 import { DocumentsScreen } from '../screens/DocumentsScreen';
-import { ProfileScreen } from '../screens/profile/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -224,7 +223,18 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
           }}
         />
 
-        {/* Center Log button - prominent design */}
+        <Tab.Screen
+          name="DocumentsTab"
+          component={DocumentsScreen}
+          options={{
+            title: 'Docs',
+            tabBarIcon: ({ color, focused }) => (
+              <AnimatedTabIcon Icon={Folder} color={color} focused={focused} />
+            ),
+          }}
+        />
+
+        {/* Log button - right corner for easy thumb access */}
         <Tab.Screen
           name="LogTab"
           component={View}
@@ -238,28 +248,6 @@ export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
               e.preventDefault();
               setFabMenuVisible(true);
             },
-          }}
-        />
-
-        <Tab.Screen
-          name="DocumentsTab"
-          component={DocumentsScreen}
-          options={{
-            title: 'Docs',
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon Icon={Folder} color={color} focused={focused} />
-            ),
-          }}
-        />
-
-        <Tab.Screen
-          name="MeTab"
-          component={ProfileScreen}
-          options={{
-            title: 'Me',
-            tabBarIcon: ({ color, focused }) => (
-              <AnimatedTabIcon Icon={User} color={color} focused={focused} />
-            ),
           }}
         />
       </Tab.Navigator>
@@ -301,7 +289,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4, // Reduced from 6 to move content up
   },
 
-  // Log Tab Button Styles - "Popping up" from nav bar
+  // Log Tab Button Styles - Prominent but inline
   logTabButton: {
     flex: 1,
     justifyContent: 'flex-start',
@@ -309,26 +297,24 @@ const styles = StyleSheet.create({
     paddingTop: 0,
   },
   logButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
     shadowRadius: 8,
-    elevation: 8,
-    borderWidth: 3,
-    borderColor: colors.primary,
-    marginTop: -32, // Half the button height - makes it "pop up" above nav bar
+    elevation: 6,
+    marginTop: -20, // Slight pop-up effect
   },
   logButtonLabel: {
     fontSize: 12,
     fontWeight: typography.fontWeight.semiBold,
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginTop: 6,
+    color: colors.accent,
+    marginTop: 4,
   },
 
   // FAB Menu Styles - Modern & Sleek

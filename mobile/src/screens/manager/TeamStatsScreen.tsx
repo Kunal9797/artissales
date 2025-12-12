@@ -48,6 +48,7 @@ import {
   Phone,
   Edit2,
   Target,
+  IndianRupee,
 } from 'lucide-react-native';
 
 // Enable LayoutAnimation on Android
@@ -70,6 +71,7 @@ interface FilterUser {
   territory?: string;
   reportsToUserId?: string;
   isActive?: boolean;
+  primaryDistributorId?: string;
 }
 
 // Filter type
@@ -82,6 +84,14 @@ const formatNumber = (num: number): string => {
   if (num >= 10000) return `${(num / 1000).toFixed(0)}k`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
   return num.toString();
+};
+
+// Format rupee amounts compactly (₹8,200 → ₹8.2k)
+const formatRupee = (num: number): string => {
+  if (num >= 100000) return `₹${(num / 100000).toFixed(1)}L`;
+  if (num >= 10000) return `₹${(num / 1000).toFixed(0)}k`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(1)}k`;
+  return `₹${num.toLocaleString('en-IN')}`;
 };
 
 // Daily activity for heatmap
@@ -139,11 +149,22 @@ interface TeamStatsResponse {
     };
     pending: {
       sheets: number;
+      sheetsLogs?: number;
       expenses: number;
     };
     visitDetails?: {
       recent: VisitDetail[];
       topAccounts: TopAccount[];
+    };
+    // Expense breakdown for single rep view
+    expenses?: {
+      total: number;
+      byCategory: {
+        travel: number;
+        food: number;
+        accommodation: number;
+        other: number;
+      };
     };
   };
 }
@@ -806,6 +827,13 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
   const [editRepIsActive, setEditRepIsActive] = useState(true);
   const [editRepSaving, setEditRepSaving] = useState(false);
 
+  // Distributor picker state for edit modal
+  const [editRepDistributorId, setEditRepDistributorId] = useState<string | null>(null);
+  const [editRepDistributorName, setEditRepDistributorName] = useState<string>('');
+  const [distributors, setDistributors] = useState<Array<{id: string; name: string}>>([]);
+  const [distributorModalVisible, setDistributorModalVisible] = useState(false);
+  const [loadingDistributors, setLoadingDistributors] = useState(false);
+
   const isAdmin = user?.role === 'admin';
 
   // Check if current range supports heatmap
@@ -913,8 +941,25 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
       territory: rep.territory,
       reportsToUserId: rep.reportsToUserId,
       isActive: rep.isActive !== false, // Default to true if undefined
+      primaryDistributorId: rep.primaryDistributorId,
     };
   }, [filterType, selectedRepId, reps]);
+
+  // Fetch distributors for edit modal (lazy load)
+  const fetchDistributors = async () => {
+    if (distributors.length > 0) return; // Already fetched
+    setLoadingDistributors(true);
+    try {
+      const response = await api.getAccountsList({ type: 'distributor' });
+      if (response.ok && response.accounts) {
+        setDistributors(response.accounts.map((a: any) => ({ id: a.id, name: a.name })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch distributors:', err);
+    } finally {
+      setLoadingDistributors(false);
+    }
+  };
 
   // Get today's date
   const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
@@ -1189,7 +1234,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           {filterType === 'rep' && visitsCardExpanded && stats?.visitDetails && (
             <View style={styles.visitDetailsContainer}>
               {/* Recent Visits */}
-              {stats.visitDetails.recent.length > 0 && (
+              {stats.visitDetails.recent && stats.visitDetails.recent.length > 0 && (
                 <View style={styles.visitDetailsSection}>
                   <Text style={styles.visitDetailsSectionTitle}>Recent Visits</Text>
                   {stats.visitDetails.recent.map((visit) => (
@@ -1210,7 +1255,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               )}
 
               {/* Most Visited Accounts */}
-              {stats.visitDetails.topAccounts.length > 0 && (
+              {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
                 <View style={styles.visitDetailsSection}>
                   <Text style={styles.visitDetailsSectionTitle}>Most Visited</Text>
                   {stats.visitDetails.topAccounts.map((account, index) => (
@@ -1241,7 +1286,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             <View style={styles.splitCardHeader}>
               <TrendingUp size={20} color="#FF9800" />
               <Text style={styles.splitCardTitle}>SHEETS SOLD</Text>
-              {stats?.pending?.sheets && stats.pending.sheets > 0 && !isLoading && (
+              {!isLoading && (stats?.pending?.sheets ?? 0) > 0 && (
                 <View style={styles.pendingBadge}>
                   <Text style={styles.pendingBadgeText}>+{stats.pending.sheets} pending</Text>
                 </View>
@@ -1373,6 +1418,52 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           />
         )}
 
+        {/* Expenses Card - Single Rep View Only */}
+        {filterType === 'rep' && selectedRepId && stats?.expenses && (
+          <View style={styles.expenseCard}>
+            <View style={styles.expenseCardHeader}>
+              <IndianRupee size={18} color="#4CAF50" />
+              <Text style={styles.expenseCardTitle}>EXPENSES</Text>
+              <Text style={styles.expenseCardTotal}>
+                {stats.expenses.total > 0 ? formatRupee(stats.expenses.total) : '₹0'}
+              </Text>
+            </View>
+            {stats.expenses.total > 0 && stats.expenses.byCategory && (
+              <View style={styles.expenseBreakdown}>
+                {(stats.expenses.byCategory.travel || 0) > 0 && (
+                  <View style={styles.expenseBreakdownItem}>
+                    <Text style={styles.expenseBreakdownLabel}>Travel</Text>
+                    <Text style={styles.expenseBreakdownValue}>{formatRupee(stats.expenses.byCategory.travel)}</Text>
+                  </View>
+                )}
+                {(stats.expenses.byCategory.food || 0) > 0 && (
+                  <View style={styles.expenseBreakdownItem}>
+                    <Text style={styles.expenseBreakdownLabel}>Food</Text>
+                    <Text style={styles.expenseBreakdownValue}>{formatRupee(stats.expenses.byCategory.food)}</Text>
+                  </View>
+                )}
+                {(stats.expenses.byCategory.accommodation || 0) > 0 && (
+                  <View style={styles.expenseBreakdownItem}>
+                    <Text style={styles.expenseBreakdownLabel}>Accommodation</Text>
+                    <Text style={styles.expenseBreakdownValue}>{formatRupee(stats.expenses.byCategory.accommodation)}</Text>
+                  </View>
+                )}
+                {(stats.expenses.byCategory.other || 0) > 0 && (
+                  <View style={styles.expenseBreakdownItem}>
+                    <Text style={styles.expenseBreakdownLabel}>Other</Text>
+                    <Text style={styles.expenseBreakdownValue}>{formatRupee(stats.expenses.byCategory.other)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            {(stats?.pending?.expenses ?? 0) > 0 && (
+              <Text style={styles.expenseCardPending}>
+                {stats.pending.expenses} pending approval
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Pending Banner */}
         <TouchableOpacity style={styles.pendingBanner} onPress={() => {
           // If a specific rep is selected, pass their name to pre-filter the Review tab
@@ -1441,6 +1532,13 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                   setEditRepTerritory(selectedRepDetails?.territory || '');
                   setEditRepManagerId(selectedRepDetails?.reportsToUserId);
                   setEditRepIsActive(selectedRepDetails?.isActive !== false);
+                  // Set distributor info
+                  setEditRepDistributorId(selectedRepDetails?.primaryDistributorId || null);
+                  // Find distributor name if we have the list cached
+                  const distName = distributors.find(d => d.id === selectedRepDetails?.primaryDistributorId)?.name || '';
+                  setEditRepDistributorName(distName);
+                  // Fetch distributors list (lazy load)
+                  fetchDistributors();
                   setEditRepModalVisible(true);
                 }}
               >
@@ -1476,7 +1574,11 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             </View>
 
             {/* Hierarchical Options List */}
-            <ScrollView style={styles.modalList} ref={modalScrollRef}>
+            <ScrollView
+              style={styles.modalList}
+              ref={modalScrollRef}
+              contentContainerStyle={{ paddingBottom: 80 }}
+            >
               {/* All Users option (admin only) */}
               {isAdmin && (
                 <TouchableOpacity
@@ -1771,6 +1873,23 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 />
               </View>
 
+              {/* Primary Distributor Field */}
+              <View style={styles.editRepField}>
+                <Text style={styles.editRepLabel}>Primary Distributor</Text>
+                <TouchableOpacity
+                  style={styles.editRepInput}
+                  onPress={() => setDistributorModalVisible(true)}
+                >
+                  {loadingDistributors ? (
+                    <ActivityIndicator size="small" color="#666" />
+                  ) : (
+                    <Text style={{ fontSize: 16, color: editRepDistributorId ? '#1A1A1A' : '#999' }}>
+                      {editRepDistributorName || 'Select distributor (optional)'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
               {/* Manager (Reports To) Field - Admin sees all, others see only themselves */}
               <View style={styles.editRepField}>
                 <Text style={styles.editRepLabel}>Reports To</Text>
@@ -1856,6 +1975,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                       territory: editRepTerritory,
                       reportsToUserId: editRepManagerId,
                       isActive: editRepIsActive,
+                      primaryDistributorId: editRepDistributorId || undefined,
                     });
                     setEditRepModalVisible(false);
                     Alert.alert('Success', 'User updated successfully');
@@ -1876,6 +1996,87 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 )}
               </TouchableOpacity>
             </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Distributor Picker Modal */}
+      <Modal
+        visible={distributorModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setDistributorModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDistributorModalVisible(false)}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={[styles.modalContent, { maxHeight: '60%' }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Distributor</Text>
+              <TouchableOpacity onPress={() => setDistributorModalVisible(false)}>
+                <X size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Clear Selection Option */}
+            <TouchableOpacity
+              style={[styles.distributorOption, !editRepDistributorId && styles.distributorOptionSelected]}
+              onPress={() => {
+                setEditRepDistributorId(null);
+                setEditRepDistributorName('');
+                setDistributorModalVisible(false);
+              }}
+            >
+              <Text style={[styles.distributorOptionText, !editRepDistributorId && styles.distributorOptionTextSelected]}>
+                None (No Distributor)
+              </Text>
+              {!editRepDistributorId && <Check size={18} color="#393735" />}
+            </TouchableOpacity>
+
+            {/* Distributors List */}
+            <FlatList
+              data={distributors}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.distributorOption,
+                    editRepDistributorId === item.id && styles.distributorOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setEditRepDistributorId(item.id);
+                    setEditRepDistributorName(item.name);
+                    setDistributorModalVisible(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.distributorOptionText,
+                    editRepDistributorId === item.id && styles.distributorOptionTextSelected,
+                  ]}>
+                    {item.name}
+                  </Text>
+                  {editRepDistributorId === item.id && <Check size={18} color="#393735" />}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                loadingDistributors ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#666" />
+                    <Text style={{ marginTop: 8, color: '#666' }}>Loading distributors...</Text>
+                  </View>
+                ) : (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Text style={{ color: '#888' }}>No distributors found</Text>
+                  </View>
+                )
+              }
+            />
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -1939,6 +2140,62 @@ const styles = StyleSheet.create({
   // Scroll
   scrollView: { flex: 1 },
   content: { padding: 16, gap: 14 },
+
+  // Expenses Card
+  expenseCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  expenseCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  expenseCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#888',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  expenseCardTotal: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  expenseBreakdown: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    gap: 8,
+  },
+  expenseBreakdownItem: {
+    backgroundColor: '#F5F5F5',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    minWidth: '45%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  expenseBreakdownLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  expenseBreakdownValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  expenseCardPending: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 10,
+  },
 
   // Rep Action Bar (single rep view - at bottom)
   repActionBar: {
@@ -2263,7 +2520,6 @@ const styles = StyleSheet.create({
   },
   modalList: {
     flexGrow: 0,
-    paddingBottom: 24,
   },
   modalOption: {
     flexDirection: 'row',
@@ -2661,6 +2917,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+
+  // Distributor Picker
+  distributorOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  distributorOptionSelected: {
+    backgroundColor: '#F8F8F8',
+  },
+  distributorOptionText: {
+    fontSize: 16,
+    color: '#1A1A1A',
+  },
+  distributorOptionTextSelected: {
+    fontWeight: '600',
   },
 });
 

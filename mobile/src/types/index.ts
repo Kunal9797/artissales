@@ -98,6 +98,7 @@ export interface CreateAccountResponse {
 
 export interface GetAccountsListRequest {
   type?: AccountType;
+  createdBy?: 'mine' | 'all';  // Filter by creator: 'mine' = only my accounts
   limit?: number;          // Max accounts per page (default 50, max 100)
   startAfter?: string;     // Last account ID for pagination cursor
   sortBy?: 'name' | 'lastVisitAt';  // Sort field (default "name")

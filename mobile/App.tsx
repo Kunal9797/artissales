@@ -17,6 +17,7 @@ console.log('[App] ErrorBoundary imported');
 import { ThemeRuntimeProvider } from './src/theme/runtime';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
+import { ProfileSheetProvider } from './src/providers/ProfileSheetProvider';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
@@ -72,10 +73,12 @@ export default function App() {
           persistOptions={{ persister: asyncStoragePersister }}
         >
           <TenantThemeProvider>
-            <ToastProvider>
-              <AppStatusBar />
-              <RootNavigator />
-            </ToastProvider>
+            <ProfileSheetProvider>
+              <ToastProvider>
+                <AppStatusBar />
+                <RootNavigator />
+              </ToastProvider>
+            </ProfileSheetProvider>
           </TenantThemeProvider>
         </PersistQueryClientProvider>
       </ErrorBoundary>

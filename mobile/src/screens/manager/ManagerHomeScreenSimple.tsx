@@ -38,6 +38,7 @@ import {
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { useProfileSheet } from '../../providers/ProfileSheetProvider';
 import { Skeleton } from '../../patterns/Skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, typography, featureColors } from '../../theme';
@@ -80,6 +81,7 @@ type SheetType = 'visits' | 'sheets' | null;
 export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const bottomPadding = useBottomSafeArea(12);
   const queryClient = useQueryClient();
+  const { showProfileSheet } = useProfileSheet();
   const [refreshing, setRefreshing] = useState(false);
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
 
@@ -184,14 +186,18 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     <View style={styles.container}>
       {/* Header with Greeting */}
       <View style={styles.header}>
-        {/* Artis Logo - Translucent watermark */}
-        <View style={styles.logoWatermark}>
+        {/* Artis Logo - Tappable, opens Profile Sheet */}
+        <TouchableOpacity
+          onPress={showProfileSheet}
+          activeOpacity={0.7}
+          style={styles.logoButton}
+        >
           <Image
             source={require('../../../assets/images/artislogo_blackbgrd.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
-        </View>
+        </TouchableOpacity>
 
         {/* Greeting content */}
         <View style={styles.headerContent}>
@@ -457,16 +463,21 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.accent + '99', // Gold accent line at 60% opacity
     position: 'relative',
   },
-  logoWatermark: {
+  logoButton: {
     position: 'absolute',
     right: 16,
-    top: 40,
-    opacity: 0.12,
-    zIndex: 0,
+    top: 48,
+    zIndex: 10,
+    // Stronger glow effect
+    shadowColor: '#C9A961',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 8,
   },
   logoImage: {
-    width: 72,
-    height: 72,
+    width: 52,
+    height: 52,
   },
   headerContent: {
     zIndex: 1,

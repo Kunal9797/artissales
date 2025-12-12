@@ -24,6 +24,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<AccountType | 'all'>('all');
+  const [createdByFilter, setCreatedByFilter] = useState<'all' | 'mine'>('all');
 
   // Use the updated hook with pagination - pass type filter to server
   const {
@@ -37,6 +38,7 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
     loadMore,
   } = useAccounts({
     type: selectedType === 'all' ? undefined : selectedType,
+    createdBy: createdByFilter === 'all' ? undefined : createdByFilter,
     sortBy: 'name',
     sortDir: 'asc',
   });
@@ -234,7 +236,51 @@ export const AccountsListScreen: React.FC<AccountsListScreenProps> = ({ navigati
         </View>
       </View>
 
-      {/* Filter Pills */}
+      {/* Created By Filter Row */}
+      <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: createdByFilter === 'all' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: createdByFilter === 'all' ? '#393735' : '#E0E0E0',
+              alignItems: 'center',
+            }}
+            onPress={() => setCreatedByFilter('all')}
+          >
+            <Text style={{
+              fontWeight: '600',
+              color: createdByFilter === 'all' ? '#FFFFFF' : '#666666',
+            }}>
+              All Accounts
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: createdByFilter === 'mine' ? '#393735' : '#FFFFFF',
+              borderWidth: 1,
+              borderColor: createdByFilter === 'mine' ? '#393735' : '#E0E0E0',
+              alignItems: 'center',
+            }}
+            onPress={() => setCreatedByFilter('mine')}
+          >
+            <Text style={{
+              fontWeight: '600',
+              color: createdByFilter === 'mine' ? '#FFFFFF' : '#666666',
+            }}>
+              My Accounts
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Type Filter Pills */}
       <View style={{ paddingBottom: 12 }}>
         <ScrollView
           horizontal

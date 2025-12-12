@@ -31,6 +31,7 @@ export interface Account {
 
 export interface UseAccountsOptions {
   type?: AccountType;
+  createdBy?: 'mine' | 'all';  // Filter by creator
   sortBy?: 'name' | 'lastVisitAt';
   sortDir?: 'asc' | 'desc';
 }
@@ -133,6 +134,7 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
       // We're online - fetch from API
       const response = await api.getAccountsList({
         type: options.type,
+        createdBy: options.createdBy,
         limit: PAGE_SIZE,
         startAfter: isLoadMore ? cursorRef.current : undefined,
         sortBy: options.sortBy || 'name',
@@ -183,12 +185,13 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [options.type, options.sortBy, options.sortDir, hasMore, loadingMore]);
+  }, [options.type, options.createdBy, options.sortBy, options.sortDir, hasMore, loadingMore]);
 
   // Initial fetch and refetch when options change
   useEffect(() => {
     const optionsChanged =
       prevOptionsRef.current.type !== options.type ||
+      prevOptionsRef.current.createdBy !== options.createdBy ||
       prevOptionsRef.current.sortBy !== options.sortBy ||
       prevOptionsRef.current.sortDir !== options.sortDir;
 
@@ -201,7 +204,7 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
     }
 
     fetchAccounts(true);
-  }, [options.type, options.sortBy, options.sortDir]);
+  }, [options.type, options.createdBy, options.sortBy, options.sortDir]);
 
   // Refresh function (pull-to-refresh)
   const refreshAccounts = useCallback(() => {

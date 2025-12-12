@@ -35,6 +35,7 @@ import { colors, spacing, typography, featureColors, shadows } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
+import { useProfileSheet } from '../providers/ProfileSheetProvider';
 import {
   MapPin,
   IndianRupee,
@@ -161,6 +162,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
+
+  // Profile sheet
+  const { showProfileSheet } = useProfileSheet();
 
   const [userName, setUserName] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -1071,12 +1075,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Artis Logo - Larger, faded */}
-        <Image
-          source={require('../../assets/images/artislogo_blackbgrd.png')}
-          style={{ width: 56, height: 56, opacity: 0.4 }}
-          resizeMode="contain"
-        />
+        {/* Artis Logo - Tappable, opens Profile Sheet */}
+        <TouchableOpacity
+          onPress={showProfileSheet}
+          activeOpacity={0.7}
+          style={{
+            // Glow container
+            shadowColor: '#C9A961',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.8,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
+          <Image
+            source={require('../../assets/images/artislogo_blackbgrd.png')}
+            style={{ width: 52, height: 52 }}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
       </View>
 
       {/* Updated Toast */}

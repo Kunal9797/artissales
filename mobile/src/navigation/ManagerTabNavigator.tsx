@@ -6,7 +6,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, Animated, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, Users, Building2, CheckCircle, User as UserIcon } from 'lucide-react-native';
+import { Home, Users, Building2, CheckCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 
@@ -41,7 +41,6 @@ const AnimatedTabIcon: React.FC<{
     </Animated.View>
   );
 };
-import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
 // import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen'; // TODO: Has StyleSheet.create issue
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreenSimple';
@@ -142,16 +141,6 @@ export const ManagerTabNavigator: React.FC = () => {
         }}
       />
 
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{
-          title: 'Me',
-          tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon Icon={UserIcon} color={color} focused={focused} />
-          ),
-        }}
-      />
     </Tab.Navigator>
   );
 };

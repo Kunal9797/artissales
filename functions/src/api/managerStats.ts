@@ -283,7 +283,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       visitsSnapshot,
       sheetsSnapshot,
       pendingSheetsSnapshot,
-      expensesSnapshot,
+      pendingExpensesSnapshot,
+      allExpensesSnapshot,
     ] = await Promise.all([
       // Query 1: Attendance
       db.collection("attendance")
@@ -322,8 +323,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
             .where("verified", "==", false)
             .get(),
 
-      // Query 5: Expenses
-      (range === "week" || range === "month")
+      // Query 5: Pending Expenses (for pending count)
+      (range === "week" || range === "month" || range === "custom")
         ? db.collection("expenses")
             .where("date", ">=", startDateStr)
             .where("date", "<=", endDateStr)
@@ -333,6 +334,19 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
             .where("date", "==", targetDate)
             .where("status", "==", "pending")
             .get(),
+
+      // Query 6: All Expenses (for single rep view - expense breakdown by category)
+      // Only fetch if viewing a single rep to avoid unnecessary queries
+      isSingleRepView
+        ? ((range === "week" || range === "month" || range === "custom")
+            ? db.collection("expenses")
+                .where("date", ">=", startDateStr)
+                .where("date", "<=", endDateStr)
+                .get()
+            : db.collection("expenses")
+                .where("date", "==", targetDate)
+                .get())
+        : Promise.resolve(null),
     ]);
 
     logger.info(`[getTeamStats] Found ${attendanceSnapshot.size} attendance records`);
@@ -376,7 +390,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       const userId = doc.data().userId;
       if (isTeamMember(userId)) activeUserIds.add(userId);
     });
-    expensesSnapshot.docs.forEach((doc) => {
+    pendingExpensesSnapshot.docs.forEach((doc) => {
       const userId = doc.data().userId;
       if (isTeamMember(userId)) activeUserIds.add(userId);
     });
@@ -489,9 +503,66 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       }
     });
 
-    expensesSnapshot.docs.forEach((doc) => {
+    pendingExpensesSnapshot.docs.forEach((doc) => {
       if (isTeamMember(doc.data().userId)) pendingExpenses++;
     });
+
+    // Process expense breakdown for single rep view (using allExpensesSnapshot)
+    let expenseBreakdown: {
+      total: number;
+      byCategory: {
+        travel: number;
+        food: number;
+        accommodation: number;
+        other: number;
+      };
+    } | undefined;
+
+    if (isSingleRepView && allExpensesSnapshot) {
+      let totalExpenses = 0;
+      const expensesByCategory = {
+        travel: 0,
+        food: 0,
+        accommodation: 0,
+        other: 0,
+      };
+
+      allExpensesSnapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        if (!isTeamMember(data.userId)) return;
+
+        // Only count approved expenses in totals
+        if (data.status !== "approved") return;
+
+        // Handle both old format (amount/category) and new format (items array)
+        if (data.items && Array.isArray(data.items)) {
+          // New format: items array
+          data.items.forEach((item: any) => {
+            const amount = item.amount || 0;
+            totalExpenses += amount;
+            const category = item.category || "other";
+            if (expensesByCategory[category as keyof typeof expensesByCategory] !== undefined) {
+              expensesByCategory[category as keyof typeof expensesByCategory] += amount;
+            }
+          });
+        } else {
+          // Old format: single amount/category
+          const amount = data.amount || 0;
+          totalExpenses += amount;
+          const category = data.category || "other";
+          if (expensesByCategory[category as keyof typeof expensesByCategory] !== undefined) {
+            expensesByCategory[category as keyof typeof expensesByCategory] += amount;
+          }
+        }
+      });
+
+      expenseBreakdown = {
+        total: totalExpenses,
+        byCategory: expensesByCategory,
+      };
+
+      logger.info(`[getTeamStats] Built expense breakdown: total=${totalExpenses}, travel=${expensesByCategory.travel}, food=${expensesByCategory.food}`);
+    }
 
     logger.info(`[getTeamStats] Found ${pendingSheetsLogs} pending sheet logs (${pendingSheetsCount} sheets total), ${pendingExpenses} pending expenses`);
 
@@ -639,6 +710,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         },
         // Only included for single rep view
         ...(visitDetails && {visitDetails}),
+        // Expense breakdown for single rep view
+        ...(expenseBreakdown && {expenses: expenseBreakdown}),
       },
     });
   } catch (error: any) {
