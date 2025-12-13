@@ -34,10 +34,12 @@ import {
   PhoneCall,
   LogOut,
   ChevronRight,
+  HelpCircle,
 } from 'lucide-react-native';
 import { colors, spacing, typography } from '../theme';
 import { getLocalProfilePhoto } from '../services/storage';
 import { logger } from '../utils/logger';
+import { FeedbackForm } from './FeedbackForm';
 
 interface ProfileSheetProps {
   visible: boolean;
@@ -68,6 +70,9 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
   // Quick call contacts
   const [managerInfo, setManagerInfo] = useState<{ name: string; phone: string } | null>(null);
   const [distributorInfo, setDistributorInfo] = useState<{ name: string; phone: string } | null>(null);
+
+  // Feedback form
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
 
   // Load local cached photo
   useEffect(() => {
@@ -298,6 +303,25 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
             </>
           )}
 
+          {/* Need Help Section */}
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.helpRow}
+            onPress={() => setShowFeedbackForm(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.helpLeft}>
+              <View style={styles.helpIconContainer}>
+                <HelpCircle size={20} color={colors.info} />
+              </View>
+              <View>
+                <Text style={styles.helpTitle}>Need Help?</Text>
+                <Text style={styles.helpSubtitle}>Send feedback or report an issue</Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color={colors.text.tertiary} />
+          </TouchableOpacity>
+
           {/* Sign Out Button */}
           <View style={styles.signOutSection}>
             <TouchableOpacity
@@ -318,6 +342,12 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
           </View>
         </View>
       </View>
+
+      {/* Feedback Form Modal */}
+      <FeedbackForm
+        visible={showFeedbackForm}
+        onClose={() => setShowFeedbackForm(false)}
+      />
     </Modal>
   );
 };
@@ -482,5 +512,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.error,
+  },
+  helpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  helpLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  helpIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.infoLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  helpTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  helpSubtitle: {
+    fontSize: 13,
+    color: colors.text.tertiary,
   },
 });

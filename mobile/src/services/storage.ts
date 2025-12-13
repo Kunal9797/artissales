@@ -43,7 +43,7 @@ async function compressImage(uri: string): Promise<string> {
  */
 export async function uploadPhoto(
   photoUri: string,
-  folder: 'visits' | 'expenses' = 'visits'
+  folder: 'visits' | 'expenses' | 'feedback' = 'visits'
 ): Promise<string> {
   try {
     const authInstance = getAuth();
@@ -90,7 +90,7 @@ export async function uploadPhoto(
  */
 export async function uploadPhotos(
   photoUris: string[],
-  folder: 'visits' | 'expenses' = 'visits'
+  folder: 'visits' | 'expenses' | 'feedback' = 'visits'
 ): Promise<string[]> {
   const uploadPromises = photoUris.map((uri) => uploadPhoto(uri, folder));
   return Promise.all(uploadPromises);

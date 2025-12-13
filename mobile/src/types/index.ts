@@ -542,3 +542,25 @@ export interface ApiResponse {
   ok: boolean;
   [key: string]: any;
 }
+
+// ============================================================================
+// FEEDBACK TYPES (User Support/Help)
+// ============================================================================
+
+export interface FeedbackDeviceInfo {
+  platform: 'ios' | 'android';
+  osVersion: string;
+  appVersion: string;
+}
+
+export interface SubmitFeedbackRequest {
+  message: string;
+  screenshotUrls?: string[];
+  deviceInfo: FeedbackDeviceInfo;
+}
+
+export interface SubmitFeedbackResponse {
+  ok: true;
+  feedbackId: string;
+  message: string;
+}

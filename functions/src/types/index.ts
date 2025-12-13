@@ -838,3 +838,44 @@ export interface RejectItemResponse {
   ok: true;
   message: string;
 }
+
+// ============================================================================
+// FEEDBACK TYPES (User Support/Help)
+// ============================================================================
+
+export type FeedbackStatus = "new" | "in_progress" | "resolved";
+
+export interface FeedbackDeviceInfo {
+  platform: "ios" | "android";
+  osVersion: string;
+  appVersion: string;
+}
+
+export interface Feedback {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  userPhone: string;
+  userTerritory?: string;
+  message: string;
+  screenshotUrls: string[];
+  deviceInfo: FeedbackDeviceInfo;
+  status: FeedbackStatus;
+  resolvedBy?: string;
+  resolvedAt?: Timestamp;
+  adminNotes?: string;
+  createdAt: Timestamp;
+}
+
+export interface SubmitFeedbackRequest {
+  message: string;
+  screenshotUrls?: string[];
+  deviceInfo: FeedbackDeviceInfo;
+}
+
+export interface SubmitFeedbackResponse {
+  ok: true;
+  feedbackId: string;
+  message: string;
+}

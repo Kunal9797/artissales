@@ -25,6 +25,7 @@ export {createAccount, getAccountsList, updateAccount, getAccountDetails, getVis
 export {setTarget, getTarget, getUserTargets, stopAutoRenew} from "./api/targets";
 export {uploadDocument, getDocuments, deleteDocument, createDocumentMetadata} from "./api/documents";
 export {getPendingItems, approveItem, rejectItem} from "./api/approvals";
+export {submitFeedback} from "./api/feedback";
 
 // Webhooks
 export {leadWebhook} from "./webhooks/lead";

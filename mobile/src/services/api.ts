@@ -29,6 +29,7 @@ import {
   ApproveItemRequest,
   RejectItemRequest,
   PendingItemType,
+  SubmitFeedbackRequest,
 } from '../types';
 
 // Use environment variable for API base URL
@@ -434,5 +435,10 @@ export const api = {
 
   rejectItem: async (data: RejectItemRequest) => {
     return callFunction('rejectItem', data);
+  },
+
+  // Feedback/Support API
+  submitFeedback: async (data: SubmitFeedbackRequest) => {
+    return callFunction('submitFeedback', data);
   },
 };
