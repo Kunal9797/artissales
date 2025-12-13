@@ -305,5 +305,16 @@ service cloud.firestore {
       // Deny all client access
       allow read, write: if false;
     }
+
+    // ========================================================================
+    // CONFIG COLLECTION (App Configuration)
+    // ========================================================================
+    match /config/{configId} {
+      // All authenticated users can read config (for app version checks, etc.)
+      allow read: if isAuthenticated();
+
+      // Only admins can write config
+      allow write: if isAdmin();
+    }
   }
 }
