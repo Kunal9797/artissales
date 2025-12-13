@@ -1691,14 +1691,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     </>
                   )}
 
-                  {/* Time - always visible */}
+                  {/* Notes for expenses/sheets - shown in default view only */}
+                  {!showEditPanel && isSheetsOrExpense && selectedActivity.notes && (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 4 }}>Notes</Text>
+                      <Text style={{ fontSize: 14, color: colors.text.secondary }}>{selectedActivity.notes}</Text>
+                    </View>
+                  )}
+
+                  {/* Time - always visible in default view */}
                   {!showEditPanel && (
                     <Text style={{ fontSize: 13, color: colors.text.tertiary, marginBottom: 16 }}>
                       {selectedActivity.time.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {selectedActivity.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                     </Text>
                   )}
 
-                  {/* Bottom Buttons */}
+                  {/* Bottom Buttons for Sheets/Expenses */}
                   {showEditPanel ? (
                     /* Edit Mode: Done & Cancel at bottom */
                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
