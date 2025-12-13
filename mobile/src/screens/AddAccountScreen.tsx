@@ -12,12 +12,18 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Building2, User, Phone, Mail, MapPin, Hash, Calendar, Briefcase, PenTool, ChevronDown, X } from 'lucide-react-native';
+import { Building2, User, Phone, Mail, MapPin, Hash, Calendar, Briefcase, PenTool, ChevronDown, X, Clock } from 'lucide-react-native';
 import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 import { AccountType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
+import {
+  RecentLocation,
+  getRecentLocations,
+  saveRecentLocation,
+  formatLocationLabel,
+} from '../utils/recentLocations';
 
 // Account type options with icons
 const ACCOUNT_TYPES = [
@@ -60,6 +66,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
   const [showDistributorModal, setShowDistributorModal] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);
   const [selectedDistributor, setSelectedDistributor] = useState<any>(null);
+  const [recentLocations, setRecentLocations] = useState<RecentLocation[]>([]);
 
   // Validation & loading
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -74,7 +81,35 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
   useEffect(() => {
     // Load distributors for linking
     loadDistributors();
+    // Load recent locations
+    loadRecentLocations();
   }, []);
+
+  const loadRecentLocations = async () => {
+    const locations = await getRecentLocations();
+    setRecentLocations(locations);
+  };
+
+  // TODO: REMOVE THIS - Test function to seed fake locations
+  const loadTestLocations = async () => {
+    const testData = [
+      { city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
+      { city: 'Thane', state: 'Maharashtra', pincode: '400601' },
+      { city: 'Pune', state: 'Maharashtra', pincode: '411001' },
+      { city: 'Delhi', state: 'Delhi', pincode: '110001' },
+    ];
+    for (const loc of testData) {
+      await saveRecentLocation(loc);
+    }
+    await loadRecentLocations();
+    Alert.alert('Test Data Loaded', 'Added 4 test locations');
+  };
+
+  const handleSelectRecentLocation = (location: RecentLocation) => {
+    setCity(location.city);
+    setState(location.state);
+    setPincode(location.pincode);
+  };
 
   const loadDistributors = async () => {
     try {
@@ -146,6 +181,12 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
       });
 
       if (response.ok) {
+        // Save location to recents for quick access later
+        await saveRecentLocation({
+          city: city.trim(),
+          state: state,
+          pincode: pincode.trim(),
+        });
         // Call the callback if provided
         if (onAccountCreated) {
           onAccountCreated(response.accountId);
@@ -202,6 +243,14 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* TODO: REMOVE THIS - Test Button */}
+        <TouchableOpacity
+          style={styles.testButton}
+          onPress={loadTestLocations}
+        >
+          <Text style={styles.testButtonText}>🧪 Load Test Locations</Text>
+        </TouchableOpacity>
+
         {/* Account Type Grid */}
         <Text style={styles.sectionLabel}>Account Type</Text>
         <View style={styles.typeGrid}>
@@ -308,6 +357,48 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
           {/* Location Section */}
           <Text style={styles.formSectionTitle}>Location</Text>
+
+          {/* Recent Locations Chips */}
+          {recentLocations.length > 0 && (
+            <View style={styles.recentLocationsContainer}>
+              <View style={styles.recentLocationsHeader}>
+                <Clock size={14} color={colors.text.tertiary} />
+                <Text style={styles.recentLocationsLabel}>Recent:</Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recentLocationsScroll}
+              >
+                {recentLocations.map((location, index) => {
+                  const isSelected =
+                    city.toLowerCase() === location.city.toLowerCase() &&
+                    state === location.state &&
+                    pincode === location.pincode;
+                  return (
+                    <TouchableOpacity
+                      key={`${location.pincode}-${index}`}
+                      style={[
+                        styles.recentLocationChip,
+                        isSelected && styles.recentLocationChipSelected,
+                      ]}
+                      onPress={() => handleSelectRecentLocation(location)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.recentLocationChipText,
+                          isSelected && styles.recentLocationChipTextSelected,
+                        ]}
+                      >
+                        {formatLocationLabel(location)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {/* City & Pincode in row */}
           <View style={styles.twoColumnRow}>
@@ -693,5 +784,58 @@ const styles = StyleSheet.create({
   modalItemText: {
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
+  },
+
+  // Recent Locations
+  recentLocationsContainer: {
+    marginBottom: 12,
+  },
+  recentLocationsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  recentLocationsLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    fontWeight: '500',
+  },
+  recentLocationsScroll: {
+    gap: 8,
+  },
+  recentLocationChip: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  recentLocationChipSelected: {
+    backgroundColor: colors.accent + '15',
+    borderColor: colors.accent,
+  },
+  recentLocationChipText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  recentLocationChipTextSelected: {
+    color: colors.accent,
+  },
+
+  // TODO: REMOVE THIS - Test Button Style
+  testButton: {
+    backgroundColor: '#FFE082',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  testButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: '600',
+    color: '#5D4037',
   },
 });
