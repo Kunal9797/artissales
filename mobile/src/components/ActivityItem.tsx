@@ -9,7 +9,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import {
   MapPin,
-  FileText,
+  Layers,
   IndianRupee,
   CheckCircle,
   Clock,
@@ -60,7 +60,7 @@ const getActivityIcon = (type: Activity['type']) => {
     case 'visit':
       return <MapPin size={24} color={featureColors.visits.primary} />;
     case 'sheets':
-      return <FileText size={24} color={featureColors.sheets.primary} />;
+      return <Layers size={24} color={featureColors.sheets.primary} />;
     case 'expense':
       return <IndianRupee size={24} color={featureColors.expenses.primary} />;
     default:

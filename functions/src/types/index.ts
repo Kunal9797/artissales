@@ -154,6 +154,7 @@ export type VisitPurpose =
   | "order"
   | "payment"
   | "sample_delivery"
+  | "folder_delivery"
   | "follow_up"
   | "complaint"
   | "new_lead"
@@ -334,18 +335,19 @@ export interface AttendanceResponse {
   timestamp: string; // ISO 8601
 }
 
-// Visit Log (Photo-based verification)
+// Visit Log (Photo OR GPS verification)
 export interface VisitLogRequest {
   accountId: string;
   purpose: VisitPurpose;
   notes?: string;
-  photos: string[]; // REQUIRED - Storage URLs (min 1)
+  photos?: string[]; // Storage URLs - optional if GPS provided
   requestId?: string; // For idempotency
-  geo?: { // Optional GPS for auto check-in
+  geo?: { // GPS verification - optional if photos provided
     lat: number;
     lon: number;
     accuracyM?: number;
   };
+  // Validation: At least one of photos (min 1) OR geo must be provided
 }
 
 export interface VisitLogResponse {

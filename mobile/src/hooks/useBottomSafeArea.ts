@@ -21,9 +21,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export const useBottomSafeArea = (extraSpacing: number = 12): number => {
   const insets = useSafeAreaInsets();
 
-  // Return safe area bottom inset + extra spacing for visual breathing room
-  // On devices with gesture nav: insets.bottom = 0, result = 12px
-  // On devices with 3-button nav: insets.bottom = 48, result = 60px
-  // On devices with tablet nav: insets.bottom = 56, result = 68px
-  return insets.bottom + extraSpacing;
+  // Ensure minimum padding even on gesture navigation devices where insets.bottom = 0
+  // Uses Math.max to guarantee at least extraSpacing pixels of padding
+  // On devices with gesture nav: insets.bottom = 0, result = max(0, 12) = 12px
+  // On devices with 3-button nav: insets.bottom = 48, result = max(48, 12) = 48px + extraSpacing considered separately
+  // This ensures sticky footers don't get cut off by system nav bars
+  return Math.max(insets.bottom, 16) + extraSpacing;
 };

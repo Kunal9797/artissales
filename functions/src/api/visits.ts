@@ -67,21 +67,29 @@ export const logVisit = onRequest({
       return;
     }
 
-    // Validate photos array (must have at least 1 photo)
-    if (!Array.isArray(body.photos) || body.photos.length < 1) {
+    // Validate verification: must have at least photos OR GPS
+    const hasPhotos = Array.isArray(body.photos) && body.photos.length >= 1;
+    const hasGPS = body.geo &&
+      typeof body.geo.lat === "number" &&
+      typeof body.geo.lon === "number";
+
+    if (!hasPhotos && !hasGPS) {
       const error: ApiError = {
         ok: false,
-        error: "At least one photo is required",
-        code: "MISSING_PHOTO",
-        details: {photos: body.photos?.length || 0, required: "≥1"},
+        error: "Either photo or GPS verification is required",
+        code: "MISSING_VERIFICATION",
+        details: {
+          photos: body.photos?.length || 0,
+          hasGPS: !!body.geo,
+        },
       };
       response.status(400).json(error);
       return;
     }
 
     // Validate photo URLs (basic check) - only if photos provided
-    if (body.photos && body.photos.length > 0) {
-      const invalidPhotos = body.photos.filter(
+    if (hasPhotos) {
+      const invalidPhotos = body.photos!.filter(
         (url) => !url || typeof url !== "string" || url.trim().length === 0
       );
       if (invalidPhotos.length > 0) {
@@ -155,6 +163,8 @@ export const logVisit = onRequest({
       purpose: body.purpose,
       photos: body.photos || [], // Default to empty array if no photos
       createdAt: firestore.Timestamp.now(),
+      // Verification method tracking
+      verificationMethod: hasPhotos && hasGPS ? "both" : hasPhotos ? "photo" : "gps",
     };
 
     // Store requestId for idempotency (if provided)
@@ -165,6 +175,15 @@ export const logVisit = onRequest({
     // Only add notes if it's provided (Firestore rejects undefined)
     if (body.notes) {
       visitData.notes = body.notes;
+    }
+
+    // Store GPS data if provided
+    if (hasGPS) {
+      visitData.geo = {
+        lat: body.geo!.lat,
+        lon: body.geo!.lon,
+        accuracyM: body.geo!.accuracyM || null,
+      };
     }
 
     // Add visit to Firestore

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -11,18 +11,19 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Linking,
+  Keyboard,
 } from 'react-native';
-import { Camera, MapPin, User, Building2, ChevronLeft, Phone, Clock } from 'lucide-react-native';
+import { Camera, MapPin, Building2, ChevronLeft, Phone, FolderOpen, RefreshCw, UserPlus, AlertTriangle, Wallet, FileText, Check, X } from 'lucide-react-native';
 import * as Location from 'expo-location';
 import { getAuth } from '@react-native-firebase/auth';
 import { api } from '../../services/api';
-import { uploadPhoto } from '../../services/storage';
+// uploadPhoto imported dynamically via uploadQueue
 import { Account } from '../../hooks/useAccounts';
 import { CameraCapture } from '../../components/CameraCapture';
-import { colors, featureColors } from '../../theme';
+import { featureColors } from '../../theme';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
-import { invalidateHomeStatsCache } from '../HomeScreen_v2';
-import { trackVisitLogged, trackPhotoCaptureFailure } from '../../services/analytics';
+import { trackVisitLogged } from '../../services/analytics';
 import { useToast } from '../../providers/ToastProvider';
 
 interface LogVisitScreenProps {
@@ -36,12 +37,12 @@ interface LogVisitScreenProps {
 }
 
 const VISIT_PURPOSES = [
-  { value: 'sample_delivery', label: 'Sample Delivery' },
-  { value: 'follow_up', label: 'Follow-up' },
-  { value: 'complaint', label: 'Complaint' },
-  { value: 'new_lead', label: 'New Lead' },
-  { value: 'payment_collection', label: 'Payment Collection' },
-  { value: 'other', label: 'Other' },
+  { value: 'folder_delivery', label: 'Folder Delivery', Icon: FolderOpen, color: '#1976D2' },
+  { value: 'follow_up', label: 'Follow-up', Icon: RefreshCw, color: '#7B1FA2' },
+  { value: 'new_lead', label: 'New Lead', Icon: UserPlus, color: '#388E3C' },
+  { value: 'complaint', label: 'Complaint', Icon: AlertTriangle, color: '#F57C00' },
+  { value: 'payment_collection', label: 'Payment', Icon: Wallet, color: '#00796B' },
+  { value: 'other', label: 'Other', Icon: FileText, color: '#616161' },
 ];
 
 export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, route }) => {
@@ -53,6 +54,7 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [visitAccount, setVisitAccount] = useState<Account | null>(account || null);
   const [purpose, setPurpose] = useState<string>('');
@@ -62,6 +64,107 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // GPS verification state
+  const [gpsStatus, setGpsStatus] = useState<'loading' | 'success' | 'failed'>('loading');
+  const [gpsData, setGpsData] = useState<{ lat: number; lon: number; accuracyM: number } | null>(null);
+
+  // Start GPS capture on mount (background, non-blocking)
+  useEffect(() => {
+    if (isEditMode) {
+      // Skip GPS for edit mode - we already have verification
+      setGpsStatus('success');
+      return;
+    }
+
+    let isMounted = true;
+    const GPS_TIMEOUT = 8000; // 8 seconds for fresh GPS
+    const MAX_ACCURACY = 200; // Accept if accuracy <= 200 meters
+    const MAX_AGE = 5 * 60 * 1000; // Accept cached position if < 5 min old
+    const startTime = Date.now();
+
+    const captureGPS = async () => {
+      try {
+        logger.info('[GPS] Starting capture...');
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          logger.info(`[GPS] Permission denied (${Date.now() - startTime}ms)`);
+          if (isMounted) setGpsStatus('failed');
+          return;
+        }
+
+        // STEP 1: Try last known position first (instant)
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        const lastKnownElapsed = Date.now() - startTime;
+
+        if (lastKnown) {
+          const age = Date.now() - lastKnown.timestamp;
+          const accuracy = lastKnown.coords.accuracy || 999;
+
+          if (age < MAX_AGE && accuracy <= MAX_ACCURACY) {
+            logger.info(`[GPS] ✓ Using cached position (${lastKnownElapsed}ms) - age: ${(age/1000).toFixed(0)}s, accuracy: ±${accuracy.toFixed(0)}m`);
+            if (isMounted) {
+              setGpsData({
+                lat: lastKnown.coords.latitude,
+                lon: lastKnown.coords.longitude,
+                accuracyM: accuracy,
+              });
+              setGpsStatus('success');
+            }
+            return;
+          }
+          logger.info(`[GPS] Cached position too old (${(age/1000).toFixed(0)}s) or inaccurate (±${accuracy.toFixed(0)}m), getting fresh...`);
+        } else {
+          logger.info('[GPS] No cached position, getting fresh...');
+        }
+
+        // STEP 2: Get fresh position with timeout
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => resolve(null), GPS_TIMEOUT);
+        });
+
+        const locationPromise = Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const result = await Promise.race([locationPromise, timeoutPromise]);
+        const elapsed = Date.now() - startTime;
+
+        if (!isMounted) return;
+
+        if (!result) {
+          logger.info(`[GPS] Timed out after ${elapsed}ms`);
+          setGpsStatus('failed');
+          return;
+        }
+
+        const accuracy = result.coords.accuracy || 999;
+        if (accuracy > MAX_ACCURACY) {
+          logger.info(`[GPS] Accuracy too low: ${accuracy}m (max: ${MAX_ACCURACY}m) - took ${elapsed}ms`);
+          setGpsStatus('failed');
+          return;
+        }
+
+        logger.info(`[GPS] ✓ Fresh position in ${elapsed}ms - accuracy: ±${accuracy.toFixed(0)}m`);
+        setGpsData({
+          lat: result.coords.latitude,
+          lon: result.coords.longitude,
+          accuracyM: accuracy,
+        });
+        setGpsStatus('success');
+      } catch (error) {
+        logger.error('[GPS] Error:', error);
+        if (isMounted) setGpsStatus('failed');
+      }
+    };
+
+    captureGPS();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isEditMode]);
 
   // Fetch existing visit data in edit mode (PARALLEL LOADING OPTIMIZATION)
   useEffect(() => {
@@ -146,31 +249,6 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
     );
   };
 
-  // Helper: Attempt to capture GPS for auto check-in (non-blocking)
-  const captureGPSForAutoCheckIn = async (): Promise<{ lat: number; lon: number; accuracyM?: number } | null> => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        logger.info('[AutoCheckIn] GPS permission denied - skipping');
-        return null;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5000,
-      });
-
-      return {
-        lat: location.coords.latitude,
-        lon: location.coords.longitude,
-        accuracyM: location.coords.accuracy || undefined,
-      };
-    } catch (error) {
-      logger.error('[AutoCheckIn] Failed to get GPS:', error);
-      return null;
-    }
-  };
-
   const handleSubmit = async () => {
     // Validation
     if (!visitAccount) {
@@ -183,8 +261,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
       return;
     }
 
-    if (!photoUri) {
-      Alert.alert('Error', 'Please take a photo of the counter');
+    // Require either GPS success OR photo
+    if (gpsStatus !== 'success' && !photoUri) {
+      Alert.alert('Error', 'Please wait for GPS or take a photo');
       return;
     }
 
@@ -228,12 +307,8 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
         }
       } else {
         // NEW VISIT: Optimistic update with background upload
-        // TODO: Re-enable GPS capture in background (currently disabled for performance)
-        // GPS was causing 5-20s delays on visit submission. Will implement proper
-        // background GPS capture in a future update.
-        // See: captureGPSForAutoCheckIn() helper function above
-        const gpsData = null;
-        logger.log('[LogVisit] GPS capture disabled for performance - will add back later');
+        // GPS was captured on mount - use it if available
+        logger.log(`[LogVisit] GPS status: ${gpsStatus}, data: ${gpsData ? `${gpsData.lat},${gpsData.lon}` : 'none'}`);
 
         // Generate unique requestId for idempotency (prevents duplicate visits on network retry)
         const requestId = `${visitAccount.id}_${currentUser?.uid}_${Date.now()}`;
@@ -340,282 +415,239 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   return (
     <>
       <View style={styles.container}>
-        {/* Header - Match New Design */}
-        <View style={{
-          backgroundColor: '#393735',
-          paddingHorizontal: 24,
-          paddingTop: 52,
-          paddingBottom: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <ChevronLeft size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <MapPin size={24} color={featureColors.visits.primary} />
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF', flex: 1 }}>
-              {isEditMode ? 'Edit Visit' : 'Log Visit'}
-            </Text>
+        {/* Header - Match Expense/Sheets Design */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackBtn}>
+            <Text style={styles.headerBackText}>Cancel</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <MapPin size={20} color={featureColors.visits.primary} />
+            <Text style={styles.headerTitle}>{isEditMode ? 'Edit Visit' : 'Log Visit'}</Text>
           </View>
+          <View style={{ width: 50 }} />
         </View>
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollView}
-          contentContainerStyle={[styles.contentContainer, { paddingBottom: 80 + bottomPadding }]}
+          contentContainerStyle={[styles.contentContainer, { paddingBottom: 140 + bottomPadding }]}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
-          {/* Compact Account Info */}
+          {/* Account Info - Compact header card with call button */}
           {visitAccount && (
-            <View style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 16,
-              borderWidth: 1,
-              borderColor: '#E0E0E0',
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                <View style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 6,
-                  backgroundColor: featureColors.visits.light,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}>
-                  <Building2 size={18} color={featureColors.visits.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', flex: 1 }}>
-                      {visitAccount.name}
-                    </Text>
-                    <View style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 4,
-                      backgroundColor: visitAccount.type === 'distributor' ? '#E3F2FD' :
-                                      visitAccount.type === 'architect' ? '#F3E5F5' : '#FFF3E0',
-                    }}>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: '#666666' }}>
-                        {visitAccount.type.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Info rows */}
-                  <View style={{ gap: 4 }}>
-                    {visitAccount.phone && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Phone size={12} color="#999999" />
-                        <Text style={{ fontSize: 12, color: '#666666' }}>{visitAccount.phone}</Text>
-                      </View>
-                    )}
-                    {(visitAccount.city || visitAccount.state) && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <MapPin size={12} color="#999999" />
-                        <Text style={{ fontSize: 12, color: '#666666' }}>
-                          {visitAccount.city}{visitAccount.state ? `, ${visitAccount.state}` : ''}
-                        </Text>
-                      </View>
-                    )}
-                    {visitAccount.lastVisitAt && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Clock size={12} color="#999999" />
-                        <Text style={{ fontSize: 12, color: '#666666' }}>
-                          Last visit: {typeof visitAccount.lastVisitAt === 'string'
-                            ? new Date(visitAccount.lastVisitAt).toLocaleDateString()
-                            : (visitAccount.lastVisitAt as any)?.toDate?.()?.toLocaleDateString?.() || 'N/A'}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
+            <View style={styles.accountCard}>
+              <View style={styles.accountIcon}>
+                <Building2 size={18} color={featureColors.visits.primary} />
               </View>
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountName} numberOfLines={1}>{visitAccount.name}</Text>
+                <Text style={styles.accountMeta} numberOfLines={1}>
+                  {visitAccount.type.charAt(0).toUpperCase() + visitAccount.type.slice(1)}
+                  {visitAccount.city ? ` • ${visitAccount.city}` : ''}
+                </Text>
+              </View>
+              {/* Quick Call Button */}
+              {visitAccount.phone && (
+                <TouchableOpacity
+                  style={styles.callButton}
+                  onPress={() => Linking.openURL(`tel:${visitAccount.phone}`)}
+                  activeOpacity={0.7}
+                >
+                  <Phone size={18} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
-          {/* Compact Photo Section */}
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-          }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-              Counter Photo <Text style={{ color: '#D32F2F' }}>*</Text>
-            </Text>
-
-            {photoUri ? (
-              <View style={{ backgroundColor: '#F5F5F5', borderRadius: 8, overflow: 'hidden' }}>
-                <Image source={{ uri: photoUri }} style={{ width: '100%', height: 180, resizeMode: 'cover' }} />
-                <View style={{ flexDirection: 'row', padding: 8, gap: 8, backgroundColor: '#FFFFFF' }}>
-                  <TouchableOpacity
-                    style={{
-                      flex: 1,
-                      backgroundColor: featureColors.visits.primary,
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      borderRadius: 6,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 6,
-                    }}
-                    onPress={() => setShowCamera(true)}
-                  >
-                    <Camera size={14} color="#FFFFFF" />
-                    <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Retake</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#FFFFFF',
-                      paddingVertical: 8,
-                      paddingHorizontal: 12,
-                      borderRadius: 6,
-                      alignItems: 'center',
-                      borderWidth: 1,
-                      borderColor: '#E0E0E0',
-                    }}
-                    onPress={handleRemovePhoto}
-                  >
-                    <Text style={{ color: '#666666', fontSize: 13, fontWeight: '600' }}>Remove</Text>
-                  </TouchableOpacity>
-                </View>
+          {/* Main Form - Single unified card */}
+          <View style={styles.formCard}>
+            {/* Verification Section - GPS or Photo required */}
+            <View style={styles.formSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionLabel}>Verification</Text>
+                <Text style={styles.requiredBadge}>One Required</Text>
               </View>
-            ) : (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: featureColors.visits.light,
-                  padding: 16,
-                  borderRadius: 8,
-                  alignItems: 'center',
-                  borderWidth: 2,
-                  borderColor: featureColors.visits.primary,
-                  borderStyle: 'dashed',
-                  gap: 8,
-                }}
-                onPress={() => setShowCamera(true)}
-              >
-                <Camera size={32} color={featureColors.visits.primary} />
-                <Text style={{ fontSize: 14, color: featureColors.visits.primary, fontWeight: '600' }}>
-                  Take Photo
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
 
-          {/* Compact Visit Purpose */}
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-          }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-              Visit Purpose *
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {VISIT_PURPOSES.map((item) => (
+              <View style={styles.verificationGrid}>
+                {/* GPS Card */}
+                <View style={[
+                  styles.verificationCard,
+                  gpsStatus === 'success' && styles.verificationCardSuccess,
+                  gpsStatus === 'failed' && styles.verificationCardFailed,
+                ]}>
+                  <View style={[
+                    styles.verificationIconContainer,
+                    gpsStatus === 'success' && { backgroundColor: '#4CAF50' },
+                    gpsStatus === 'failed' && { backgroundColor: '#9E9E9E' },
+                    gpsStatus === 'loading' && { backgroundColor: featureColors.visits.primary },
+                  ]}>
+                    {gpsStatus === 'loading' ? (
+                      <ActivityIndicator size={16} color="#FFFFFF" />
+                    ) : gpsStatus === 'success' ? (
+                      <Check size={16} color="#FFFFFF" />
+                    ) : (
+                      <X size={16} color="#FFFFFF" />
+                    )}
+                  </View>
+                  <View style={styles.verificationContent}>
+                    <Text style={styles.verificationTitle}>GPS Location</Text>
+                    <Text style={[
+                      styles.verificationStatus,
+                      gpsStatus === 'success' && { color: '#4CAF50' },
+                      gpsStatus === 'failed' && { color: '#9E9E9E' },
+                    ]}>
+                      {gpsStatus === 'loading' ? 'Locating...' :
+                       gpsStatus === 'success' ? 'Captured' :
+                       'Unavailable'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Photo Card */}
                 <TouchableOpacity
-                  key={item.value}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 6,
-                    borderWidth: 1.5,
-                    borderColor: purpose === item.value ? featureColors.visits.primary : '#E0E0E0',
-                    backgroundColor: purpose === item.value ? featureColors.visits.primary : '#FFFFFF',
-                    minHeight: 36,
-                    justifyContent: 'center',
-                  }}
-                  onPress={() => setPurpose(item.value)}
+                  style={[
+                    styles.verificationCard,
+                    photoUri && styles.verificationCardSuccess,
+                  ]}
+                  onPress={() => setShowCamera(true)}
+                  activeOpacity={0.7}
                 >
-                  <Text style={{
-                    fontSize: 13,
-                    color: purpose === item.value ? '#FFFFFF' : '#666666',
-                    fontWeight: purpose === item.value ? '600' : '500',
-                  }}>
-                    {item.label}
-                  </Text>
+                  <View style={[
+                    styles.verificationIconContainer,
+                    photoUri ? { backgroundColor: '#4CAF50' } : { backgroundColor: '#9E9E9E' },
+                  ]}>
+                    {photoUri ? (
+                      <Check size={16} color="#FFFFFF" />
+                    ) : (
+                      <Camera size={16} color="#FFFFFF" />
+                    )}
+                  </View>
+                  <View style={styles.verificationContent}>
+                    <Text style={styles.verificationTitle}>Photo</Text>
+                    <Text style={[
+                      styles.verificationStatus,
+                      photoUri && { color: '#4CAF50' },
+                    ]}>
+                      {photoUri ? 'Captured' : 'Tap to take'}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
-              ))}
+              </View>
+
+              {/* Photo Preview (if taken) */}
+              {photoUri && (
+                <View style={styles.photoPreviewCompact}>
+                  <Image source={{ uri: photoUri }} style={styles.photoImageCompact} />
+                  <View style={styles.photoActionsCompact}>
+                    <TouchableOpacity
+                      style={styles.photoActionBtnCompact}
+                      onPress={() => setShowCamera(true)}
+                    >
+                      <Camera size={14} color={featureColors.visits.primary} />
+                      <Text style={styles.photoActionTextCompact}>Retake</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.photoActionBtnCompact}
+                      onPress={handleRemovePhoto}
+                    >
+                      <X size={14} color="#999" />
+                      <Text style={[styles.photoActionTextCompact, { color: '#999' }]}>Remove</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Divider */}
+            <View style={styles.divider} />
+
+            {/* Visit Purpose - 2 column grid */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabel}>Purpose</Text>
+              <View style={styles.purposeGrid}>
+                {VISIT_PURPOSES.map((item) => {
+                  const isSelected = purpose === item.value;
+                  const IconComponent = item.Icon;
+                  return (
+                    <TouchableOpacity
+                      key={item.value}
+                      style={[
+                        styles.purposeCard,
+                        isSelected && styles.purposeCardSelected,
+                      ]}
+                      onPress={() => setPurpose(item.value)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.purposeIconContainer, { backgroundColor: isSelected ? item.color : '#F0F0F0' }]}>
+                        <IconComponent size={16} color={isSelected ? '#FFFFFF' : item.color} />
+                      </View>
+                      <Text style={[
+                        styles.purposeCardText,
+                        isSelected && styles.purposeCardTextSelected,
+                      ]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Divider */}
+            <View style={styles.divider} />
+
+            {/* Notes */}
+            <View style={styles.formSection}>
+              <Text style={styles.sectionLabelOptional}>Notes <Text style={styles.optionalText}>(optional)</Text></Text>
+              <TextInput
+                style={styles.notesInput}
+                placeholder="Add notes..."
+                placeholderTextColor="#AAA"
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={2}
+                onFocus={() => {
+                  // Scroll to show notes field above keyboard
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 100);
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 350);
+                }}
+              />
             </View>
           </View>
 
-          {/* Compact Notes */}
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 16,
-            borderWidth: 1,
-            borderColor: '#E0E0E0',
-          }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-              Notes (Optional)
-            </Text>
-            <TextInput
-              style={{
-                backgroundColor: '#F5F5F5',
-                borderRadius: 6,
-                padding: 10,
-                fontSize: 14,
-                color: '#1A1A1A',
-                minHeight: 80,
-                textAlignVertical: 'top',
-              }}
-              placeholder="Add any notes about this visit..."
-              placeholderTextColor="#999999"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
+          {/* Extra padding to ensure notes is visible above keyboard */}
+          <View style={{ height: 200 }} />
 
           {/* Upload Progress */}
           {uploading && (
-            <View style={{
-              backgroundColor: featureColors.visits.light,
-              borderRadius: 8,
-              padding: 12,
-              marginBottom: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}>
+            <View style={styles.uploadingBanner}>
               <ActivityIndicator size="small" color={featureColors.visits.primary} />
-              <Text style={{ fontSize: 14, color: featureColors.visits.primary, fontWeight: '500' }}>
-                Uploading photo...
-              </Text>
+              <Text style={styles.uploadingText}>Uploading photo...</Text>
             </View>
           )}
+        </ScrollView>
 
-          {/* Submit Button */}
+        {/* Fixed Bottom Button */}
+        <View style={[styles.bottomBar, { paddingBottom: Math.max(bottomPadding, 16) }]}>
           <TouchableOpacity
-            style={{
-              backgroundColor: (!purpose || submitting) ? '#E0E0E0' : featureColors.visits.primary,
-              borderRadius: 8,
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginBottom: isEditMode ? 12 : 0,
-            }}
+            style={[
+              styles.submitButton,
+              (!purpose || (gpsStatus !== 'success' && !photoUri) || submitting) && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={!purpose || submitting}
+            disabled={!purpose || (gpsStatus !== 'success' && !photoUri) || submitting}
+            activeOpacity={0.8}
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>
+              <Text style={styles.submitButtonText}>
                 {isEditMode ? 'Update Visit' : 'Log Visit'}
               </Text>
             )}
@@ -624,23 +656,18 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
           {/* Delete Button (Edit Mode Only) */}
           {isEditMode && (
             <TouchableOpacity
-              style={{
-                backgroundColor: deleting ? '#FFCDD2' : '#FF3B30',
-                borderRadius: 8,
-                paddingVertical: 14,
-                alignItems: 'center',
-              }}
+              style={styles.deleteButton}
               onPress={handleDelete}
               disabled={deleting}
             >
               {deleting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color="#DC3545" />
               ) : (
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Delete Visit</Text>
+                <Text style={styles.deleteButtonText}>Delete</Text>
               )}
             </TouchableOpacity>
           )}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Camera Modal */}
@@ -661,13 +688,392 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
+  },
+  // Header - Match Expense/Sheets style
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#393735',
+    paddingTop: 54,
+    paddingBottom: 12,
+    paddingHorizontal: 16,
+  },
+  headerBackBtn: {
+    paddingVertical: 4,
+  },
+  headerBackText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: featureColors.visits.primary,
+  },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
+    padding: 12,
+  },
+
+  // Account Card - Compact header
+  accountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    gap: 12,
+  },
+  accountIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: featureColors.visits.light,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  accountName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  accountMeta: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 2,
+  },
+  callButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#4CAF50',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Form Card - Unified container
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  formSection: {
     padding: 16,
-    // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionLabelOptional: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  optionalText: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#999',
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  requiredBadge: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#DC3545',
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginHorizontal: 16,
+  },
+
+  // Photo Section
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: featureColors.visits.light,
+    borderRadius: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    gap: 14,
+    borderWidth: 1.5,
+    borderColor: featureColors.visits.primary,
+    borderStyle: 'dashed',
+  },
+  photoButtonIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: featureColors.visits.primary,
+  },
+  photoButtonContent: {
+    flex: 1,
+  },
+  photoButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  photoButtonHint: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  photoPreview: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
+  },
+  photoImage: {
+    width: '100%',
+    height: 160,
+    resizeMode: 'cover',
+  },
+  photoActions: {
+    flexDirection: 'row',
+    padding: 8,
+    gap: 8,
+    backgroundColor: '#FAFAFA',
+  },
+  photoActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 6,
+    gap: 6,
+    backgroundColor: featureColors.visits.light,
+  },
+  photoActionBtnSecondary: {
+    backgroundColor: '#F0F0F0',
+  },
+  photoActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: featureColors.visits.primary,
+  },
+  photoActionTextSecondary: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+
+  // Verification Grid - GPS and Photo cards
+  verificationGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  verificationCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8F8F8',
+    gap: 10,
+  },
+  verificationCardSuccess: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1.5,
+    borderColor: '#4CAF50',
+  },
+  verificationCardFailed: {
+    backgroundColor: '#F5F5F5',
+  },
+  verificationIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verificationContent: {
+    flex: 1,
+  },
+  verificationTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  verificationStatus: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+
+  // Compact photo preview (when photo is taken)
+  photoPreviewCompact: {
+    marginTop: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
+  },
+  photoImageCompact: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  photoActionsCompact: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    padding: 8,
+    gap: 16,
+    backgroundColor: '#FAFAFA',
+  },
+  photoActionBtnCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  photoActionTextCompact: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: featureColors.visits.primary,
+  },
+
+  // Purpose Grid - 2 column layout
+  purposeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  purposeCard: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8F8F8',
+    gap: 10,
+  },
+  purposeCardSelected: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+  },
+  purposeIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  purposeCardText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#555',
+    flex: 1,
+  },
+  purposeCardTextSelected: {
+    color: '#1A1A1A',
+    fontWeight: '600',
+  },
+
+  // Notes
+  notesInput: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#1A1A1A',
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+
+  // Upload Banner
+  uploadingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: featureColors.visits.light,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    gap: 10,
+  },
+  uploadingText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: featureColors.visits.primary,
+  },
+
+  // Bottom Bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  submitButton: {
+    flex: 1,
+    backgroundColor: featureColors.visits.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#E0E0E0',
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  deleteButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC3545',
   },
 });

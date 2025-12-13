@@ -39,7 +39,7 @@ import { useProfileSheet } from '../providers/ProfileSheetProvider';
 import {
   MapPin,
   IndianRupee,
-  FileText,
+  Layers,
   ChevronRight,
   CheckCircle,
   Check,
@@ -1235,7 +1235,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                   <KpiCard
                     title="Sheets"
                     value={todayStats.sheets.toString()}
-                    icon={<FileText size={20} color={featureColors.sheets.primary} />}
+                    icon={<Layers size={20} color={featureColors.sheets.primary} />}
                   />
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -1432,7 +1432,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
             padding: 20,
-            paddingBottom: 32,
+            paddingBottom: bottomPadding,
           }}>
             {selectedActivity && (() => {
               const now = new Date();

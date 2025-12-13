@@ -7,7 +7,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MapPin, FileText, IndianRupee, Building2, Clock, Camera } from 'lucide-react-native';
+import { MapPin, Layers, IndianRupee, Building2, Clock, Camera } from 'lucide-react-native';
 import { colors, spacing, featureColors } from '../theme';
 import { getCatalogDisplayName } from '../types';
 import { KpiCard } from '../patterns';
@@ -221,7 +221,7 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
           <KpiCard
             title="Sheets"
             value={stats.sheets.total.toLocaleString('en-IN')}
-            icon={<FileText size={20} color={featureColors.sheets.primary} />}
+            icon={<Layers size={20} color={featureColors.sheets.primary} />}
           />
         </TouchableOpacity>
         <TouchableOpacity
@@ -424,7 +424,7 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                 </View>
                 {pendingSheets.records.map((sheet: any, index: number) => (
                   <View key={sheet.id || index} style={styles.activityCard}>
-                    <FileText size={20} color={featureColors.sheets.primary} />
+                    <Layers size={20} color={featureColors.sheets.primary} />
                     <View style={styles.activityContent}>
                       <Text style={styles.activityValue}>
                         {(sheet.sheetsCount || 0).toLocaleString('en-IN')} • {getCatalogDisplayName(sheet.catalog || 'Unknown')}

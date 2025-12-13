@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -9,13 +9,14 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import { ChevronLeft, FileText } from 'lucide-react-native';
+import { ChevronLeft, Layers } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { isOnline } from '../../services/network';
 import { dataQueue } from '../../services/dataQueue';
-import { DetailedTargetProgressCard } from '../../components/DetailedTargetProgressCard';
 import { colors, spacing, typography, shadows, featureColors } from '../../theme';
 import { useTargetProgress } from '../../hooks/useTargetProgress';
 import { targetCache } from '../../services/targetCache';
@@ -23,6 +24,14 @@ import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { invalidateHomeStatsCache } from '../HomeScreen_v2';
 import { trackSheetsLogged } from '../../services/analytics';
 import { useToast } from '../../providers/ToastProvider';
+
+// Catalog options with initials and colors
+const CATALOGS = [
+  { value: 'Fine Decor', label: 'Fine Decor', initials: 'FD', color: '#9C27B0' },
+  { value: 'Artvio', label: 'Artvio', initials: 'A', color: '#2196F3' },
+  { value: 'Woodrica', label: 'Woodrica', initials: 'W', color: '#4CAF50' },
+  { value: 'Artis 1MM', label: 'Artis 1MM', initials: '1', color: '#FF9800' },
+] as const;
 
 interface CompactSheetsEntryScreenProps {
   navigation: any;
@@ -88,10 +97,6 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
     }
   }, [isEditMode, editActivityId, user?.uid]);
 
-  // Always show all 4 catalog options
-  const getCatalogButtons = (): CatalogType[] => {
-    return ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
-  };
 
   const handleSubmit = async () => {
     if (!selectedCatalog) {
@@ -202,148 +207,81 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
     );
   };
 
-  const catalogButtons = getCatalogButtons();
-
   return (
-    <View style={styles.container}>
-      {/* Header - Match New Design */}
-      <View style={{
-        backgroundColor: '#393735',
-        paddingHorizontal: 24,
-        paddingTop: 52,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <FileText size={24} color={featureColors.sheets.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-              {isEditMode ? 'Edit Sheet Sale' : 'Log Sheet Sales'}
-            </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
-              {new Date().toLocaleDateString()}
-            </Text>
-          </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Compact Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Layers size={20} color={featureColors.sheets.primary} />
+          <Text style={styles.title}>{isEditMode ? 'Edit Sale' : 'Log Sheets'}</Text>
         </View>
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{
-          padding: 16,
-          paddingBottom: 80 + bottomPadding, // Dynamic padding for nav bar + safe area
-        }}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Compact Target Progress */}
-        {user?.uid && !loadingTargets && targetProgress && (
-          <DetailedTargetProgressCard
-            userId={user.uid}
-            month={new Date().toISOString().substring(0, 7)}
-            style={styles.targetCard}
-          />
-        )}
-
-        {/* Compact Entry Form */}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor: '#E0E0E0',
-        }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-            Select Catalog
-          </Text>
-
-          {/* Catalog Buttons */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            {catalogButtons.map((catalog) => (
-              <TouchableOpacity
-                key={catalog}
-                style={{
-                  flex: 1,
-                  minWidth: '48%',
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  borderRadius: 6,
-                  borderWidth: 1.5,
-                  borderColor: selectedCatalog === catalog ? featureColors.sheets.primary : '#E0E0E0',
-                  backgroundColor: selectedCatalog === catalog ? featureColors.sheets.primary : '#FFFFFF',
-                  alignItems: 'center',
-                }}
-                onPress={() => setSelectedCatalog(catalog)}
-              >
-                <Text style={{
-                  fontSize: 13,
-                  fontWeight: selectedCatalog === catalog ? '600' : '500',
-                  color: selectedCatalog === catalog ? '#FFFFFF' : '#666666',
-                }}>
-                  {catalog}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          {/* Catalog Grid - 2x2 */}
+          <View style={styles.catalogGrid}>
+            {CATALOGS.map(({ value, label, initials, color }) => {
+              const isSelected = selectedCatalog === value;
+              const progress = targetProgress?.find(t => t.catalog === value);
+              return (
+                <TouchableOpacity
+                  key={value}
+                  style={[
+                    styles.catalogCard,
+                    isSelected && { borderColor: color, borderWidth: 2.5 },
+                  ]}
+                  onPress={() => setSelectedCatalog(value as CatalogType)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.catalogBadge, { backgroundColor: color }]}>
+                    <Text style={styles.catalogBadgeText}>{initials}</Text>
+                  </View>
+                  <Text style={[styles.catalogLabel, isSelected && { color }]}>{label}</Text>
+                  {progress && (
+                    <Text style={styles.catalogProgress}>{progress.achieved}/{progress.target}</Text>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {/* Sheets Input */}
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-            Number of Sheets
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: '#F5F5F5',
-              borderWidth: 1,
-              borderColor: '#E0E0E0',
-              borderRadius: 6,
-              padding: 12,
-              fontSize: 18,
-              fontWeight: '600',
-              color: '#1A1A1A',
-            }}
-            placeholder="Enter count"
-            placeholderTextColor="#999999"
-            value={sheetsInput}
-            onChangeText={setSheetsInput}
-            keyboardType="numeric"
-            editable={!submitting}
-          />
-        </View>
+          {/* Count Input */}
+          <View style={styles.countSection}>
+            <TextInput
+              style={[
+                styles.countInput,
+                selectedCatalog && styles.countInputActive,
+              ]}
+              placeholder="0"
+              placeholderTextColor={colors.text.tertiary}
+              value={sheetsInput}
+              onChangeText={setSheetsInput}
+              keyboardType="numeric"
+              editable={!submitting}
+            />
+            <Text style={styles.countLabel}>sheets</Text>
+          </View>
 
-        {/* Optional Notes for Manager */}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor: '#E0E0E0',
-        }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
-            Notes for Manager (Optional)
-          </Text>
+          {/* Notes - simple single line */}
           <TextInput
-            style={{
-              backgroundColor: '#F5F5F5',
-              borderRadius: 6,
-              padding: 10,
-              fontSize: 14,
-              color: '#1A1A1A',
-              minHeight: 70,
-              textAlignVertical: 'top',
-            }}
-            placeholder="Add any notes for your manager..."
-            placeholderTextColor="#999999"
+            style={styles.notesInput}
+            placeholder="Add note (optional)"
+            placeholderTextColor={colors.text.tertiary}
             value={managerNotes}
             onChangeText={setManagerNotes}
-            multiline
-            numberOfLines={3}
           />
         </View>
       </ScrollView>
@@ -393,21 +331,137 @@ export const CompactSheetsEntryScreen: React.FC<CompactSheetsEntryScreenProps> =
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primary,
+    paddingTop: 54,
+    paddingBottom: 12,
+    paddingHorizontal: spacing.screenPadding,
+  },
+  backButton: {
+    paddingVertical: 4,
+  },
+  backButtonText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: '500',
+    color: colors.accent,
+  },
+  headerCenter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  title: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  headerSpacer: {
+    width: 50,
   },
   scrollView: {
     flex: 1,
   },
-  targetCard: {
-    marginBottom: 16,
+  content: {
+    padding: 12,
   },
+
+  // Form Card - White container on gray background
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+  },
+
+  // Catalog Grid - 2x2
+  catalogGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  catalogCard: {
+    width: '48%',
+    flexGrow: 1,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    padding: 14,
+  },
+  catalogBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  catalogBadgeText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  catalogLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  catalogProgress: {
+    fontSize: 12,
+    color: colors.text.tertiary,
+  },
+
+  // Count Section
+  countSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  countInput: {
+    backgroundColor: '#F8F8F8',
+    borderWidth: 3,
+    borderColor: colors.border.default,
+    borderRadius: 16,
+    width: '100%',
+    paddingVertical: 18,
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  countInputActive: {
+    borderColor: featureColors.sheets.primary,
+    borderWidth: 3,
+  },
+  countLabel: {
+    fontSize: 14,
+    color: colors.text.tertiary,
+    marginTop: 6,
+  },
+
+  // Notes Input
+  notesInput: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+
+  // Footer
   stickyFooter: {
     backgroundColor: colors.surface,
     borderTopWidth: 1,
@@ -422,13 +476,10 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: featureColors.sheets.primary,
-    borderRadius: spacing.borderRadius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
-    ...shadows.sm,
   },
   submitButtonFlex: {
     flex: 1,
@@ -439,22 +490,20 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
+    fontWeight: '600',
+    color: '#fff',
   },
   deleteButton: {
     flex: 0.35,
     backgroundColor: colors.error,
-    borderRadius: spacing.borderRadius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
   },
   deleteButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.surface,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

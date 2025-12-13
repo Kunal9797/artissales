@@ -23,7 +23,7 @@ export interface CheckOutRequest {
 
 export interface LogVisitRequest {
   accountId: string;
-  purpose: 'sample_delivery' | 'follow_up' | 'complaint' | 'new_lead' | 'payment_collection' | 'site_visit' | 'other';
+  purpose: 'sample_delivery' | 'folder_delivery' | 'follow_up' | 'complaint' | 'new_lead' | 'payment_collection' | 'site_visit' | 'other';
   notes?: string;
   photos: string[]; // REQUIRED - Storage URLs (min 1)
   geo?: { // Optional GPS for auto check-in

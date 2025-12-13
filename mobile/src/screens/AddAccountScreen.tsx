@@ -8,14 +8,24 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Building2, User, Phone, Mail, MapPin, Hash, Calendar } from 'lucide-react-native';
+import { Building2, User, Phone, Mail, MapPin, Hash, Calendar, Briefcase, PenTool, ChevronDown, X } from 'lucide-react-native';
 import { api } from '../services/api';
 import { colors, spacing, typography } from '../theme';
 import { AccountType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
+
+// Account type options with icons
+const ACCOUNT_TYPES = [
+  { value: 'distributor', label: 'Distributor', Icon: Building2, color: '#1976D2' },
+  { value: 'dealer', label: 'Dealer', Icon: Briefcase, color: '#388E3C' },
+  { value: 'architect', label: 'Architect', Icon: PenTool, color: '#7B1FA2' },
+  { value: 'OEM', label: 'OEM', Icon: Building2, color: '#F57C00' },
+] as const;
 
 type AddAccountScreenProps = NativeStackScreenProps<any, 'AddAccount'>;
 
@@ -83,8 +93,10 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
     if (!name.trim()) newErrors.name = 'Account name is required';
     if (name.trim().length < 2) newErrors.name = 'Name must be at least 2 characters';
 
-    // Phone is optional, but if provided must be valid
-    if (phone.trim() && !/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+    // Phone is required and must be 10 digits
+    if (!phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
       newErrors.phone = 'Phone must be 10 digits';
     }
 
@@ -166,270 +178,230 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
     }
   };
 
+  // Get visible account types based on user role
+  const visibleAccountTypes = canCreateDistributor
+    ? ACCOUNT_TYPES
+    : ACCOUNT_TYPES.filter(t => t.value !== 'distributor');
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Compact Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Add New Account</Text>
-        <Text style={styles.subtitle}>Create a new {accountType}</Text>
+        <Text style={styles.title}>New Account</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
-        {/* Account Type Selector */}
-        <Text style={styles.sectionLabel}>Account Type *</Text>
-        <View style={styles.accountTypeContainer}>
-          {canCreateDistributor && (
-            <TouchableOpacity
-              style={[
-                styles.accountTypeButton,
-                accountType === 'distributor' && styles.accountTypeButtonActive,
-              ]}
-              onPress={() => setAccountType('distributor')}
-            >
-              <Text
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Account Type Grid */}
+        <Text style={styles.sectionLabel}>Account Type</Text>
+        <View style={styles.typeGrid}>
+          {visibleAccountTypes.map(({ value, label, Icon, color }) => {
+            const isSelected = accountType === value;
+            return (
+              <TouchableOpacity
+                key={value}
                 style={[
-                  styles.accountTypeText,
-                  accountType === 'distributor' && styles.accountTypeTextActive,
+                  styles.typeCard,
+                  isSelected && { borderColor: color, backgroundColor: color + '10' },
                 ]}
+                onPress={() => setAccountType(value as AccountType)}
+                activeOpacity={0.7}
               >
-                Distributor
-              </Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.accountTypeButton,
-              accountType === 'dealer' && styles.accountTypeButtonActive,
-            ]}
-            onPress={() => setAccountType('dealer')}
-          >
-            <Text
-              style={[
-                styles.accountTypeText,
-                accountType === 'dealer' && styles.accountTypeTextActive,
-              ]}
-            >
-              Dealer
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.accountTypeButton,
-              accountType === 'architect' && styles.accountTypeButtonActive,
-            ]}
-            onPress={() => setAccountType('architect')}
-          >
-            <Text
-              style={[
-                styles.accountTypeText,
-                accountType === 'architect' && styles.accountTypeTextActive,
-              ]}
-            >
-              Architect
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.accountTypeButton,
-              accountType === 'OEM' && styles.accountTypeButtonActive,
-            ]}
-            onPress={() => setAccountType('OEM')}
-          >
-            <Text
-              style={[
-                styles.accountTypeText,
-                accountType === 'OEM' && styles.accountTypeTextActive,
-              ]}
-            >
-              OEM
-            </Text>
-          </TouchableOpacity>
+                <View style={[styles.typeIconContainer, { backgroundColor: color + '15' }]}>
+                  <Icon size={20} color={color} />
+                </View>
+                <Text style={[styles.typeLabel, isSelected && { color, fontWeight: '600' }]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        {/* Account Name */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Account Name *</Text>
-          <View style={styles.inputWrapper}>
-            <Building2 size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          {/* Basic Info Section */}
+          <Text style={styles.formSectionTitle}>Basic Info</Text>
+
+          {/* Account Name */}
+          <View style={styles.fieldRow}>
+            <Building2 size={18} color={colors.text.tertiary} />
             <TextInput
-              style={styles.input}
+              style={styles.fieldInput}
               value={name}
               onChangeText={setName}
-              placeholder="e.g., ABC Laminates Pvt Ltd"
+              placeholder="Account name *"
               placeholderTextColor={colors.text.tertiary}
             />
           </View>
           {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-        </View>
 
-        {/* Contact Person */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Contact Person</Text>
-          <View style={styles.inputWrapper}>
-            <User size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+          {/* Contact Person */}
+          <View style={styles.fieldRow}>
+            <User size={18} color={colors.text.tertiary} />
             <TextInput
-              style={styles.input}
+              style={styles.fieldInput}
               value={contactPerson}
               onChangeText={setContactPerson}
-              placeholder="e.g., Mr. Sharma"
+              placeholder="Contact person"
               placeholderTextColor={colors.text.tertiary}
             />
           </View>
-        </View>
 
-        {/* Phone Number */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Phone Number</Text>
-          <View style={styles.inputWrapper}>
-            <Phone size={20} color={colors.text.tertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="10-digit mobile"
-              keyboardType="phone-pad"
-              maxLength={10}
-              placeholderTextColor={colors.text.tertiary}
-            />
-          </View>
-          {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
-        </View>
-
-        {/* Email */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <View style={styles.inputWrapper}>
-            <Mail size={20} color={colors.text.tertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="email@example.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor={colors.text.tertiary}
-            />
-          </View>
-          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-        </View>
-
-        {/* Birthdate (only for dealer, architect, and OEM) */}
-        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'OEM') && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Birthdate (Optional)</Text>
-            <View style={styles.inputWrapper}>
-              <Calendar size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+          {/* Phone & Email in row */}
+          <View style={styles.twoColumnRow}>
+            <View style={[styles.fieldRow, styles.halfWidth]}>
+              <Phone size={18} color={colors.text.tertiary} />
               <TextInput
-                style={styles.input}
-                value={birthdate}
-                onChangeText={setBirthdate}
-                placeholder="YYYY-MM-DD"
+                style={styles.fieldInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="Phone *"
+                keyboardType="phone-pad"
+                maxLength={10}
                 placeholderTextColor={colors.text.tertiary}
               />
             </View>
-            {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
-            <Text style={styles.helpText}>Format: YYYY-MM-DD (e.g., 1990-05-15)</Text>
+            <View style={[styles.fieldRow, styles.halfWidth]}>
+              <Mail size={18} color={colors.text.tertiary} />
+              <TextInput
+                style={styles.fieldInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
           </View>
-        )}
+          {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
-        {/* City */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>City *</Text>
-          <View style={styles.inputWrapper}>
-            <MapPin size={20} color={colors.text.tertiary} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={city}
-              onChangeText={setCity}
-              placeholder="e.g., Delhi"
-              placeholderTextColor={colors.text.tertiary}
-            />
+          {/* Birthdate (only for non-distributors) */}
+          {accountType !== 'distributor' && (
+            <View style={styles.fieldRow}>
+              <Calendar size={18} color={colors.text.tertiary} />
+              <TextInput
+                style={styles.fieldInput}
+                value={birthdate}
+                onChangeText={setBirthdate}
+                placeholder="Birthdate (YYYY-MM-DD)"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+          )}
+          {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
+
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Location Section */}
+          <Text style={styles.formSectionTitle}>Location</Text>
+
+          {/* City & Pincode in row */}
+          <View style={styles.twoColumnRow}>
+            <View style={[styles.fieldRow, styles.halfWidth]}>
+              <MapPin size={18} color={colors.text.tertiary} />
+              <TextInput
+                style={styles.fieldInput}
+                value={city}
+                onChangeText={setCity}
+                placeholder="City *"
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
+            <View style={[styles.fieldRow, styles.halfWidth]}>
+              <Hash size={18} color={colors.text.tertiary} />
+              <TextInput
+                style={styles.fieldInput}
+                value={pincode}
+                onChangeText={setPincode}
+                placeholder="Pincode *"
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholderTextColor={colors.text.tertiary}
+              />
+            </View>
           </View>
           {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
-        </View>
+          {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
 
-        {/* State */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>State *</Text>
+          {/* State Dropdown */}
           <TouchableOpacity
-            style={styles.dropdownButton}
+            style={styles.fieldRow}
             onPress={() => setShowStateModal(true)}
+            activeOpacity={0.7}
           >
-            <MapPin size={20} color={colors.text.tertiary} />
-            <Text style={state ? styles.dropdownText : styles.dropdownPlaceholder}>
-              {state || 'Select state...'}
+            <MapPin size={18} color={colors.text.tertiary} />
+            <Text style={[styles.fieldInput, !state && styles.placeholderText]}>
+              {state || 'Select state *'}
             </Text>
+            <ChevronDown size={18} color={colors.text.tertiary} />
           </TouchableOpacity>
           {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
-        </View>
 
-        {/* Pincode */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Pincode *</Text>
-          <View style={styles.inputWrapper}>
-            <Hash size={20} color={colors.text.tertiary} style={styles.inputIcon} />
+          {/* Address */}
+          <View style={[styles.fieldRow, styles.textAreaRow]}>
             <TextInput
-              style={styles.input}
-              value={pincode}
-              onChangeText={setPincode}
-              placeholder="6-digit pincode"
-              keyboardType="number-pad"
-              maxLength={6}
+              style={[styles.fieldInput, styles.textAreaInput]}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Full address (optional)"
+              multiline
+              numberOfLines={2}
               placeholderTextColor={colors.text.tertiary}
             />
           </View>
-          {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
-        </View>
 
-        {/* Address */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputLabel}>Address (Optional)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Full address..."
-            multiline
-            numberOfLines={3}
-            placeholderTextColor={colors.text.tertiary}
-          />
-        </View>
-
-        {/* Parent Distributor (for dealers/architects/OEMs) */}
-        {(accountType === 'dealer' || accountType === 'architect' || accountType === 'OEM') && (
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>Parent Distributor (Optional)</Text>
-            <TouchableOpacity
-              style={styles.dropdownButton}
-              onPress={() => setShowDistributorModal(true)}
-            >
-              <Building2 size={20} color={colors.text.tertiary} />
-              <Text style={selectedDistributor ? styles.dropdownText : styles.dropdownPlaceholder}>
-                {selectedDistributor?.name || 'Select distributor...'}
-              </Text>
-            </TouchableOpacity>
-            {selectedDistributor && (
+          {/* Parent Distributor (for dealers/architects/OEMs) */}
+          {accountType !== 'distributor' && (
+            <>
+              <View style={styles.divider} />
+              <Text style={styles.formSectionTitle}>Parent Distributor</Text>
               <TouchableOpacity
-                onPress={() => {
-                  setSelectedDistributor(null);
-                  setParentDistributorId('');
-                }}
-                style={styles.clearButton}
+                style={styles.fieldRow}
+                onPress={() => setShowDistributorModal(true)}
+                activeOpacity={0.7}
               >
-                <Text style={styles.clearButtonText}>Clear selection</Text>
+                <Building2 size={18} color={colors.text.tertiary} />
+                <Text style={[styles.fieldInput, !selectedDistributor && styles.placeholderText]}>
+                  {selectedDistributor?.name || 'Select distributor (optional)'}
+                </Text>
+                {selectedDistributor ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedDistributor(null);
+                      setParentDistributorId('');
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <X size={18} color={colors.text.tertiary} />
+                  </TouchableOpacity>
+                ) : (
+                  <ChevronDown size={18} color={colors.text.tertiary} />
+                )}
               </TouchableOpacity>
-            )}
-          </View>
-        )}
+            </>
+          )}
+        </View>
 
         {/* Submit Button */}
         <TouchableOpacity
           style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           onPress={handleSubmit}
           disabled={loading}
+          activeOpacity={0.8}
         >
           {loading ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -437,7 +409,6 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
             <Text style={styles.submitButtonText}>Create Account</Text>
           )}
         </TouchableOpacity>
-
       </ScrollView>
 
       {/* State Selection Modal */}
@@ -510,7 +481,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
           </View>
         </View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -520,28 +491,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.primary,
-    paddingTop: 60,
-    paddingBottom: spacing.xl,
+    paddingTop: 54,
+    paddingBottom: 12,
     paddingHorizontal: spacing.screenPadding,
   },
   backButton: {
-    marginBottom: spacing.md,
+    paddingVertical: 4,
   },
   backButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
+    fontWeight: '500',
     color: colors.accent,
   },
   title: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.lg,
+    fontWeight: '600',
     color: '#fff',
-    marginBottom: spacing.xs,
   },
-  subtitle: {
-    fontSize: typography.fontSize.sm,
-    color: 'rgba(255,255,255,0.8)',
+  headerSpacer: {
+    width: 50, // Balance the Cancel button
   },
   scrollView: {
     flex: 1,
@@ -550,130 +522,130 @@ const styles = StyleSheet.create({
     padding: spacing.screenPadding,
   },
   sectionLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
     color: colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
-  accountTypeContainer: {
+
+  // Account Type Grid
+  typeGrid: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
   },
-  accountTypeButton: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderColor: colors.border.default,
+  typeCard: {
+    width: '48%',
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    padding: 12,
+    gap: 10,
   },
-  accountTypeButtonActive: {
-    backgroundColor: colors.accent + '15',
-    borderColor: colors.accent,
+  typeIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  accountTypeText: {
+  typeLabel: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.secondary,
-  },
-  accountTypeTextActive: {
-    color: colors.accent,
-    fontWeight: typography.fontWeight.bold,
-  },
-  inputContainer: {
-    marginBottom: spacing.lg,
-  },
-  inputLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
+    fontWeight: '500',
     color: colors.text.primary,
-    marginBottom: spacing.xs,
   },
-  inputWrapper: {
+
+  // Form Card
+  formCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  formSectionTitle: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
+    color: colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border.default,
+    marginVertical: 16,
+  },
+
+  // Field Rows
+  fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: '#fff',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 8,
+    gap: 10,
   },
-  inputIcon: {
-    marginRight: spacing.sm,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: '#fff',
-    padding: spacing.md,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: '#fff',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  dropdownText: {
+  fieldInput: {
     flex: 1,
     fontSize: typography.fontSize.base,
     color: colors.text.primary,
+    padding: 0,
   },
-  dropdownPlaceholder: {
-    flex: 1,
-    fontSize: typography.fontSize.base,
+  placeholderText: {
     color: colors.text.tertiary,
   },
+  twoColumnRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  halfWidth: {
+    flex: 1,
+  },
+  textAreaRow: {
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+  },
+  textAreaInput: {
+    minHeight: 40,
+    textAlignVertical: 'top',
+  },
+
+  // Error
   errorText: {
     fontSize: typography.fontSize.xs,
     color: colors.error,
-    marginTop: spacing.xs / 2,
+    marginTop: -4,
+    marginBottom: 8,
+    marginLeft: 4,
   },
-  helpText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.text.tertiary,
-    marginTop: spacing.xs / 2,
-  },
-  clearButton: {
-    marginTop: spacing.xs,
-  },
-  clearButtonText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.accent,
-    fontWeight: typography.fontWeight.semiBold,
-  },
+
+  // Submit Button
   submitButton: {
     backgroundColor: colors.accent,
-    paddingVertical: spacing.md,
-    borderRadius: spacing.borderRadius.md,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: spacing.lg,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
   submitButtonText: {
     fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: '600',
     color: '#fff',
   },
+
+  // Modal
   modalOverlay: {
     position: 'absolute',
     top: 0,
@@ -686,31 +658,35 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    borderRadius: spacing.borderRadius.lg,
+    borderRadius: 12,
     width: '85%',
     maxHeight: '70%',
-    padding: spacing.lg,
+    padding: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
   },
   modalTitle: {
     fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+    fontWeight: '600',
     color: colors.text.primary,
   },
   modalClose: {
-    fontSize: typography.fontSize.xl,
+    fontSize: 20,
     color: colors.text.tertiary,
+    padding: 4,
   },
   modalScroll: {
     maxHeight: 400,
   },
   modalItem: {
-    paddingVertical: spacing.md,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
   },

@@ -10,11 +10,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Search, MapPin, User, Plus, Edit2, WifiOff, Clock, RefreshCw, CloudOff, Loader } from 'lucide-react-native';
+import { Search, Plus, Edit2, WifiOff, RefreshCw, CloudOff } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { useMyVisits } from '../../hooks/useMyVisits';
-import { colors, spacing, typography, shadows } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -194,61 +194,58 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       <TouchableOpacity
         style={[
           styles.accountCard,
-          isPending && { borderLeftWidth: 3, borderLeftColor: '#C9A961' },
-          isFailed && { borderLeftWidth: 3, borderLeftColor: '#DC3545' },
+          isPending && styles.accountCardPending,
+          isFailed && styles.accountCardFailed,
         ]}
         onPress={() => handleSelectAccount(item)}
         activeOpacity={0.7}
       >
-        {/* Name + Edit (Row 1) */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-            <Text style={styles.accountName} numberOfLines={1}>
-              {item.name}
+        {/* Compact single-row layout */}
+        <View style={styles.accountCardContent}>
+          {/* Type badge - left side indicator */}
+          <View style={[styles.typeBadge, { backgroundColor: getAccountTypeColor(item.type) }]}>
+            <Text style={styles.typeBadgeText}>
+              {item.type === 'distributor' ? 'D' : item.type === 'dealer' ? 'DL' : item.type === 'architect' ? 'A' : 'O'}
             </Text>
-            {isPending && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF3CD', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <ActivityIndicator size={10} color="#856404" />
-                <Text style={{ fontSize: 10, color: '#856404', fontWeight: '500' }}>Syncing</Text>
-              </View>
-            )}
-            {isFailed && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F8D7DA', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                <CloudOff size={10} color="#721C24" />
-                <Text style={{ fontSize: 10, color: '#721C24', fontWeight: '500' }}>Failed</Text>
-              </View>
-            )}
           </View>
+
+          {/* Main content - name and location */}
+          <View style={styles.accountInfo}>
+            <View style={styles.accountNameRow}>
+              <Text style={styles.accountName} numberOfLines={1}>
+                {item.name}
+              </Text>
+              {isPending && (
+                <View style={styles.syncBadge}>
+                  <ActivityIndicator size={8} color="#856404" />
+                </View>
+              )}
+              {isFailed && (
+                <View style={styles.failedBadge}>
+                  <CloudOff size={10} color="#DC3545" />
+                </View>
+              )}
+            </View>
+            <Text style={styles.accountLocation} numberOfLines={1}>
+              {item.city}, {item.state.substring(0, 2).toUpperCase()}
+            </Text>
+          </View>
+
+          {/* Edit button - compact icon only */}
           {showEditButton && !isPending && !isFailed && (
             <TouchableOpacity
               onPress={(e) => handleEditAccount(item, e)}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 4,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 4,
-                backgroundColor: '#F5F5F5',
-              }}
+              style={styles.editButton}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Edit2 size={14} color="#666666" />
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#666666' }}>Edit</Text>
+              <Edit2 size={16} color="#999" />
             </TouchableOpacity>
           )}
-        </View>
 
-        {/* Badge + Location inline (Row 2) */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: getAccountTypeColor(item.type) }}>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: '#FFFFFF' }}>
-              {getAccountTypeLabel(item.type)}
-            </Text>
+          {/* Chevron indicator */}
+          <View style={styles.chevronContainer}>
+            <Text style={styles.chevron}>›</Text>
           </View>
-          <Text style={{ fontSize: 13, color: '#666666' }}>•</Text>
-          <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
-            {item.city}, {item.state.substring(0, 2).toUpperCase()}
-          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -505,6 +502,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           renderItem={renderAccount}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.listContainer, { paddingBottom: 80 + bottomPadding }]}
+          estimatedItemSize={62}
         />
       )}
     </View>
@@ -514,33 +512,108 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
   },
   listContainer: {
-    padding: spacing.lg,
-    // paddingBottom set dynamically via useBottomSafeArea hook (80 + bottomPadding)
+    paddingHorizontal: 12,
+    paddingTop: 8,
   },
+  // Compact account card - modern list item style
   accountCard: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    ...shadows.sm,
-    padding: spacing.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  accountCardPending: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#C9A961',
+  },
+  accountCardFailed: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC3545',
+  },
+  accountCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 12,
+  },
+  // Type badge - compact circle indicator
+  typeBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  // Account info section
+  accountInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  accountNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   accountName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#1A1A1A',
     flex: 1,
   },
+  accountLocation: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 2,
+  },
+  // Sync status badges
+  syncBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFF3CD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  failedBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Edit button
+  editButton: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: '#F5F5F5',
+  },
+  // Chevron
+  chevronContainer: {
+    width: 20,
+    alignItems: 'center',
+  },
+  chevron: {
+    fontSize: 22,
+    color: '#CCC',
+    fontWeight: '300',
+  },
+  // Other styles
   loadingText: {
     marginTop: spacing.md,
     fontSize: typography.fontSize.base,

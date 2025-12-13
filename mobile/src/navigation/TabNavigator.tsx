@@ -14,7 +14,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Home, BarChart2, Plus, Folder, CheckSquare, User } from 'lucide-react-native';
+import { Home, BarChart2, Plus, Folder, MapPin, Layers, IndianRupee } from 'lucide-react-native';
 import { colors, spacing, typography, featureColors } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -87,23 +87,20 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
 
   const menuItems = [
     {
-      icon: <CheckSquare size={28} color={featureColors.visits.primary} />,
+      icon: <MapPin size={28} color={featureColors.visits.primary} />,
       label: 'Log Visit',
-      subtitle: 'Track customer visits',
       screen: 'SelectAccount',
       color: featureColors.visits,
     },
     {
-      icon: <BarChart2 size={28} color={featureColors.sheets.primary} />,
-      label: 'Log Sheet Sales',
-      subtitle: 'Record laminate sales',
+      icon: <Layers size={28} color={featureColors.sheets.primary} />,
+      label: 'Log Sheets',
       screen: 'SheetsEntry',
       color: featureColors.sheets,
     },
     {
-      icon: <User size={28} color={featureColors.expenses.primary} />,
-      label: 'Report Expense',
-      subtitle: 'Log daily expenses',
+      icon: <IndianRupee size={28} color={featureColors.expenses.primary} />,
+      label: 'Log Expense',
       screen: 'ExpenseEntry',
       color: featureColors.expenses,
     },
@@ -133,11 +130,7 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
           {/* Modern Handle Bar */}
           <View style={styles.handleBar} />
 
-          {/* Header */}
-          <View style={styles.fabMenuHeader}>
-            <Text style={styles.fabMenuTitle}>Quick Actions</Text>
-            <Text style={styles.fabMenuSubtitle}>What would you like to log?</Text>
-          </View>
+          {/* Handle bar is enough - no header needed */}
 
           {/* Menu Items */}
           <View style={styles.fabMenuItems}>
@@ -154,10 +147,7 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
                 <View style={[styles.fabMenuIconContainer, { backgroundColor: item.color.light }]}>
                   {item.icon}
                 </View>
-                <View style={styles.fabMenuTextContainer}>
-                  <Text style={styles.fabMenuItemLabel}>{item.label}</Text>
-                  <Text style={styles.fabMenuItemSubtitle}>{item.subtitle}</Text>
-                </View>
+                <Text style={styles.fabMenuItemLabel}>{item.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -343,22 +333,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
-  fabMenuHeader: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  fabMenuTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  fabMenuSubtitle: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '400',
-  },
   fabMenuItems: {
     paddingHorizontal: 16,
   },
@@ -383,18 +357,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 16,
   },
-  fabMenuTextContainer: {
-    flex: 1,
-  },
   fabMenuItemLabel: {
     fontSize: 17,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 2,
-  },
-  fabMenuItemSubtitle: {
-    fontSize: 13,
-    color: '#666666',
-    fontWeight: '400',
+    flex: 1,
   },
 });
