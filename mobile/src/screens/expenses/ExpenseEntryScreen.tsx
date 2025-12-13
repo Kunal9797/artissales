@@ -72,7 +72,7 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
   const [deleting, setDeleting] = useState(false);
 
   // Single expense form
-  const [category, setCategory] = useState<ExpenseCategory>('travel');
+  const [category, setCategory] = useState<ExpenseCategory | null>(null);
   const [categoryOther, setCategoryOther] = useState('');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -145,6 +145,11 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
     // Validation
     if (!amount || amount.trim() === '') {
       Alert.alert('Error', 'Please enter an amount');
+      return;
+    }
+
+    if (!category) {
+      Alert.alert('Error', 'Please select a category');
       return;
     }
 
@@ -277,32 +282,16 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header - Match New Design */}
-      <View style={{
-        backgroundColor: '#393735',
-        paddingHorizontal: 24,
-        paddingTop: 52,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-      }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <IndianRupee size={24} color={featureColors.expenses.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-              {isEditMode ? 'Edit Expenses' : 'Report Expenses'}
-            </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
-              {date}
-            </Text>
-          </View>
+      {/* Header */}
+      <View style={styles.headerNew}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackBtn}>
+          <Text style={styles.headerBackText}>Cancel</Text>
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <IndianRupee size={20} color={featureColors.expenses.primary} />
+          <Text style={styles.headerTitleNew}>{isEditMode ? 'Edit Expense' : 'Log Expense'}</Text>
         </View>
+        <View style={{ width: 50 }} />
       </View>
 
       <ScrollView
@@ -310,13 +299,10 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
         contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
         keyboardShouldPersistTaps="handled"
       >
-
-      {/* Single Expense Form */}
-      <View style={styles.addItemSection}>
-        {/* Category Picker */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.categoryGridContainer}>
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          {/* Category Grid - 2x2 */}
+          <View style={styles.categoryGrid}>
             {CATEGORIES.map((cat) => {
               const IconComponent = cat.icon;
               const isSelected = category === cat.value;
@@ -324,107 +310,91 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
                 <TouchableOpacity
                   key={cat.value}
                   style={[
-                    styles.categoryPill,
-                    isSelected && { ...styles.categoryPillSelected, borderColor: cat.color, backgroundColor: `${cat.color}15` },
+                    styles.categoryCard,
+                    isSelected && { borderColor: cat.color, borderWidth: 2.5 },
                   ]}
                   onPress={() => setCategory(cat.value)}
                 >
-                  <IconComponent
-                    size={20}
-                    color={isSelected ? cat.color : colors.text.secondary}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryPillText,
-                      isSelected && { ...styles.categoryPillTextSelected, color: cat.color },
-                    ]}
-                  >
+                  <View style={[styles.categoryBadge, { backgroundColor: cat.color }]}>
+                    <IconComponent size={20} color="#fff" />
+                  </View>
+                  <Text style={[styles.categoryLabel, isSelected && { color: cat.color }]}>
                     {cat.label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
 
-        {/* Category Other Input (shown when "other" selected) */}
-        {category === 'other' && (
-          <View style={styles.field}>
-            <Text style={styles.label}>Category Name</Text>
+          {/* Other Category Name (required when "other" selected) */}
+          {category === 'other' && (
             <TextInput
-              style={styles.input}
-              placeholder="e.g., Internet, Office supplies"
-              placeholderTextColor="#999"
+              style={[styles.otherInput, !categoryOther.trim() && styles.otherInputRequired]}
+              placeholder="Enter category name *"
+              placeholderTextColor={colors.text.tertiary}
               value={categoryOther}
               onChangeText={setCategoryOther}
             />
-          </View>
-        )}
-
-        {/* Amount Input */}
-        <View style={styles.fieldCompact}>
-          <Text style={styles.label}>Amount (₹)</Text>
-          <TextInput
-            style={[styles.input, amountError && styles.inputError]}
-            placeholder="Enter amount"
-            placeholderTextColor="#999"
-            keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={(text) => {
-              setAmount(text);
-              if (text.trim() === '') {
-                setAmountError('');
-              } else {
-                const isValidNumber = /^\d+\.?\d*$/.test(text.trim());
-                const numValue = parseFloat(text);
-                if (!isValidNumber || isNaN(numValue) || numValue <= 0) {
-                  setAmountError('Enter a valid amount');
-                } else {
-                  setAmountError('');
-                }
-              }
-            }}
-          />
-          {amountError && <Text style={styles.errorText}>{amountError}</Text>}
-        </View>
-
-        {/* Description Input (Optional) */}
-        <View style={styles.fieldCompact}>
-          <Text style={styles.label}>Description (Optional)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Brief description"
-            placeholderTextColor="#999"
-            multiline
-            numberOfLines={2}
-            value={description}
-            onChangeText={setDescription}
-          />
-        </View>
-
-        {/* Receipt Photo (Optional) */}
-        <View style={styles.fieldCompact}>
-          <Text style={styles.label}>Receipt (Optional)</Text>
-          {receiptPhoto ? (
-            <View style={styles.photoPreviewContainer}>
-              <Image source={{ uri: receiptPhoto }} style={styles.photoPreview} />
-              {uploadingReceipt && (
-                <View style={styles.uploadingOverlay}>
-                  <ActivityIndicator size="small" color="#fff" />
-                </View>
-              )}
-              <TouchableOpacity style={styles.removePhotoButton} onPress={handleRemoveReceipt}>
-                <Text style={styles.removePhotoButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.addPhotoButton} onPress={() => setShowCamera(true)}>
-              <Camera size={20} color={featureColors.expenses.primary} />
-              <Text style={styles.addPhotoButtonText}>Add Receipt Photo</Text>
-            </TouchableOpacity>
           )}
+
+          {/* Amount Input */}
+          <View style={styles.amountSection}>
+            <TextInput
+              style={[
+                styles.amountInput,
+                category && styles.amountInputActive,
+                amountError && styles.amountInputError,
+              ]}
+              placeholder="0"
+              placeholderTextColor={colors.text.tertiary}
+              keyboardType="decimal-pad"
+              value={amount}
+              onChangeText={(text) => {
+                setAmount(text);
+                if (text.trim() === '') {
+                  setAmountError('');
+                } else {
+                  const isValidNumber = /^\d+\.?\d*$/.test(text.trim());
+                  const numValue = parseFloat(text);
+                  if (!isValidNumber || isNaN(numValue) || numValue <= 0) {
+                    setAmountError('Enter a valid amount');
+                  } else {
+                    setAmountError('');
+                  }
+                }
+              }}
+            />
+            <Text style={styles.amountLabel}>rupees</Text>
+          </View>
+
+          {/* Note + Receipt row */}
+          <View style={styles.bottomRow}>
+            <TextInput
+              style={styles.noteInput}
+              placeholder="Add note (optional)"
+              placeholderTextColor={colors.text.tertiary}
+              value={description}
+              onChangeText={setDescription}
+            />
+            {receiptPhoto ? (
+              <TouchableOpacity style={styles.receiptPreview} onPress={handleRemoveReceipt}>
+                <Image source={{ uri: receiptPhoto }} style={styles.receiptImage} />
+                {uploadingReceipt && (
+                  <View style={styles.uploadingOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                  </View>
+                )}
+                <View style={styles.receiptRemove}>
+                  <Text style={styles.receiptRemoveText}>✕</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.receiptBtn} onPress={() => setShowCamera(true)}>
+                <Camera size={20} color={featureColors.expenses.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </View>
       </ScrollView>
 
       {/* Sticky Footer */}
@@ -460,16 +430,16 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
           <TouchableOpacity
             style={[
               styles.submitButtonCompact,
-              (!amount || !!amountError || submitting || uploadingReceipt) && styles.buttonDisabled
+              (!category || !amount || !!amountError || submitting || uploadingReceipt || (category === 'other' && !categoryOther.trim())) && styles.buttonDisabled
             ]}
             onPress={handleSubmit}
-            disabled={!amount || !!amountError || submitting || uploadingReceipt}
+            disabled={!category || !amount || !!amountError || submitting || uploadingReceipt || (category === 'other' && !categoryOther.trim())}
           >
             {submitting ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text style={styles.submitButtonText}>
-                {!amount ? 'Enter Amount' : uploadingReceipt ? 'Uploading...' : 'Log Expense'}
+                {!category ? 'Select Category' : category === 'other' && !categoryOther.trim() ? 'Enter Category Name' : !amount ? 'Enter Amount' : uploadingReceipt ? 'Uploading...' : 'Log Expense'}
               </Text>
             )}
           </TouchableOpacity>
@@ -482,312 +452,190 @@ export const ExpenseEntryScreen: React.FC<ExpenseEntryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F5F5F5',
   },
-  // Modern Header
-  header: {
+  // New Header - matches Sheets screen
+  headerNew: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: colors.primary,
-    paddingTop: 52, // Status bar space
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingTop: 54,
+    paddingBottom: 12,
+    paddingHorizontal: spacing.screenPadding,
+  },
+  headerBackBtn: {
+    paddingVertical: 4,
+  },
+  headerBackText: {
+    fontSize: typography.fontSize.base,
+    fontWeight: '500',
+    color: colors.accent,
+  },
+  headerCenter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    gap: 8,
   },
-  backButton: {
-    padding: spacing.xs,
+  headerTitleNew: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: '600',
+    color: '#fff',
   },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
+  headerDesignBtn: {
+    paddingVertical: 4,
   },
-  headerTitle: {
-    fontSize: 19,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.inverse,
-    letterSpacing: 0.3,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: colors.text.inverse,
-    opacity: 0.8,
+  headerDesignText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: '500',
+    color: colors.accent,
   },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: spacing.md,
-    // paddingBottom is set dynamically via inline style (100 + bottomPadding)
+    padding: 12,
   },
-  field: {
-    marginBottom: spacing.md,
+
+  // Form Card - White container on gray background
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
   },
-  fieldCompact: {
-    marginBottom: spacing.sm,
-  },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  dateContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateText: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
-    fontWeight: '500',
-    marginRight: 8,
-  },
-  dateNote: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.tertiary,
-  },
-  itemsSummaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: featureColors.expenses.light,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: featureColors.expenses.primary,
-  },
-  summaryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  summaryBadgeText: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: featureColors.expenses.primary,
-  },
-  expandCollapseText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-    fontWeight: typography.fontWeight.medium,
-  },
-  itemCard: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  itemCategoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  itemCategory: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: '600',
-    color: colors.text.secondary,
-  },
-  removeItemButton: {
-    fontSize: typography.fontSize.lg,
-    color: colors.error,
-    fontWeight: 'bold',
-  },
-  itemAmount: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  itemDescription: {
-    fontSize: typography.fontSize.sm,
-    color: colors.text.secondary,
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: featureColors.expenses.light,
-    padding: spacing.md,
-    borderRadius: spacing.borderRadius.md,
-    marginTop: spacing.xs,
-  },
-  totalLabel: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.text.primary,
-  },
-  totalAmount: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    color: featureColors.expenses.primary,
-  },
-  addItemSection: {
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    ...shadows.sm,
-  },
-  collapsibleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.xs / 2,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    color: featureColors.expenses.primary,
-  },
-  categoryGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: spacing.md,
-  },
-  categoryPill: {
-    width: '46%', // Reduced from 48% to account for gap + borders in production builds
-    minHeight: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderWidth: 2,
-    borderColor: colors.border.default,
-  },
-  categoryPillSelected: {
-    borderWidth: 2,
-  },
-  categoryPillText: {
-    fontSize: typography.fontSize.base,
-    color: colors.text.secondary,
-    fontWeight: typography.fontWeight.medium,
-  },
-  categoryPillTextSelected: {
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.sm,
-    fontSize: typography.fontSize.base,
-    color: colors.text.primary,
-    borderWidth: 1,
-    borderColor: colors.border.default,
-  },
-  inputError: {
-    borderColor: colors.error,
-    borderWidth: 2,
-  },
-  errorText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.error,
-    marginTop: spacing.xs / 2,
-    marginLeft: spacing.xs / 2,
-  },
-  textArea: {
-    minHeight: 50,
-    textAlignVertical: 'top',
-  },
-  addItemButton: {
-    backgroundColor: featureColors.expenses.primary,
-    borderRadius: spacing.borderRadius.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    minHeight: 48,
-    ...shadows.sm,
-  },
-  addItemButtonSuccess: {
-    backgroundColor: '#4CAF50',
-  },
-  addItemButtonDisabled: {
-    backgroundColor: colors.border.default,
-    opacity: 0.6,
-  },
-  addItemButtonText: {
-    color: colors.surface,
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  photosGrid: {
+
+  // Category Grid - 2x2 like Sheets
+  categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: spacing.md,
+    marginBottom: 20,
   },
-  photoPreviewContainer: {
-    position: 'relative',
-    width: 100,
-    height: 100,
-    borderRadius: spacing.borderRadius.lg,
+  categoryCard: {
+    width: '48%',
+    flexGrow: 1,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    padding: 14,
+  },
+  categoryBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  categoryLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+
+  // Other category input
+  otherInput: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border.default,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    color: colors.text.primary,
+    marginTop: -12,
+    marginBottom: 20,
+  },
+  otherInputRequired: {
+    borderColor: featureColors.expenses.primary,
+  },
+
+  // Amount Section
+  amountSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  amountInput: {
+    backgroundColor: '#F8F8F8',
+    borderWidth: 3,
+    borderColor: colors.border.default,
+    borderRadius: 16,
+    width: '100%',
+    paddingVertical: 18,
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.text.primary,
+    textAlign: 'center',
+  },
+  amountInputActive: {
+    borderColor: featureColors.expenses.primary,
+  },
+  amountInputError: {
+    borderColor: colors.error,
+  },
+  amountLabel: {
+    fontSize: 14,
+    color: colors.text.tertiary,
+    marginTop: 6,
+  },
+
+  // Bottom row - Note + Receipt
+  bottomRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  noteInput: {
+    flex: 1,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+  receiptBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: featureColors.expenses.primary,
+  },
+  receiptPreview: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
     overflow: 'hidden',
+    position: 'relative',
   },
-  photoPreview: {
+  receiptImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  uploadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  removePhotoButton: {
+  receiptRemove: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(255, 59, 48, 0.9)',
-    width: 24,
-    height: 24,
-    borderRadius: spacing.borderRadius.lg,
-    justifyContent: 'center',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(255,59,48,0.9)',
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  removePhotoButtonText: {
+  receiptRemoveText: {
     color: '#fff',
-    fontSize: typography.fontSize.base,
+    fontSize: 10,
     fontWeight: 'bold',
   },
-  addPhotoButton: {
-    backgroundColor: featureColors.expenses.light,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.md,
-    borderWidth: 2,
-    borderColor: featureColors.expenses.primary,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    flexDirection: 'row',
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
-    gap: spacing.sm,
-  },
-  addPhotoButtonText: {
-    fontSize: typography.fontSize.base,
-    color: featureColors.expenses.primary,
-    fontWeight: typography.fontWeight.medium,
+    alignItems: 'center',
   },
   // Sticky Footer Styles
   stickyFooter: {
