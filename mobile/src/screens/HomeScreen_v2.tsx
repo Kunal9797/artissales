@@ -1469,14 +1469,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <TouchableOpacity
-            style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
-            activeOpacity={1}
-            onPress={closeActivityModal}
-          >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}>
+            {/* Backdrop - tapping here closes the modal */}
             <TouchableOpacity
+              style={{ flex: 1 }}
               activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
+              onPress={closeActivityModal}
+            />
+            {/* Content - tapping here does NOT close the modal */}
+            <View
               style={{
                 backgroundColor: '#FFFFFF',
                 borderTopLeftRadius: 20,
@@ -2047,8 +2048,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </>
               );
             })()}
-            </TouchableOpacity>
-          </TouchableOpacity>
+            </View>
+          </View>
         </KeyboardAvoidingView>
       </Modal>
 
