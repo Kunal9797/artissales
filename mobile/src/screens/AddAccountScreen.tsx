@@ -90,21 +90,6 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
     setRecentLocations(locations);
   };
 
-  // TODO: REMOVE THIS - Test function to seed fake locations
-  const loadTestLocations = async () => {
-    const testData = [
-      { city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
-      { city: 'Thane', state: 'Maharashtra', pincode: '400601' },
-      { city: 'Pune', state: 'Maharashtra', pincode: '411001' },
-      { city: 'Delhi', state: 'Delhi', pincode: '110001' },
-    ];
-    for (const loc of testData) {
-      await saveRecentLocation(loc);
-    }
-    await loadRecentLocations();
-    Alert.alert('Test Data Loaded', 'Added 4 test locations');
-  };
-
   const handleSelectRecentLocation = (location: RecentLocation) => {
     setCity(location.city);
     setState(location.state);
@@ -243,14 +228,6 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomPadding }]}
         keyboardShouldPersistTaps="handled"
       >
-        {/* TODO: REMOVE THIS - Test Button */}
-        <TouchableOpacity
-          style={styles.testButton}
-          onPress={loadTestLocations}
-        >
-          <Text style={styles.testButtonText}>🧪 Load Test Locations</Text>
-        </TouchableOpacity>
-
         {/* Account Type Grid */}
         <Text style={styles.sectionLabel}>Account Type</Text>
         <View style={styles.typeGrid}>
@@ -823,19 +800,5 @@ const styles = StyleSheet.create({
   },
   recentLocationChipTextSelected: {
     color: colors.accent,
-  },
-
-  // TODO: REMOVE THIS - Test Button Style
-  testButton: {
-    backgroundColor: '#FFE082',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  testButtonText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: '600',
-    color: '#5D4037',
   },
 });
