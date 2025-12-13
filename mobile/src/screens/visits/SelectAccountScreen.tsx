@@ -20,12 +20,19 @@ import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 interface SelectAccountScreenProps {
-  navigation: any;
+  navigation?: any;
+  route?: {
+    params?: {
+      mode?: 'select' | 'manage';  // 'select' for LogVisit flow, 'manage' for AccountDetail flow
+    };
+  };
 }
 
 type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 
-export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
+export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation, route }) => {
+  // Mode determines behavior: 'select' goes to LogVisit, 'manage' goes to AccountDetail
+  const mode = route?.params?.mode || 'select';
   const { accounts, loading, syncing, error, isOffline, isStale, hasPendingCreations, refreshAccounts } = useAccounts();
   const { visitMap, loading: visitsLoading } = useMyVisits();
   const { user } = useAuth();
@@ -101,35 +108,42 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   }, [accounts, searchQuery, selectedType, currentUserId, visitMap]);
 
   const handleSelectAccount = (account: Account) => {
-    // Helper function to safely convert date to ISO string
-    const safeToISOString = (date: any): string | null => {
-      if (!date) return null;
-      try {
-        if (date instanceof Date) {
-          // Check if date is valid
-          if (isNaN(date.getTime())) return null;
-          return date.toISOString();
+    if (mode === 'manage') {
+      // Manager mode - go to AccountDetail
+      // Pass account object for instant display while visits load
+      navigation.navigate('AccountDetail', { accountId: account.id, account });
+    } else {
+      // Select mode - go to LogVisit
+      // Helper function to safely convert date to ISO string
+      const safeToISOString = (date: any): string | null => {
+        if (!date) return null;
+        try {
+          if (date instanceof Date) {
+            // Check if date is valid
+            if (isNaN(date.getTime())) return null;
+            return date.toISOString();
+          }
+          if (date.toDate && typeof date.toDate === 'function') {
+            const d = date.toDate();
+            if (isNaN(d.getTime())) return null;
+            return d.toISOString();
+          }
+          return null;
+        } catch (error) {
+          console.error('Error converting date to ISO string:', error);
+          return null;
         }
-        if (date.toDate && typeof date.toDate === 'function') {
-          const d = date.toDate();
-          if (isNaN(d.getTime())) return null;
-          return d.toISOString();
-        }
-        return null;
-      } catch (error) {
-        console.error('Error converting date to ISO string:', error);
-        return null;
-      }
-    };
+      };
 
-    // Sanitize account data - convert Dates/Timestamps to ISO strings for navigation
-    const sanitizedAccount = {
-      ...account,
-      lastVisitAt: safeToISOString(account.lastVisitAt),
-      createdAt: safeToISOString(account.createdAt),
-      updatedAt: safeToISOString(account.updatedAt),
-    };
-    navigation.navigate('LogVisit', { account: sanitizedAccount });
+      // Sanitize account data - convert Dates/Timestamps to ISO strings for navigation
+      const sanitizedAccount = {
+        ...account,
+        lastVisitAt: safeToISOString(account.lastVisitAt),
+        createdAt: safeToISOString(account.createdAt),
+        updatedAt: safeToISOString(account.updatedAt),
+      };
+      navigation.navigate('LogVisit', { account: sanitizedAccount });
+    }
   };
 
   // Check if current user can edit this account
@@ -286,63 +300,55 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     );
   }
 
+  // Filter options for pills
+  const filterOptions: { label: string; value: AccountTypeFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Dealers', value: 'dealer' },
+    { label: 'Architects', value: 'architect' },
+    { label: 'OEMs', value: 'OEM' },
+    { label: 'Distributors', value: 'distributor' },
+  ];
+
   return (
     <View style={styles.container}>
-      {/* Header - Match Manager Design */}
+      {/* Header - Compact single row design */}
       <View style={{
         backgroundColor: '#393735',
-        paddingHorizontal: 24,
         paddingTop: 52,
-        paddingBottom: 16,
+        paddingBottom: 14,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-              Select Account
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
-                {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
-              </Text>
-              {syncing && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.7)" />
-                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Syncing...</Text>
-                </View>
-              )}
-              {!syncing && isStale && (
-                <TouchableOpacity
-                  onPress={refreshAccounts}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                >
-                  <RefreshCw size={12} color="rgba(255, 255, 255, 0.6)" />
-                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Tap to refresh</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-
-          {/* Add Account Button - Sales reps can only create Dealer/Architect/OEM */}
-          <TouchableOpacity
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: '#C9A961',
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 8,
-            }}
-            onPress={() => navigation.navigate('AddAccount', {
-              onAccountCreated: (accountId: string) => {
-                navigation.navigate('LogVisit', { accountId });
-              }
-            })}
-          >
-            <Plus size={18} color="#393735" />
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
+          {mode === 'manage' ? 'Accounts' : 'Select Account'}
+        </Text>
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(201, 169, 97, 0.25)',
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 8,
+            gap: 6,
+          }}
+          onPress={() => {
+            if (mode === 'manage') {
+              navigation.navigate('AddAccount');
+            } else {
+              navigation.navigate('AddAccount', {
+                onAccountCreated: (accountId: string) => {
+                  navigation.navigate('LogVisit', { accountId });
+                }
+              });
+            }
+          }}
+        >
+          <Plus size={16} color="#C9A961" />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961' }}>Add</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Offline Banner - Show when using cached data */}
@@ -355,7 +361,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         </View>
       )}
 
-      {/* Search Bar - Match Manager Design */}
+      {/* Search Bar with sync indicator */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
         <View style={{
           flexDirection: 'row',
@@ -382,111 +388,49 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             autoCapitalize="none"
             autoCorrect={false}
           />
+          {syncing && (
+            <ActivityIndicator size="small" color="#999999" />
+          )}
+          {!syncing && isStale && (
+            <TouchableOpacity onPress={refreshAccounts} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <RefreshCw size={18} color="#999999" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* Filter Pills - Sales Rep Order (Distributors at end) */}
+      {/* Filter Pills - horizontal scroll */}
       <View style={{ paddingBottom: 12 }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
         >
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: selectedType === 'all' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: selectedType === 'all' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setSelectedType('all')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: selectedType === 'all' ? '#FFFFFF' : '#666666',
-            }}>
-              All
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: selectedType === 'dealer' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: selectedType === 'dealer' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setSelectedType('dealer')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: selectedType === 'dealer' ? '#FFFFFF' : '#666666',
-            }}>
-              Dealers
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: selectedType === 'architect' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: selectedType === 'architect' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setSelectedType('architect')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: selectedType === 'architect' ? '#FFFFFF' : '#666666',
-            }}>
-              Architects
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: selectedType === 'OEM' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: selectedType === 'OEM' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setSelectedType('OEM')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: selectedType === 'OEM' ? '#FFFFFF' : '#666666',
-            }}>
-              OEMs
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: selectedType === 'distributor' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: selectedType === 'distributor' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setSelectedType('distributor')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: selectedType === 'distributor' ? '#FFFFFF' : '#666666',
-            }}>
-              Distributors
-            </Text>
-          </TouchableOpacity>
+          {filterOptions.map((option) => {
+            const isActive = selectedType === option.value;
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 16,
+                  backgroundColor: isActive ? '#393735' : '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: isActive ? '#393735' : '#E0E0E0',
+                }}
+                onPress={() => setSelectedType(option.value)}
+              >
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: isActive ? '#FFFFFF' : '#666666',
+                }}>
+                  {option.label}{isActive ? ` (${filteredAccounts.length})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 

@@ -36,7 +36,7 @@ import {
   ArrowLeft,
   Users,
   MapPin,
-  TrendingUp,
+  Layers,
   Bell,
   Calendar,
   ChevronDown,
@@ -1299,7 +1299,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             activeOpacity={0.7}
           >
             <View style={styles.splitCardHeader}>
-              <TrendingUp size={20} color="#FF9800" />
+              <Layers size={20} color="#FF9800" />
               <Text style={styles.splitCardTitle}>SHEETS SOLD</Text>
               {!isLoading && (stats?.pending?.sheets ?? 0) > 0 && (
                 <View style={styles.pendingBadge}>
@@ -1418,7 +1418,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           </TouchableOpacity>
         ) : (
           <NumberGridCard
-            icon={<TrendingUp size={20} color="#FF9800" />}
+            icon={<Layers size={20} color="#FF9800" />}
             title="SHEETS SOLD"
             total={stats?.sheets?.total || 0}
             totalLabel="approved"

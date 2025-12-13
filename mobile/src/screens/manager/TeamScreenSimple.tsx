@@ -5,9 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { logger } from '../../utils/logger';
-import { View, Text, TouchableOpacity, TextInput, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, RefreshControl, ScrollView } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { User, Search, Phone, MapPin, CheckCircle, XCircle } from 'lucide-react-native';
+import { User, Search, Plus } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
@@ -249,42 +249,43 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     );
   };
 
+  // Filter options for pills
+  const filterOptions = [
+    { value: 'all', label: 'All', count: users.length },
+    { value: 'active', label: 'Active', count: users.filter(u => u.isActive).length },
+    { value: 'inactive', label: 'Inactive', count: users.filter(u => !u.isActive).length },
+  ];
+
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      {/* Header */}
+      {/* Header - Compact single row design */}
       <View style={{
         backgroundColor: '#393735',
-        paddingHorizontal: 24,
         paddingTop: 52,
-        paddingBottom: 16,
+        paddingBottom: 14,
+        paddingHorizontal: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-              Team
-            </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-              {filteredUsers.length} members
-            </Text>
-          </View>
-
-          {/* Add User Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#C9A961',
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-            }}
-            onPress={() => navigation?.navigate('AddUser')}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#393735' }}>+</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Add</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
+          Team
+        </Text>
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: 'rgba(201, 169, 97, 0.25)',
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 8,
+            gap: 6,
+          }}
+          onPress={() => navigation?.navigate('AddUser')}
+        >
+          <Plus size={16} color="#C9A961" />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961' }}>Add</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
@@ -315,36 +316,39 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Status Filter Pills - Matching Review and Accounts style */}
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[
-            { value: 'all', label: 'All', count: users.length },
-            { value: 'active', label: 'Active', count: users.filter(u => u.isActive).length },
-            { value: 'inactive', label: 'Inactive', count: users.filter(u => !u.isActive).length },
-          ].map((filter) => (
-            <TouchableOpacity
-              key={filter.value}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 16,
-                backgroundColor: statusFilter === filter.value ? '#393735' : '#FFFFFF',
-                borderWidth: 1,
-                borderColor: statusFilter === filter.value ? '#393735' : '#E0E0E0',
-              }}
-              onPress={() => setStatusFilter(filter.value as any)}
-            >
-              <Text style={{
-                fontSize: 14,
-                fontWeight: '600',
-                color: statusFilter === filter.value ? '#FFFFFF' : '#666666',
-              }}>
-                {filter.label} ({filter.count})
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      {/* Status Filter Pills - horizontal scroll */}
+      <View style={{ paddingBottom: 12 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+        >
+          {filterOptions.map((filter) => {
+            const isActive = statusFilter === filter.value;
+            return (
+              <TouchableOpacity
+                key={filter.value}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderRadius: 16,
+                  backgroundColor: isActive ? '#393735' : '#FFFFFF',
+                  borderWidth: 1,
+                  borderColor: isActive ? '#393735' : '#E0E0E0',
+                }}
+                onPress={() => setStatusFilter(filter.value as any)}
+              >
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: isActive ? '#FFFFFF' : '#666666',
+                }}>
+                  {filter.label}{isActive ? ` (${filter.count})` : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Team List */}

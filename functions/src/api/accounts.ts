@@ -337,8 +337,8 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       sortDir = "asc",
     } = request.body;
 
-    // Validate and cap limit (max 100)
-    const limit = Math.min(Math.max(1, requestedLimit), 100);
+    // Validate and cap limit (max 1000 for bulk loading, e.g., offline cache)
+    const limit = Math.min(Math.max(1, requestedLimit), 1000);
     // Fetch one extra to check if there are more results
     const fetchLimit = limit + 1;
 

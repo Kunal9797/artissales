@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -13,6 +13,10 @@ import {
   Alert,
   Switch,
   FlatList,
+  useWindowDimensions,
+  LayoutAnimation,
+  UIManager,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -20,7 +24,6 @@ import {
   User,
   Calendar as CalendarIcon,
   Building2,
-  FileBarChart,
   IndianRupee,
   MapPin,
   Phone,
@@ -31,6 +34,7 @@ import {
   X,
   Target as TargetIcon,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Activity,
 } from 'lucide-react-native';
@@ -43,6 +47,56 @@ import { Skeleton } from '../../patterns';
 import { AccountListItem, ManagerListItem } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// Daily activity for heatmap
+interface DailyActivity {
+  date: string;
+  visitCount: number;
+  isInRange?: boolean;
+}
+
+// Grid cell type for heatmap
+interface GridCell {
+  key: string;
+  isEmpty: boolean;
+  isToday: boolean;
+  isFuture: boolean;
+  isOutOfRange: boolean;
+  color: string;
+  date?: string;
+  visitCount?: number;
+  isMonthLabel?: boolean;
+  monthLabelText?: string;
+  spanCells?: number;
+}
+
+// Heatmap colors (GitHub-style green scale)
+const HEATMAP_COLORS = {
+  EMPTY: '#EBEDF0',    // No activity (0 visits)
+  LOW: '#C6E9C7',      // 1 visit
+  MEDIUM: '#40C463',   // 2-3 visits
+  HIGH: '#30A14E',     // 4-5 visits
+  FULL: '#216E39',     // 6+ visits
+};
+
+// Get heatmap color for rep view (based on visit count with relative scale)
+const getRepHeatmapColor = (visitCount: number, maxVisits: number): string => {
+  if (visitCount === 0) return HEATMAP_COLORS.EMPTY;
+  if (maxVisits <= 0) return HEATMAP_COLORS.LOW;
+  const percentage = (visitCount / maxVisits) * 100;
+  if (percentage <= 25) return HEATMAP_COLORS.LOW;
+  if (percentage <= 50) return HEATMAP_COLORS.MEDIUM;
+  if (percentage <= 75) return HEATMAP_COLORS.HIGH;
+  return HEATMAP_COLORS.FULL;
+};
+
+// Day labels for heatmap header
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 type UserDetailScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -110,6 +164,234 @@ interface UserStats {
 
 type TimeRange = 'today' | 'week' | 'month' | 'custom';
 
+// Activity Heatmap Component - GitHub-style grid (for single rep view)
+const ActivityHeatmap: React.FC<{
+  dailyActivity?: DailyActivity[];
+  loading?: boolean;
+  isWeekView?: boolean;
+  isCustomRange?: boolean;
+}> = ({ dailyActivity, loading, isWeekView = false, isCustomRange = false }) => {
+  const { width: screenWidth } = useWindowDimensions();
+  const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Calculate max visits for relative scale
+  const maxVisits = useMemo(() => {
+    if (!dailyActivity) return 0;
+    const validDays = dailyActivity.filter(d => d.date <= today);
+    return Math.max(...validDays.map(d => d.visitCount || 0), 1);
+  }, [dailyActivity, today]);
+
+  // Build grid data
+  const gridData = useMemo((): GridCell[] => {
+    if (!dailyActivity || dailyActivity.length === 0) {
+      const skeletonCount = isWeekView ? 7 : 35;
+      return Array(skeletonCount).fill(null).map((_, i): GridCell => ({
+        key: `skeleton-${i}`,
+        isEmpty: true,
+        isToday: false,
+        isFuture: false,
+        isOutOfRange: false,
+        color: HEATMAP_COLORS.EMPTY,
+        visitCount: 0,
+      }));
+    }
+
+    // For week view, no offset needed - just 7 days Sun-Sat
+    if (isWeekView) {
+      return dailyActivity.map((day): GridCell => {
+        const isFuture = day.date > today;
+        const visitCount = day.visitCount || 0;
+        const color = isFuture
+          ? HEATMAP_COLORS.EMPTY
+          : getRepHeatmapColor(visitCount, maxVisits);
+        return {
+          key: day.date,
+          isEmpty: false,
+          isToday: day.date === today,
+          isFuture,
+          isOutOfRange: false,
+          color,
+          date: day.date,
+          visitCount,
+        };
+      });
+    }
+
+    // For month view, calculate offset for first day
+    const firstDate = dailyActivity[0].date;
+    const [year, month] = firstDate.split('-').map(Number);
+    const firstDayOfMonth = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = dailyActivity.length;
+    const lastDayOfMonth = new Date(year, month - 1, daysInMonth).getDay();
+    const trailingEmpty = lastDayOfMonth === 6 ? 0 : 6 - lastDayOfMonth;
+
+    // Month names
+    const monthNamesFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    const showMonthAtStart = firstDayOfMonth >= trailingEmpty && firstDayOfMonth >= 2;
+    const showMonthAtEnd = trailingEmpty > firstDayOfMonth && trailingEmpty >= 2;
+
+    const emptyCells = showMonthAtStart ? firstDayOfMonth : trailingEmpty;
+    const fullName = monthNamesFull[month - 1];
+    const shortName = monthNamesShort[month - 1];
+    const monthName = (fullName.length >= 7 && emptyCells < 3) ? shortName : fullName;
+
+    const grid: GridCell[] = [];
+
+    if (showMonthAtStart) {
+      grid.push({
+        key: 'month-label-start',
+        isEmpty: true,
+        isToday: false,
+        isFuture: false,
+        isOutOfRange: false,
+        color: 'transparent',
+        isMonthLabel: true,
+        monthLabelText: monthName,
+        spanCells: firstDayOfMonth,
+      });
+    } else {
+      for (let i = 0; i < firstDayOfMonth; i++) {
+        grid.push({
+          key: `empty-start-${i}`,
+          isEmpty: true,
+          isToday: false,
+          isFuture: false,
+          isOutOfRange: false,
+          color: 'transparent',
+        });
+      }
+    }
+
+    dailyActivity.forEach((day) => {
+      const isFuture = day.date > today;
+      const isOutOfRange = isCustomRange && day.isInRange === false;
+      const visitCount = day.visitCount || 0;
+      const color = isFuture
+        ? HEATMAP_COLORS.EMPTY
+        : getRepHeatmapColor(visitCount, maxVisits);
+      grid.push({
+        key: day.date,
+        isEmpty: false,
+        isToday: day.date === today,
+        isFuture,
+        isOutOfRange,
+        color,
+        date: day.date,
+        visitCount,
+      });
+    });
+
+    if (showMonthAtEnd) {
+      grid.push({
+        key: 'month-label-end',
+        isEmpty: true,
+        isToday: false,
+        isFuture: false,
+        isOutOfRange: false,
+        color: 'transparent',
+        isMonthLabel: true,
+        monthLabelText: monthName,
+        spanCells: trailingEmpty,
+      });
+    } else {
+      for (let i = 0; i < trailingEmpty; i++) {
+        grid.push({
+          key: `empty-end-${i}`,
+          isEmpty: true,
+          isToday: false,
+          isFuture: false,
+          isOutOfRange: false,
+          color: 'transparent',
+        });
+      }
+    }
+
+    return grid;
+  }, [dailyActivity, today, isWeekView, isCustomRange, maxVisits]);
+
+  // Calculate cell size dynamically based on screen width
+  const GAP = 5;
+  const AVAILABLE_WIDTH = screenWidth - 64;
+  const CELL_WIDTH = Math.floor((AVAILABLE_WIDTH - (GAP * 6)) / 7);
+  const CELL_HEIGHT = isWeekView ? Math.floor(CELL_WIDTH * 0.8) : Math.floor(CELL_WIDTH * 0.6);
+  const GRID_WIDTH = (CELL_WIDTH * 7) + (GAP * 6);
+
+  return (
+    <View style={heatmapStyles.container}>
+      <View style={heatmapStyles.centered}>
+        {/* Day labels header */}
+        <View style={[heatmapStyles.dayLabels, { width: GRID_WIDTH, gap: GAP }]}>
+          {DAY_LABELS.map((label, i) => (
+            <View key={i} style={{ width: CELL_WIDTH, alignItems: 'center' }}>
+              <Text style={heatmapStyles.dayLabel}>{label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Grid */}
+        <View style={[heatmapStyles.grid, { width: GRID_WIDTH, gap: GAP }]}>
+          {gridData.map((cell) => {
+            if (cell.isMonthLabel && cell.spanCells) {
+              const labelWidth = (CELL_WIDTH * cell.spanCells) + (GAP * (cell.spanCells - 1));
+              return (
+                <View
+                  key={cell.key}
+                  style={[heatmapStyles.monthLabel, { width: labelWidth, height: CELL_HEIGHT }]}
+                >
+                  <Text style={heatmapStyles.monthLabelText}>{cell.monthLabelText}</Text>
+                </View>
+              );
+            }
+
+            return (
+              <View
+                key={cell.key}
+                style={[
+                  heatmapStyles.cell,
+                  { width: CELL_WIDTH, height: CELL_HEIGHT },
+                  { backgroundColor: cell.color },
+                  cell.isToday && heatmapStyles.cellToday,
+                  cell.isEmpty && cell.color === 'transparent' && heatmapStyles.cellInvisible,
+                  cell.isFuture && heatmapStyles.cellFuture,
+                  cell.isOutOfRange && heatmapStyles.cellOutOfRange,
+                  loading && heatmapStyles.cellSkeleton,
+                ]}
+              >
+                {cell.isFuture && !loading && (
+                  <View style={heatmapStyles.cellFutureLine} />
+                )}
+                {!cell.isFuture && !cell.isEmpty && !loading && cell.visitCount !== undefined && (
+                  <Text style={[
+                    heatmapStyles.cellCount,
+                    cell.visitCount >= 4 && heatmapStyles.cellCountLight,
+                  ]}>
+                    {cell.visitCount}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Legend */}
+      <View style={heatmapStyles.legend}>
+        <Text style={heatmapStyles.legendText}>0</Text>
+        <View style={heatmapStyles.legendCells}>
+          <View style={[heatmapStyles.legendCell, { backgroundColor: HEATMAP_COLORS.EMPTY }]} />
+          <View style={[heatmapStyles.legendCell, { backgroundColor: HEATMAP_COLORS.LOW }]} />
+          <View style={[heatmapStyles.legendCell, { backgroundColor: HEATMAP_COLORS.MEDIUM }]} />
+          <View style={[heatmapStyles.legendCell, { backgroundColor: HEATMAP_COLORS.HIGH }]} />
+          <View style={[heatmapStyles.legendCell, { backgroundColor: HEATMAP_COLORS.FULL }]} />
+        </View>
+        <Text style={heatmapStyles.legendText}>{maxVisits}</Text>
+      </View>
+    </View>
+  );
+};
+
 export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   navigation,
   route,
@@ -148,6 +430,9 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   const [managers, setManagers] = useState<ManagerListItem[]>([]);
   const [showManagerModal, setShowManagerModal] = useState(false);
   const [loadingManagers, setLoadingManagers] = useState(false);
+
+  // Activity heatmap state
+  const [activityExpanded, setActivityExpanded] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -223,7 +508,13 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
   const getDateRange = (range: TimeRange) => {
     const today = new Date();
-    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+    // Use local date components to avoid UTC timezone shift
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
     switch (range) {
       case 'today':
@@ -389,6 +680,87 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
     return { activeDays, totalDays, percentage };
   };
+
+  // Build dailyActivity data for heatmap from visit records
+  const dailyActivity = useMemo((): DailyActivity[] => {
+    if (!stats?.visits?.records) {
+      logger.log('[UserDetail Heatmap] No visit records');
+      return [];
+    }
+
+    const { startDate, endDate } = getDateRange(timeRange);
+    logger.log('[UserDetail Heatmap] timeRange:', timeRange, 'startDate:', startDate, 'endDate:', endDate);
+
+    // Count visits by date
+    const visitsByDate: Record<string, number> = {};
+    stats.visits.records.forEach((record: any) => {
+      if (record.timestamp) {
+        // timestamp is already an ISO string from the API
+        const dateStr = typeof record.timestamp === 'string'
+          ? record.timestamp.split('T')[0]
+          : (record.timestamp.toDate?.() || new Date(record.timestamp)).toISOString().split('T')[0];
+        visitsByDate[dateStr] = (visitsByDate[dateStr] || 0) + 1;
+      }
+    });
+
+    // For week view: generate 7 days
+    if (timeRange === 'week' || timeRange === 'today') {
+      const days: DailyActivity[] = [];
+      const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+      const startOfWeekDate = new Date(startYear, startMonth - 1, startDay);
+
+      for (let d = 0; d < 7; d++) {
+        const currentDate = new Date(startOfWeekDate);
+        currentDate.setDate(startOfWeekDate.getDate() + d);
+        const dateStr = currentDate.toISOString().split('T')[0];
+        days.push({
+          date: dateStr,
+          visitCount: visitsByDate[dateStr] || 0,
+          isInRange: true,
+        });
+      }
+      return days;
+    }
+
+    // For month view: generate FULL month (1st to last day)
+    if (timeRange === 'month') {
+      const [year, month] = startDate.split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      logger.log('[UserDetail Heatmap] Month view - year:', year, 'month:', month, 'daysInMonth:', daysInMonth);
+      const days: DailyActivity[] = [];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        days.push({
+          date: dateStr,
+          visitCount: visitsByDate[dateStr] || 0,
+          isInRange: true,
+        });
+      }
+      logger.log('[UserDetail Heatmap] Generated days, first:', days[0]?.date, 'last:', days[days.length-1]?.date, 'count:', days.length);
+      return days;
+    }
+
+    // For custom range: generate full month but mark out-of-range days
+    if (timeRange === 'custom' && customStartDate && customEndDate) {
+      const [year, month] = customStartDate.split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const days: DailyActivity[] = [];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isInRange = dateStr >= customStartDate && dateStr <= customEndDate;
+        days.push({
+          date: dateStr,
+          visitCount: visitsByDate[dateStr] || 0,
+          isInRange,
+        });
+      }
+      return days;
+    }
+
+    return [];
+  }, [stats, timeRange, customStartDate, customEndDate]);
 
   // Load distributors for picker
   const loadDistributors = async () => {
@@ -631,26 +1003,46 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
             })}
           </View>
 
-          {/* Activity Summary Card - Tap to see full calendar */}
+          {/* Activity Summary Card - Expandable with heatmap */}
           {stats && (
-            <TouchableOpacity
-              style={styles.activityCard}
-              onPress={() => navigation.navigate('AttendanceHistory', { userId, userName: userData?.name })}
-              activeOpacity={0.7}
-            >
-              <View style={styles.activityCardLeft}>
-                <View style={styles.activityIconContainer}>
-                  <Activity size={20} color="#2E7D32" />
+            <>
+              <TouchableOpacity
+                style={[styles.activityCard, activityExpanded && styles.activityCardExpanded]}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setActivityExpanded(!activityExpanded);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.activityCardLeft}>
+                  <View style={styles.activityIconContainer}>
+                    <Activity size={20} color="#2E7D32" />
+                  </View>
+                  <View>
+                    <Text style={styles.activityCardLabel}>ACTIVITY</Text>
+                    <Text style={styles.activityCardValue}>
+                      {activityStats.activeDays} of {activityStats.totalDays} days active
+                    </Text>
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.activityCardLabel}>Activity</Text>
-                  <Text style={styles.activityCardValue}>
-                    {activityStats.activeDays} Active Days ({activityStats.percentage}%)
-                  </Text>
+                {activityExpanded ? (
+                  <ChevronUp size={20} color={colors.text.secondary} />
+                ) : (
+                  <ChevronDown size={20} color={colors.text.secondary} />
+                )}
+              </TouchableOpacity>
+
+              {activityExpanded && (
+                <View style={styles.heatmapContainer}>
+                  <ActivityHeatmap
+                    dailyActivity={dailyActivity}
+                    loading={loading}
+                    isWeekView={timeRange === 'week' || timeRange === 'today'}
+                    isCustomRange={timeRange === 'custom'}
+                  />
                 </View>
-              </View>
-              <ChevronRight size={20} color={colors.text.secondary} />
-            </TouchableOpacity>
+              )}
+            </>
           )}
 
           {/* Detailed Stats View - Same component as StatsScreen */}
@@ -1308,6 +1700,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  activityCardExpanded: {
+    marginBottom: 0,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  heatmapContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   activityCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1650,5 +2060,107 @@ const styles = StyleSheet.create({
   distributorEmptyText: {
     fontSize: typography.fontSize.base,
     color: colors.text.secondary,
+  },
+});
+
+// Heatmap styles
+const heatmapStyles = StyleSheet.create({
+  container: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  centered: {
+    alignItems: 'center',
+  },
+  dayLabels: {
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  dayLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#888',
+    textAlign: 'center',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  cell: {
+    borderRadius: 4,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cellToday: {
+    borderWidth: 2,
+    borderColor: '#393735',
+  },
+  cellInvisible: {
+    backgroundColor: 'transparent',
+  },
+  cellFuture: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
+  },
+  cellFutureLine: {
+    position: 'absolute',
+    top: '50%',
+    left: -4,
+    right: -4,
+    height: 1,
+    backgroundColor: '#CCCCCC',
+    transform: [{ rotate: '45deg' }],
+  },
+  cellSkeleton: {
+    opacity: 0.5,
+  },
+  cellOutOfRange: {
+    opacity: 0.3,
+  },
+  cellCount: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#333',
+    textAlign: 'center',
+  },
+  cellCountLight: {
+    color: '#FFFFFF',
+  },
+  monthLabel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthLabelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 8,
+  },
+  legendText: {
+    fontSize: 11,
+    color: '#888',
+  },
+  legendCells: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 4,
+  },
+  legendCell: {
+    flex: 1,
+    height: 10,
+    borderRadius: 2,
   },
 });

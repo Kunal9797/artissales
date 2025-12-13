@@ -56,7 +56,7 @@ export type RootStackParamList = {
   UserList: undefined;
   UserDetail: { userId: string };
   AccountsList: undefined;
-  AccountDetail: { accountId: string };
+  AccountDetail: { accountId: string; account?: any };
   AddAccount: { preSelectedType?: string; onAccountCreated?: (accountId: string) => void };
   EditAccount: { account: any; onAccountUpdated?: () => void };
   SetTarget: { userId: string; userName: string; currentMonth: string };

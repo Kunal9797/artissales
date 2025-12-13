@@ -96,7 +96,7 @@ const badgeStyles = StyleSheet.create({
     borderColor: '#393735', // Match nav bar background
   },
 });
-import { AccountsListScreen } from '../screens/manager/AccountsListScreen';
+import { SelectAccountScreen } from '../screens/visits/SelectAccountScreen';
 // import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreen'; // TODO: Has StyleSheet.create issue
 import { ManagerHomeScreen } from '../screens/manager/ManagerHomeScreenSimple';
 import { TeamScreen } from '../screens/manager/TeamScreenSimple';
@@ -209,7 +209,8 @@ export const ManagerTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="AccountsList"
-        component={AccountsListScreen}
+        component={SelectAccountScreen}
+        initialParams={{ mode: 'manage' }}
         options={{
           title: 'Accounts',
           tabBarIcon: ({ color, focused }) => (

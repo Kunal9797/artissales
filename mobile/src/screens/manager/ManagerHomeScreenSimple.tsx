@@ -26,7 +26,7 @@ import {
   Bell,
   Users,
   MapPin,
-  TrendingUp,
+  Layers,
   ChevronRight,
   Sunrise,
   Sun,
@@ -279,7 +279,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                   activeOpacity={0.7}
                 >
                   <View style={styles.kpiIconRow}>
-                    <TrendingUp size={20} color={featureColors.sheets.primary} />
+                    <Layers size={20} color={featureColors.sheets.primary} />
                     <Text style={styles.kpiLabel}>SHEETS</Text>
                   </View>
                   <Text style={styles.kpiValue}>{todaySheets}</Text>
@@ -396,7 +396,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             {activeSheet === 'sheets' && (
               <View style={styles.sheetContent}>
                 <View style={[styles.sheetIconCircle, { backgroundColor: featureColors.sheets.light }]}>
-                  <TrendingUp size={24} color={featureColors.sheets.primary} />
+                  <Layers size={24} color={featureColors.sheets.primary} />
                 </View>
                 <Text style={styles.sheetTitle}>Today's Sheets</Text>
                 <Text style={styles.sheetValue}>{todaySheets}</Text>

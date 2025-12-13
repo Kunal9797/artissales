@@ -5,7 +5,7 @@
  * Swipe right to approve, swipe left to reject
  */
 
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -22,17 +22,13 @@ import {
   Animated,
 } from 'react-native';
 import {
-  FileBarChart,
+  Layers,
   IndianRupee,
   User as UserIcon,
-  Clock,
   CheckCircle,
   XCircle,
   ChevronDown,
   X,
-  ImageIcon,
-  Search,
-  Filter,
 } from 'lucide-react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { api } from '../../services/api';
@@ -43,6 +39,245 @@ import { trackItemReviewed } from '../../services/analytics';
 
 // Type filter options
 type TypeFilter = 'all' | 'sheets' | 'expense';
+
+// Format date for display (moved outside component to avoid recreation)
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+  });
+};
+
+// Memoized item card component for better performance
+interface ReviewItemCardProps {
+  item: PendingItem;
+  isProcessing: boolean;
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
+  onApprove: (item: PendingItem) => void;
+  onReject: (item: PendingItem) => void;
+  onViewPhotos: (photos: string[]) => void;
+  swipeableRef: (ref: Swipeable | null, id: string) => void;
+  onSwipeOpen: (id: string) => void;
+}
+
+const ReviewItemCard = memo(({
+  item,
+  isProcessing,
+  isExpanded,
+  onToggleExpand,
+  onApprove,
+  onReject,
+  onViewPhotos,
+  swipeableRef,
+  onSwipeOpen,
+}: ReviewItemCardProps) => {
+  const isSheets = item.type === 'sheets';
+  const hasDetails = item.description || (item.receiptPhotos && item.receiptPhotos.length > 0);
+
+  // Render right swipe action (Approve - Green)
+  const renderRightActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
+    const translateX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={{
+          width: 80,
+          backgroundColor: '#2E7D32',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transform: [{ translateX }],
+        }}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          onPress={() => onApprove(item)}
+        >
+          <CheckCircle size={24} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+            Approve
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [item, onApprove]);
+
+  // Render left swipe action (Reject - Red)
+  const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
+    const translateX = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={{
+          width: 80,
+          backgroundColor: '#EF5350',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transform: [{ translateX }],
+        }}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
+          onPress={() => onReject(item)}
+        >
+          <XCircle size={24} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
+            Reject
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }, [item, onReject]);
+
+  const handlePress = useCallback(() => {
+    onToggleExpand(item.id);
+  }, [item.id, onToggleExpand]);
+
+  const handleSwipeOpen = useCallback(() => {
+    onSwipeOpen(item.id);
+  }, [item.id, onSwipeOpen]);
+
+  const handleRef = useCallback((ref: Swipeable | null) => {
+    swipeableRef(ref, item.id);
+  }, [item.id, swipeableRef]);
+
+  return (
+    <View
+      style={{
+        marginHorizontal: 16,
+        marginBottom: 12,
+        borderRadius: 12,
+        overflow: 'hidden',
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+        elevation: 3,
+        backgroundColor: '#FFFFFF',
+      }}
+    >
+      <Swipeable
+        ref={handleRef}
+        renderRightActions={renderRightActions}
+        renderLeftActions={renderLeftActions}
+        rightThreshold={40}
+        leftThreshold={40}
+        overshootRight={false}
+        overshootLeft={false}
+        onSwipeableOpen={handleSwipeOpen}
+      >
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handlePress}
+          style={{
+            backgroundColor: '#FFFFFF',
+            opacity: isProcessing ? 0.5 : 1,
+          }}
+        >
+          {/* Content container */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}>
+            {/* Type Icon */}
+            <View style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {isSheets ? (
+                <Layers size={22} color="#EF6C00" />
+              ) : (
+                <IndianRupee size={22} color="#6A1B9A" />
+              )}
+            </View>
+
+            {/* Content */}
+            <View style={{ flex: 1 }}>
+              {/* Main row: Value + User */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
+                  {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
+                  {item.userName}
+                </Text>
+              </View>
+
+              {/* Detail row: Category + Date */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
+                  {isSheets ? item.catalog : item.category}
+                  {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
+                    <Text> • 📷</Text>
+                  )}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#999999' }}>
+                  {formatDate(item.date)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Loading indicator */}
+            {isProcessing && (
+              <ActivityIndicator size="small" color="#666666" />
+            )}
+          </View>
+
+          {/* Expanded section */}
+          {isExpanded && (
+            <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+              {/* Notes/Description */}
+              {item.description && (
+                <Text style={{ fontSize: 14, color: '#666666', marginBottom: 8 }}>
+                  {item.description}
+                </Text>
+              )}
+
+              {/* Receipt photos (expenses only) */}
+              {item.receiptPhotos && item.receiptPhotos.length > 0 && (
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                  {item.receiptPhotos.map((photo, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      onPress={() => onViewPhotos(item.receiptPhotos || [])}
+                    >
+                      <Image
+                        source={{ uri: photo }}
+                        style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: '#F0F0F0' }}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Empty state */}
+              {!hasDetails && (
+                <Text style={{ fontSize: 13, color: '#999999', fontStyle: 'italic' }}>
+                  No additional details
+                </Text>
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
+      </Swipeable>
+    </View>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison - only re-render if these specific props change
+  return (
+    prevProps.item.id === nextProps.item.id &&
+    prevProps.isProcessing === nextProps.isProcessing &&
+    prevProps.isExpanded === nextProps.isExpanded
+  );
+});
 
 interface ReviewHomeScreenProps {
   navigation?: any;
@@ -67,9 +302,10 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   // Apply filter from navigation params when they change
   // Use InteractionManager to defer state update and avoid "setState during render" warning
   useEffect(() => {
-    if (route?.params?.filterUserName) {
+    const filterUserName = route?.params?.filterUserName;
+    if (filterUserName) {
       const task = InteractionManager.runAfterInteractions(() => {
-        setUserFilter(route.params.filterUserName);
+        setUserFilter(filterUserName);
       });
       return () => task.cancel();
     }
@@ -145,12 +381,12 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   }, [refetch]);
 
   // Close all swipeables
-  const closeAllSwipeables = () => {
+  const closeAllSwipeables = useCallback(() => {
     swipeableRefs.current.forEach((ref) => ref?.close());
-  };
+  }, []);
 
   // Handle approve with optimistic update
-  const handleApprove = async (item: PendingItem) => {
+  const handleApprove = useCallback(async (item: PendingItem) => {
     closeAllSwipeables();
     setExpandedId(null);
     setActionLoading(item.id);
@@ -202,7 +438,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [closeAllSwipeables, queryClient]);
 
   // Handle reject with optimistic update
   const handleReject = async () => {
@@ -268,228 +504,55 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   };
 
   // Open reject modal
-  const openRejectModal = (item: PendingItem) => {
+  const openRejectModal = useCallback((item: PendingItem) => {
     closeAllSwipeables();
     setRejectingItem(item);
     setRejectComment('');
     setRejectModalVisible(true);
-  };
+  }, [closeAllSwipeables]);
 
   // Open photo viewer
-  const openPhotoViewer = (photos: string[]) => {
+  const openPhotoViewer = useCallback((photos: string[]) => {
     setViewingPhotos(photos);
     setCurrentPhotoIndex(0);
     setPhotoViewerVisible(true);
-  };
+  }, []);
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
+  // Stable callbacks for memoized item component
+  const handleToggleExpand = useCallback((id: string) => {
+    setExpandedId(prev => prev === id ? null : id);
+  }, []);
+
+  const handleSwipeableRef = useCallback((ref: Swipeable | null, id: string) => {
+    if (ref) {
+      swipeableRefs.current.set(id, ref);
+    }
+  }, []);
+
+  const handleSwipeOpen = useCallback((id: string) => {
+    setExpandedId(null);
+    swipeableRefs.current.forEach((ref, refId) => {
+      if (refId !== id) ref?.close();
     });
-  };
+  }, []);
 
-  // Render right swipe action (Approve - Green)
-  const renderRightActions = (item: PendingItem, progress: Animated.AnimatedInterpolation<number>) => {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [80, 0],
-    });
+  // Memoized renderItem using the memoized component
+  const renderItem = useCallback(({ item }: { item: PendingItem }) => (
+    <ReviewItemCard
+      item={item}
+      isProcessing={actionLoading === item.id}
+      isExpanded={expandedId === item.id}
+      onToggleExpand={handleToggleExpand}
+      onApprove={handleApprove}
+      onReject={openRejectModal}
+      onViewPhotos={openPhotoViewer}
+      swipeableRef={handleSwipeableRef}
+      onSwipeOpen={handleSwipeOpen}
+    />
+  ), [actionLoading, expandedId, handleToggleExpand, handleApprove, openRejectModal, openPhotoViewer, handleSwipeableRef, handleSwipeOpen]);
 
-    return (
-      <Animated.View
-        style={{
-          width: 80,
-          backgroundColor: '#2E7D32',
-          justifyContent: 'center',
-          alignItems: 'center',
-          transform: [{ translateX }],
-        }}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
-          onPress={() => handleApprove(item)}
-        >
-          <CheckCircle size={24} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-            Approve
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  // Render left swipe action (Reject - Red)
-  const renderLeftActions = (item: PendingItem, progress: Animated.AnimatedInterpolation<number>) => {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [-80, 0],
-    });
-
-    return (
-      <Animated.View
-        style={{
-          width: 80,
-          backgroundColor: '#EF5350',
-          justifyContent: 'center',
-          alignItems: 'center',
-          transform: [{ translateX }],
-        }}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
-          onPress={() => openRejectModal(item)}
-        >
-          <XCircle size={24} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-            Reject
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
-
-  // Render compact item card
-  const renderItem = ({ item }: { item: PendingItem }) => {
-    const isProcessing = actionLoading === item.id;
-    const isSheets = item.type === 'sheets';
-    const isExpanded = expandedId === item.id;
-    const hasDetails = item.description || (item.receiptPhotos && item.receiptPhotos.length > 0);
-
-    return (
-      <View
-        style={{
-          marginHorizontal: 16,
-          marginBottom: 12,
-          borderRadius: 12,
-          overflow: 'hidden',
-          // Shadow
-          shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.12,
-          shadowRadius: 6,
-          elevation: 3,
-          backgroundColor: '#FFFFFF',
-        }}
-      >
-        <Swipeable
-          ref={(ref) => {
-            if (ref) swipeableRefs.current.set(item.id, ref);
-          }}
-          renderRightActions={(progress) => renderRightActions(item, progress)}
-          renderLeftActions={(progress) => renderLeftActions(item, progress)}
-          rightThreshold={40}
-          leftThreshold={40}
-          overshootRight={false}
-          overshootLeft={false}
-          onSwipeableOpen={() => {
-            // Close expanded card and other swipeables when one opens
-            setExpandedId(null);
-            swipeableRefs.current.forEach((ref, id) => {
-              if (id !== item.id) ref?.close();
-            });
-          }}
-        >
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setExpandedId(isExpanded ? null : item.id)}
-            style={{
-              backgroundColor: '#FFFFFF',
-              opacity: isProcessing ? 0.5 : 1,
-            }}
-          >
-            {/* Content container */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}>
-              {/* Type Icon */}
-              <View style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                {isSheets ? (
-                  <FileBarChart size={22} color="#EF6C00" />
-                ) : (
-                  <IndianRupee size={22} color="#6A1B9A" />
-                )}
-              </View>
-
-              {/* Content */}
-              <View style={{ flex: 1 }}>
-                {/* Main row: Value + User */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
-                    {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
-                  </Text>
-                  <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
-                    {item.userName}
-                  </Text>
-                </View>
-
-                {/* Detail row: Category + Date */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                  <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
-                    {isSheets ? item.catalog : item.category}
-                    {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
-                      <Text> • 📷</Text>
-                    )}
-                  </Text>
-                  <Text style={{ fontSize: 12, color: '#999999' }}>
-                    {formatDate(item.date)}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Loading indicator */}
-              {isProcessing && (
-                <ActivityIndicator size="small" color="#666666" />
-              )}
-            </View>
-
-            {/* Expanded section */}
-            {isExpanded && (
-              <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
-                {/* Notes/Description */}
-                {item.description && (
-                  <Text style={{ fontSize: 14, color: '#666666', marginBottom: 8 }}>
-                    {item.description}
-                  </Text>
-                )}
-
-                {/* Receipt photos (expenses only) */}
-                {item.receiptPhotos && item.receiptPhotos.length > 0 && (
-                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                    {item.receiptPhotos.map((photo, idx) => (
-                      <TouchableOpacity
-                        key={idx}
-                        onPress={() => openPhotoViewer(item.receiptPhotos || [])}
-                      >
-                        <Image
-                          source={{ uri: photo }}
-                          style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: '#F0F0F0' }}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {/* Empty state */}
-                {!hasDetails && (
-                  <Text style={{ fontSize: 13, color: '#999999', fontStyle: 'italic' }}>
-                    No additional details
-                  </Text>
-                )}
-              </View>
-            )}
-          </TouchableOpacity>
-        </Swipeable>
-      </View>
-    );
-  };
+  // Stable keyExtractor
+  const keyExtractor = useCallback((item: PendingItem) => item.id, []);
 
   // Render empty state
   const renderEmptyState = () => (
@@ -517,113 +580,116 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      {/* Header */}
+      {/* Header - matches TeamStatsScreen design */}
       <View style={{
         backgroundColor: '#393735',
-        paddingHorizontal: 24,
         paddingTop: 52,
-        paddingBottom: 16,
-      }}>
-        <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-          Review
-        </Text>
-        <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-          {counts.total} pending • Swipe to approve/reject
-        </Text>
-      </View>
-
-      {/* Filters Row */}
-      <View style={{
+        paddingBottom: 14,
+        paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
-        gap: 8,
+        justifyContent: 'space-between',
       }}>
-        {/* User Filter Button */}
+        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
+          Review
+        </Text>
         <TouchableOpacity
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            backgroundColor: userFilter === 'all' ? '#F0F0F0' : '#E3F2FD',
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: userFilter === 'all' ? '#E0E0E0' : '#90CAF9',
+            backgroundColor: 'rgba(201, 169, 97, 0.25)',
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 8,
+            gap: 6,
+            maxWidth: 180,
           }}
           onPress={() => setUserFilterModalVisible(true)}
         >
-          <UserIcon size={14} color={userFilter === 'all' ? '#666666' : '#1976D2'} />
-          <Text style={{
-            fontSize: 13,
-            color: userFilter === 'all' ? '#666666' : '#1976D2',
-            maxWidth: 80,
-          }} numberOfLines={1}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961', flexShrink: 1 }} numberOfLines={1}>
             {selectedUserName}
           </Text>
-          <ChevronDown size={14} color={userFilter === 'all' ? '#666666' : '#1976D2'} />
+          <ChevronDown size={16} color="#C9A961" />
         </TouchableOpacity>
+      </View>
 
-        {/* Type Filter Chips */}
-        <View style={{ flexDirection: 'row', gap: 6, flex: 1 }}>
+      {/* Type Filter Toggle - matches TeamStatsScreen toggle design */}
+      <View style={{
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E8E8E8',
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: '#F0F0F0',
+          borderRadius: 8,
+          padding: 4,
+        }}>
           {/* All */}
           <TouchableOpacity
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 16,
-              backgroundColor: typeFilter === 'all' ? '#393735' : '#F0F0F0',
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
+              borderRadius: 6,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: typeFilter === 'all' ? '#FFFFFF' : 'transparent',
             }}
             onPress={() => setTypeFilter('all')}
           >
             <Text style={{
-              fontSize: 13,
-              fontWeight: '500',
-              color: typeFilter === 'all' ? '#FFFFFF' : '#666666',
+              fontSize: 14,
+              fontWeight: '600',
+              color: typeFilter === 'all' ? '#393735' : '#888888',
             }}>
-              All
+              All ({counts.total})
             </Text>
           </TouchableOpacity>
 
           {/* Sheets */}
           <TouchableOpacity
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 16,
-              backgroundColor: typeFilter === 'sheets' ? '#EF6C00' : '#F0F0F0',
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
+              borderRadius: 6,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: typeFilter === 'sheets' ? '#FFFFFF' : 'transparent',
             }}
             onPress={() => setTypeFilter('sheets')}
           >
             <Text style={{
-              fontSize: 13,
-              fontWeight: '500',
-              color: typeFilter === 'sheets' ? '#FFFFFF' : '#666666',
+              fontSize: 14,
+              fontWeight: '600',
+              color: typeFilter === 'sheets' ? '#393735' : '#888888',
             }}>
-              Sheets
+              Sheets ({counts.sheets})
             </Text>
           </TouchableOpacity>
 
           {/* Expenses */}
           <TouchableOpacity
             style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 16,
-              backgroundColor: typeFilter === 'expense' ? '#6A1B9A' : '#F0F0F0',
+              flex: 1,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
+              borderRadius: 6,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: typeFilter === 'expense' ? '#FFFFFF' : 'transparent',
             }}
             onPress={() => setTypeFilter('expense')}
           >
             <Text style={{
-              fontSize: 13,
-              fontWeight: '500',
-              color: typeFilter === 'expense' ? '#FFFFFF' : '#666666',
+              fontSize: 14,
+              fontWeight: '600',
+              color: typeFilter === 'expense' ? '#393735' : '#888888',
             }}>
-              Expenses
+              Expenses ({counts.expenses})
             </Text>
           </TouchableOpacity>
         </View>
@@ -636,7 +702,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         <FlatList
           data={filteredItems}
           renderItem={renderItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           contentContainerStyle={{
             paddingTop: 12,
             paddingBottom: 60 + bottomPadding,
@@ -649,6 +715,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
+          extraData={`${actionLoading}-${expandedId}`}
         />
       )}
 
