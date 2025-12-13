@@ -23,6 +23,8 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,6 +33,8 @@ import { getFirestore, doc, getDoc, query, collection, where, getDocs, orderBy, 
 import { Card, Badge } from '../components/ui';
 import { KpiCard } from '../patterns/KpiCard';
 import { ActivityItem, Activity } from '../components/ActivityItem';
+import { PhotoViewer } from '../components/PhotoViewer';
+import { CameraCapture } from '../components/CameraCapture';
 import { colors, spacing, typography, featureColors, shadows } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
@@ -57,6 +61,7 @@ import {
   RefreshCw,
 } from 'lucide-react-native';
 import { dataQueue, DataQueueItem, setOnSyncComplete } from '../services/dataQueue';
+import { uploadPhoto } from '../services/storage';
 
 // FEATURE FLAG: Set to false to disable attendance tracking
 const ATTENDANCE_FEATURE_ENABLED = false;
@@ -213,6 +218,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [editValue, setEditValue] = useState<string>(''); // For count/amount
   const [editDetail, setEditDetail] = useState<string>(''); // For catalog/category (pending, not saved until Done)
   const [savingEdit, setSavingEdit] = useState(false);
+
+  // Receipt photo state for expenses
+  const [showReceiptCamera, setShowReceiptCamera] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
 
   // Close modal and reset all edit states
   const closeActivityModal = () => {
@@ -470,6 +479,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           detail: categoryLabel,
           notes: expenseNotes,
           status: data.status || 'pending', // 'pending' | 'verified' | 'rejected'
+          photos: data.receiptPhotos || [], // Receipt photos for expenses
         });
       });
 
@@ -973,6 +983,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     }
   };
 
+  // Handle receipt photo capture for expenses
+  const handleReceiptPhotoTaken = async (uri: string) => {
+    if (!selectedActivity || selectedActivity.type !== 'expense') return;
+
+    setShowReceiptCamera(false);
+    setUploadingReceipt(true);
+
+    try {
+      // Upload photo to Firebase Storage
+      const downloadUrl = await uploadPhoto(uri, 'expenses');
+      logger.log('[HomeScreen] Receipt uploaded:', downloadUrl);
+
+      // Update the expense with the new receipt photo
+      await api.updateExpense({
+        id: selectedActivity.id,
+        receiptPhotos: [downloadUrl],
+      });
+
+      // Update local state
+      setTodayActivities(prev => prev.map(a =>
+        a.id === selectedActivity.id ? { ...a, photos: [downloadUrl] } : a
+      ));
+      setSelectedActivity(prev => prev ? { ...prev, photos: [downloadUrl] } : null);
+
+      invalidateHomeStatsCache();
+    } catch (error: any) {
+      logger.error('[HomeScreen] Error uploading receipt:', error);
+      Alert.alert('Error', 'Failed to upload receipt photo. Please try again.');
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
   // Inline edit save handler
   const handleInlineSave = async () => {
     if (!selectedActivity || !editingField || savingEdit) return;
@@ -1422,18 +1465,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         animationType="slide"
         onRequestClose={closeActivityModal}
       >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
-          activeOpacity={1}
-          onPress={closeActivityModal}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
         >
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
-            padding: 20,
-            paddingBottom: bottomPadding,
-          }}>
+          <TouchableOpacity
+            style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}
+            activeOpacity={1}
+            onPress={closeActivityModal}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                padding: 20,
+                paddingBottom: bottomPadding,
+              }}
+            >
             {selectedActivity && (() => {
               const now = new Date();
               // Visits editable within 48 hours, sheets/expenses editable if pending
@@ -1677,6 +1728,94 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     </View>
                   )}
 
+                  {/* Receipt Photo section for expenses */}
+                  {selectedActivity.type === 'expense' && (
+                    <View style={{ marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 8 }}>Receipt</Text>
+                      {selectedActivity.photos && selectedActivity.photos.length > 0 ? (
+                        <View>
+                          <TouchableOpacity
+                            onPress={() => setViewingPhotoIndex(0)}
+                            style={{
+                              borderRadius: 8,
+                              overflow: 'hidden',
+                              backgroundColor: '#F5F5F5',
+                            }}
+                          >
+                            <Image
+                              source={{ uri: selectedActivity.photos[0] }}
+                              style={{ width: '100%', height: 150, borderRadius: 8 }}
+                              resizeMode="cover"
+                            />
+                            <View style={{
+                              position: 'absolute',
+                              bottom: 8,
+                              right: 8,
+                              backgroundColor: 'rgba(0,0,0,0.6)',
+                              paddingHorizontal: 8,
+                              paddingVertical: 4,
+                              borderRadius: 4,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}>
+                              <Camera size={12} color="#FFFFFF" />
+                              <Text style={{ fontSize: 11, color: '#FFFFFF', fontWeight: '500' }}>Tap to view</Text>
+                            </View>
+                          </TouchableOpacity>
+                          {/* Change receipt button - only when editable */}
+                          {canEdit && (
+                            <TouchableOpacity
+                              onPress={() => setShowReceiptCamera(true)}
+                              disabled={uploadingReceipt}
+                              style={{
+                                marginTop: 8,
+                                paddingVertical: 8,
+                                alignItems: 'center',
+                                backgroundColor: '#F5F5F5',
+                                borderRadius: 6,
+                              }}
+                            >
+                              {uploadingReceipt ? (
+                                <ActivityIndicator size="small" color={featureColors.expenses.primary} />
+                              ) : (
+                                <Text style={{ fontSize: 13, color: featureColors.expenses.primary, fontWeight: '500' }}>
+                                  Change Receipt
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => canEdit && setShowReceiptCamera(true)}
+                          disabled={!canEdit || uploadingReceipt}
+                          style={{
+                            backgroundColor: '#F5F5F5',
+                            borderRadius: 8,
+                            padding: 16,
+                            alignItems: 'center',
+                            borderWidth: 1,
+                            borderColor: canEdit ? featureColors.expenses.primary : '#E0E0E0',
+                            borderStyle: 'dashed',
+                            opacity: canEdit ? 1 : 0.6,
+                          }}
+                        >
+                          {uploadingReceipt ? (
+                            <ActivityIndicator size="small" color={featureColors.expenses.primary} />
+                          ) : (
+                            <>
+                              <Camera size={24} color={canEdit ? featureColors.expenses.primary : colors.text.tertiary} />
+                              <Text style={{ fontSize: 13, color: canEdit ? featureColors.expenses.primary : colors.text.tertiary, marginTop: 4, fontWeight: canEdit ? '500' : '400' }}>
+                                {canEdit ? 'Add Receipt Photo' : 'No receipt attached'}
+                              </Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+
                   {/* Purpose (for visits) */}
                   {selectedActivity.type === 'visit' && selectedActivity.purpose && (
                     <View style={{ marginBottom: 8 }}>
@@ -1908,8 +2047,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                 </>
               );
             })()}
-          </View>
-        </TouchableOpacity>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Photo Viewing Modal */}
@@ -1988,6 +2128,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           )}
         </View>
       </Modal>
+
+      {/* Receipt Camera Modal for Expenses */}
+      {showReceiptCamera && (
+        <Modal
+          visible={showReceiptCamera}
+          animationType="slide"
+          onRequestClose={() => setShowReceiptCamera(false)}
+        >
+          <CameraCapture
+            onPhotoTaken={handleReceiptPhotoTaken}
+            onCancel={() => setShowReceiptCamera(false)}
+          />
+        </Modal>
+      )}
     </View>
   );
 };
