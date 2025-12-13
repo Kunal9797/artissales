@@ -1024,6 +1024,24 @@ docs/
 
 ---
 
-**Last Updated**: December 12, 2024
+## 🔢 Version Bumping
+
+**Single source of truth:** `mobile/app.json`
+
+To bump the app version, run:
+```bash
+cd mobile && node scripts/bump-version.js <patch|minor|major>
+```
+
+Examples:
+- `node scripts/bump-version.js patch` → 1.2.1 → 1.2.2 (versionCode +1)
+- `node scripts/bump-version.js minor` → 1.2.1 → 1.3.0 (versionCode +1)
+- `node scripts/bump-version.js major` → 1.2.1 → 2.0.0 (versionCode +1)
+
+This updates `app.json`, `package.json`, and `build.gradle` reads from `app.json` automatically.
+
+---
+
+**Last Updated**: December 13, 2024
 **Owner**: Kunal Gupta (Artis Laminates)
-**AI Context Version**: 1.3
+**AI Context Version**: 1.4
