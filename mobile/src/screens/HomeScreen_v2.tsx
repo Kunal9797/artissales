@@ -219,6 +219,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const [isEditMode, setIsEditMode] = useState(false); // For sheets/expenses expanded edit mode
   const [editValue, setEditValue] = useState<string>(''); // For count/amount
   const [editDetail, setEditDetail] = useState<string>(''); // For catalog/category (pending, not saved until Done)
+  const [editNotes, setEditNotes] = useState<string>(''); // For notes (expenses only)
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Receipt photo state for expenses
@@ -232,6 +233,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setEditingField(null);
     setEditValue('');
     setEditDetail('');
+    setEditNotes('');
   };
 
   // Updated toast state
@@ -1688,6 +1690,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                           )}
                         </View>
                       )}
+
+                      {/* Notes Input - Only for expenses in edit mode */}
+                      {selectedActivity.type === 'expense' && (
+                        <View style={{ marginBottom: 16 }}>
+                          <Text style={{ fontSize: 12, color: colors.text.tertiary, marginBottom: 8, textTransform: 'uppercase', fontWeight: '600' }}>Notes</Text>
+                          <TextInput
+                            style={{
+                              fontSize: 14,
+                              color: colors.text.primary,
+                              backgroundColor: '#F5F5F5',
+                              borderRadius: 12,
+                              paddingHorizontal: 16,
+                              paddingVertical: 12,
+                              minHeight: 60,
+                              textAlignVertical: 'top',
+                            }}
+                            value={editNotes}
+                            onChangeText={setEditNotes}
+                            placeholder="Add notes (optional)"
+                            placeholderTextColor={colors.text.tertiary}
+                            multiline
+                            numberOfLines={2}
+                          />
+                        </View>
+                      )}
                     </>
                   )}
 
@@ -1736,18 +1763,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                                 invalidateHomeStatsCache();
                               }
                             } else {
-                              if (valueChanged || detailChanged) {
+                              // Check if notes changed for expenses
+                              const notesChanged = editNotes !== (selectedActivity.notes || '');
+                              if (valueChanged || detailChanged || notesChanged) {
                                 await api.updateExpense({
                                   id: selectedActivity.id,
                                   ...(valueChanged && { amount: newValue }),
                                   ...(detailChanged && { category: editDetail.toLowerCase() }),
+                                  ...(notesChanged && { description: editNotes }),
                                 });
                                 const updatedValue = valueChanged ? String(newValue) : selectedActivity.value;
                                 const updatedDetail = detailChanged ? (editDetail.charAt(0).toUpperCase() + editDetail.slice(1).toLowerCase()) : selectedActivity.detail;
+                                const updatedNotes = notesChanged ? editNotes : selectedActivity.notes;
                                 setTodayActivities(prev => prev.map(a =>
-                                  a.id === selectedActivity.id ? { ...a, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : a
+                                  a.id === selectedActivity.id ? { ...a, value: updatedValue, detail: updatedDetail, notes: updatedNotes, description: `${updatedValue} - ${updatedDetail}` } : a
                                 ));
-                                setSelectedActivity(prev => prev ? { ...prev, value: updatedValue, detail: updatedDetail, description: `${updatedValue} - ${updatedDetail}` } : null);
+                                setSelectedActivity(prev => prev ? { ...prev, value: updatedValue, detail: updatedDetail, notes: updatedNotes, description: `${updatedValue} - ${updatedDetail}` } : null);
                                 invalidateHomeStatsCache();
                               }
                             }
@@ -1773,6 +1804,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                           // Dim if no changes made
                           (!editValue || editValue === selectedActivity.value) &&
                           (!editDetail || editDetail === selectedActivity.detail) &&
+                          (selectedActivity.type !== 'expense' || editNotes === (selectedActivity.notes || '')) &&
                           { opacity: 0.5 }
                         ]}
                       >
@@ -1796,6 +1828,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                           setIsEditMode(false);
                           setEditValue('');
                           setEditDetail('');
+                          setEditNotes('');
                         }}
                         disabled={savingEdit}
                       >
@@ -1821,6 +1854,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                             setIsEditMode(true);
                             setEditValue(selectedActivity.value || '');
                             setEditDetail(selectedActivity.detail || '');
+                            setEditNotes(selectedActivity.notes || '');
                           }}
                           disabled={deletingActivity}
                         >
@@ -1855,56 +1889,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
                     </View>
                   )}
 
-                  {/* Notes - Editable for visits */}
-                  {selectedActivity.type === 'visit' && canEdit ? (
-                    <View style={{ marginBottom: 12 }}>
-                      <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Notes</Text>
-                      {editingField === 'notes' ? (
-                        <View style={{ gap: 8 }}>
-                          <TextInput
-                            style={{
-                              fontSize: 14,
-                              color: colors.text.primary,
-                              borderWidth: 1,
-                              borderColor: featureColors.visits.primary,
-                              borderRadius: 8,
-                              padding: 10,
-                              minHeight: 60,
-                              textAlignVertical: 'top',
-                            }}
-                            value={editValue}
-                            onChangeText={setEditValue}
-                            multiline
-                            autoFocus
-                            placeholder="Add notes..."
-                          />
-                          <View style={{ flexDirection: 'row', gap: 12 }}>
-                            <TouchableOpacity onPress={handleInlineSave} disabled={savingEdit}>
-                              {savingEdit ? (
-                                <ActivityIndicator size="small" color={featureColors.visits.primary} />
-                              ) : (
-                                <Text style={{ color: featureColors.visits.primary, fontWeight: '600' }}>Save</Text>
-                              )}
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={cancelInlineEdit}>
-                              <Text style={{ color: colors.text.tertiary }}>Cancel</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : (
-                        <TouchableOpacity onPress={() => { setEditingField('notes'); setEditValue(selectedActivity.notes || ''); }}>
-                          <Text style={{ fontSize: 14, color: selectedActivity.notes ? colors.text.secondary : colors.text.tertiary }}>
-                            {selectedActivity.notes || 'Tap to add notes'} <Edit2 size={12} color={colors.text.tertiary} />
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : selectedActivity.notes ? (
+                  {/* Notes - for visits only (shown above actions) */}
+                  {selectedActivity.type === 'visit' && selectedActivity.notes && (
                     <View style={{ marginBottom: 12 }}>
                       <Text style={{ fontSize: 12, color: colors.text.tertiary, textTransform: 'uppercase', marginBottom: 2 }}>Notes</Text>
                       <Text style={{ fontSize: 14, color: colors.text.secondary }}>{selectedActivity.notes}</Text>
                     </View>
-                  ) : null}
+                  )}
 
                   {/* Photos section for visits */}
                   {selectedActivity.type === 'visit' && selectedActivity.photos && selectedActivity.photos.length > 0 && (
