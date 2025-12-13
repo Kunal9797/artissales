@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   inputFocused: {
-    borderColor: colors.primary,
+    borderColor: colors.accent,
     borderWidth: 2,
   },
   inputError: {

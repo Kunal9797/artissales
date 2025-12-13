@@ -187,7 +187,8 @@ export const ActivityItem = React.memo(ActivityItemComponent, (prevProps, nextPr
     prevProps.activity.status === nextProps.activity.status &&
     prevProps.activity.value === nextProps.activity.value &&
     prevProps.activity.detail === nextProps.activity.detail &&
-    prevProps.activity.notes === nextProps.activity.notes
+    prevProps.activity.notes === nextProps.activity.notes &&
+    prevProps.activity.time?.getTime() === nextProps.activity.time?.getTime()
   );
 });
 

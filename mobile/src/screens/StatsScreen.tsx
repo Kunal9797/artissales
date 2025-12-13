@@ -192,7 +192,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
           <TouchableOpacity
             onPress={() => navigation.navigate('AttendanceHistory')}
             style={{
-              padding: 8,
+              padding: 12,
               backgroundColor: 'rgba(201, 169, 97, 0.15)',
               borderRadius: 8,
             }}
