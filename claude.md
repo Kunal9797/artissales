@@ -782,10 +782,17 @@ const token = await user.getIdToken();  // WRONG - method on user object
 ## Context Files for AI Agents
 
 - **This file** (`CLAUDE.md`) - Project overview, architecture, development approach
+- **`docs/TODO.md`** - Project task backlog (see rules below)
 - **`proposal.md`** - Original requirements and V1 scope
 - **`/functions/src/types/index.ts`** - TypeScript type definitions (source of truth)
 - **`firestore.rules`** - Security rules (keep in sync)
 - **`README.md`** - Setup instructions for developers
+
+### TODO.md Rules for AI Agents
+When adding, updating, or completing tasks in `docs/TODO.md`:
+- **ALWAYS explicitly tell the user** what was added/changed (e.g., "I've added 'Fix login bug' to the High Priority section in TODO.md")
+- Never silently add tasks - the user must be informed every time
+- Include the task title and which section it was added to
 
 ---
 
