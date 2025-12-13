@@ -10,7 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { Search, MapPin, User, Plus, Edit2, WifiOff, Clock } from 'lucide-react-native';
+import { Search, MapPin, User, Plus, Edit2, WifiOff, Clock, RefreshCw, CloudOff, Loader } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { useMyVisits } from '../../hooks/useMyVisits';
@@ -26,7 +26,7 @@ interface SelectAccountScreenProps {
 type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation }) => {
-  const { accounts, loading, error, isOffline, refreshAccounts } = useAccounts();
+  const { accounts, loading, syncing, error, isOffline, isStale, hasPendingCreations, refreshAccounts } = useAccounts();
   const { visitMap, loading: visitsLoading } = useMyVisits();
   const { user } = useAuth();
 
@@ -187,19 +187,39 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   const renderAccount = ({ item }: { item: Account }) => {
     const showEditButton = canEditAccount(item);
+    const isPending = item._syncStatus === 'pending';
+    const isFailed = item._syncStatus === 'failed';
 
     return (
       <TouchableOpacity
-        style={styles.accountCard}
+        style={[
+          styles.accountCard,
+          isPending && { borderLeftWidth: 3, borderLeftColor: '#C9A961' },
+          isFailed && { borderLeftWidth: 3, borderLeftColor: '#DC3545' },
+        ]}
         onPress={() => handleSelectAccount(item)}
         activeOpacity={0.7}
       >
         {/* Name + Edit (Row 1) */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <Text style={styles.accountName} numberOfLines={1}>
-            {item.name}
-          </Text>
-          {showEditButton && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <Text style={styles.accountName} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {isPending && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF3CD', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <ActivityIndicator size={10} color="#856404" />
+                <Text style={{ fontSize: 10, color: '#856404', fontWeight: '500' }}>Syncing</Text>
+              </View>
+            )}
+            {isFailed && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F8D7DA', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                <CloudOff size={10} color="#721C24" />
+                <Text style={{ fontSize: 10, color: '#721C24', fontWeight: '500' }}>Failed</Text>
+              </View>
+            )}
+          </View>
+          {showEditButton && !isPending && !isFailed && (
             <TouchableOpacity
               onPress={(e) => handleEditAccount(item, e)}
               style={{
@@ -283,9 +303,26 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
               Select Account
             </Text>
-            <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 4 }}>
-              {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)' }}>
+                {filteredAccounts.length} {filteredAccounts.length === 1 ? 'account' : 'accounts'}
+              </Text>
+              {syncing && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <ActivityIndicator size="small" color="rgba(255, 255, 255, 0.7)" />
+                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Syncing...</Text>
+                </View>
+              )}
+              {!syncing && isStale && (
+                <TouchableOpacity
+                  onPress={refreshAccounts}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <RefreshCw size={12} color="rgba(255, 255, 255, 0.6)" />
+                  <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.6)' }}>Tap to refresh</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {/* Add Account Button - Sales reps can only create Dealer/Architect/OEM */}

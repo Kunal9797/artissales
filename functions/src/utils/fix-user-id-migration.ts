@@ -147,6 +147,9 @@ export const migrateUserData = onRequest(async (request, response) => {
       {name: "sheetsSales", field: "userId"},
       {name: "attendance", field: "userId"},
       {name: "dsrReports", field: "userId"},
+      // Also migrate accounts collection
+      {name: "accounts", field: "createdByUserId"},
+      {name: "accounts", field: "assignedRepUserId"},
     ];
 
     for (const {name, field} of collections) {

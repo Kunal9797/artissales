@@ -452,11 +452,15 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       // Admin sees all - no filtering needed
     } else if (callerRole === "national_head" || callerRole === "area_manager") {
       // National Head / Area Manager: filter to accounts created by:
-      // - Themselves
+      // - Themselves (including pre-migration ID)
       // - Their direct reports
       // - Admin (admin-created accounts are shared)
       const directReportIds = await getDirectReportIds(userId);
-      const teamMemberIds = new Set([userId, ...directReportIds]);
+      const migratedFromId = userDoc.data()?.migratedFrom;
+
+      // Include both current ID and migratedFrom ID for the manager
+      const managerIds = migratedFromId ? [userId, migratedFromId] : [userId];
+      const teamMemberIds = new Set([...managerIds, ...directReportIds]);
 
       // Get unique creator IDs to check which are admins
       const creatorIds = [
@@ -504,8 +508,9 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       // - Accounts created by their specific manager (reportsToUserId)
       // - Accounts created by admin
 
-      // Get the rep's manager ID
+      // Get the rep's manager ID and migratedFrom ID (for visibility of pre-migration accounts)
       const reportsToUserId = userDoc.data()?.reportsToUserId;
+      const migratedFromId = userDoc.data()?.migratedFrom;
 
       // Get unique creator IDs to check their roles (filter out empty/undefined)
       const creatorIds = [
@@ -539,8 +544,12 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
           return true;
         }
 
-        // 2. Created by current user
+        // 2. Created by current user (or their pre-migration ID)
         if (account.createdByUserId === userId) {
+          return true;
+        }
+        // Also check migratedFrom ID for accounts created before user ID migration
+        if (migratedFromId && account.createdByUserId === migratedFromId) {
           return true;
         }
 

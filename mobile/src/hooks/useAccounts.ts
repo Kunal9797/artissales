@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
-import { isOnline, isNetworkError, OFFLINE_LOAD_MESSAGE } from '../services/network';
+import { getAuth } from '@react-native-firebase/auth';
+import { accountsCache, CachedAccount } from '../services/accountsCache';
 import { logger } from '../utils/logger';
 import { AccountType } from '../types';
 
-const ACCOUNTS_CACHE_KEY = '@cached_accounts';
 const PAGE_SIZE = 50;
 
 export interface Account {
@@ -27,6 +25,11 @@ export interface Account {
   lastVisitAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Local sync status (for offline-first)
+  _syncStatus?: 'synced' | 'pending' | 'failed';
+  _createdLocally?: boolean;
+  _localCreatedAt?: number;
+  _syncError?: string;
 }
 
 export interface UseAccountsOptions {
@@ -38,156 +41,120 @@ export interface UseAccountsOptions {
 
 export interface UseAccountsReturn {
   accounts: Account[];
-  loading: boolean;
-  loadingMore: boolean;
+  loading: boolean;          // True during initial cache load
+  syncing: boolean;          // True during background server sync
+  loadingMore: boolean;      // True during pagination load
   error: string | null;
   isOffline: boolean;
+  isStale: boolean;          // True if cache > 30 min old
+  hasPendingCreations: boolean;
   hasMore: boolean;
-  refreshAccounts: () => void;
+  refreshAccounts: () => Promise<void>;
   loadMore: () => void;
 }
-
-// Helper to serialize accounts for caching
-const serializeAccounts = (accounts: Account[]): string => {
-  return JSON.stringify(accounts);
-};
-
-// Helper to deserialize accounts from cache
-const deserializeAccounts = (json: string): Account[] => {
-  return JSON.parse(json);
-};
 
 export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-
-  // Track pagination cursor
-  const cursorRef = useRef<string | undefined>(undefined);
+  const [isStale, setIsStale] = useState(false);
+  const [hasPendingCreations, setHasPendingCreations] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
   // Track options to detect changes
   const prevOptionsRef = useRef<UseAccountsOptions>(options);
 
-  // Load cached accounts from storage
-  const loadCachedAccounts = async (): Promise<Account[] | null> => {
-    try {
-      const cached = await AsyncStorage.getItem(ACCOUNTS_CACHE_KEY);
-      if (cached) {
-        return deserializeAccounts(cached);
-      }
-    } catch (err) {
-      logger.warn('[useAccounts] Error loading cached accounts:', err);
-    }
-    return null;
-  };
+  // Apply filters to accounts
+  const applyFilters = useCallback((allAccounts: CachedAccount[]): Account[] => {
+    let filtered = allAccounts;
 
-  // Save accounts to cache
-  const saveAccountsToCache = async (accountsToCache: Account[]) => {
-    try {
-      await AsyncStorage.setItem(ACCOUNTS_CACHE_KEY, serializeAccounts(accountsToCache));
-    } catch (err) {
-      logger.warn('[useAccounts] Error caching accounts:', err);
+    // Filter by type
+    if (options.type) {
+      filtered = filtered.filter(acc => acc.type === options.type);
     }
-  };
 
-  // Main fetch function
-  const fetchAccounts = useCallback(async (isRefresh = false, isLoadMore = false) => {
-    try {
-      // Set appropriate loading state
-      if (isRefresh) {
-        setLoading(true);
-        cursorRef.current = undefined;
-      } else if (isLoadMore) {
-        if (!hasMore || loadingMore) return;
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
+    // Filter by creator
+    if (options.createdBy === 'mine') {
+      const auth = getAuth();
+      const userId = auth.currentUser?.uid;
+      filtered = filtered.filter(acc =>
+        acc.createdByUserId === userId || acc._createdLocally
+      );
+    }
+
+    // Sort
+    const sortBy = options.sortBy || 'name';
+    const sortDir = options.sortDir || 'asc';
+    const multiplier = sortDir === 'asc' ? 1 : -1;
+
+    filtered = [...filtered].sort((a, b) => {
+      // Pending accounts always first
+      if (a._syncStatus !== 'synced' && b._syncStatus === 'synced') return -1;
+      if (a._syncStatus === 'synced' && b._syncStatus !== 'synced') return 1;
+
+      if (sortBy === 'lastVisitAt') {
+        const aTime = a.lastVisitAt ? new Date(a.lastVisitAt).getTime() : 0;
+        const bTime = b.lastVisitAt ? new Date(b.lastVisitAt).getTime() : 0;
+        return (bTime - aTime) * multiplier;
       }
 
-      setError(null);
-      setIsOffline(false);
+      return a.name.localeCompare(b.name) * multiplier;
+    });
 
-      // Check if we're online
-      const online = await isOnline();
+    return filtered;
+  }, [options.type, options.createdBy, options.sortBy, options.sortDir]);
 
-      if (!online) {
-        // We're offline - try to load from cache
-        logger.log('[useAccounts] Offline, loading from cache');
-        const cachedAccounts = await loadCachedAccounts();
-        if (cachedAccounts && cachedAccounts.length > 0) {
-          setAccounts(cachedAccounts);
-          setIsOffline(true);
-          setHasMore(false);
-          setError(null);
-        } else {
-          setError(OFFLINE_LOAD_MESSAGE);
-          setIsOffline(true);
-        }
+  // Initialize cache and load accounts
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    const init = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Initialize cache (loads from AsyncStorage)
+        await accountsCache.init();
+
+        // Get cached accounts immediately (instant!)
+        const cachedAccounts = accountsCache.getAccounts();
+        setAccounts(applyFilters(cachedAccounts));
+        setIsStale(accountsCache.isStale());
+        setHasPendingCreations(accountsCache.hasPendingCreations());
         setLoading(false);
-        setLoadingMore(false);
-        return;
+
+        logger.log(`[useAccounts] Loaded ${cachedAccounts.length} accounts from cache`);
+
+        // Subscribe to cache updates
+        unsubscribe = accountsCache.subscribe((updatedAccounts) => {
+          setAccounts(applyFilters(updatedAccounts));
+          setHasPendingCreations(accountsCache.hasPendingCreations());
+          setIsStale(accountsCache.isStale());
+        });
+
+        // Sync with server in background (non-blocking)
+        syncInBackground();
+
+      } catch (err: any) {
+        logger.error('[useAccounts] Init error:', err);
+        setError(err.message || 'Failed to load accounts');
+        setLoading(false);
       }
+    };
 
-      // We're online - fetch from API
-      const response = await api.getAccountsList({
-        type: options.type,
-        createdBy: options.createdBy,
-        limit: PAGE_SIZE,
-        startAfter: isLoadMore ? cursorRef.current : undefined,
-        sortBy: options.sortBy || 'name',
-        sortDir: options.sortDir || 'asc',
-      });
+    init();
 
-      if (response.ok) {
-        const newAccounts = response.accounts as Account[];
-
-        if (isLoadMore) {
-          // Append to existing accounts
-          setAccounts(prev => [...prev, ...newAccounts]);
-        } else {
-          // Replace accounts
-          setAccounts(newAccounts);
-          // Cache first page for offline use
-          await saveAccountsToCache(newAccounts);
-        }
-
-        // Update pagination state
-        setHasMore(response.pagination?.hasMore ?? false);
-        cursorRef.current = response.pagination?.nextCursor;
-      } else {
-        setError('Failed to load accounts');
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
       }
-    } catch (err: any) {
-      logger.error('[useAccounts] Error fetching accounts:', err);
+    };
+  }, [applyFilters]);
 
-      // Check if it's a network error
-      if (isNetworkError(err)) {
-        // Try to load from cache
-        if (!isLoadMore) {
-          const cachedAccounts = await loadCachedAccounts();
-          if (cachedAccounts && cachedAccounts.length > 0) {
-            setAccounts(cachedAccounts);
-            setIsOffline(true);
-            setHasMore(false);
-            setError(null);
-          } else {
-            setError(OFFLINE_LOAD_MESSAGE);
-            setIsOffline(true);
-          }
-        }
-      } else {
-        setError(err.message || 'Failed to fetch accounts');
-      }
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [options.type, options.createdBy, options.sortBy, options.sortDir, hasMore, loadingMore]);
-
-  // Initial fetch and refetch when options change
+  // Re-apply filters when options change
   useEffect(() => {
     const optionsChanged =
       prevOptionsRef.current.type !== options.type ||
@@ -197,38 +164,62 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
 
     if (optionsChanged) {
       prevOptionsRef.current = options;
-      // Reset state when options change
-      setAccounts([]);
-      setHasMore(true);
-      cursorRef.current = undefined;
+      // Re-apply filters to cached accounts
+      const cachedAccounts = accountsCache.getAccounts();
+      setAccounts(applyFilters(cachedAccounts));
     }
+  }, [options.type, options.createdBy, options.sortBy, options.sortDir, applyFilters]);
 
-    fetchAccounts(true);
-  }, [options.type, options.createdBy, options.sortBy, options.sortDir]);
+  // Background sync with server
+  const syncInBackground = useCallback(async () => {
+    setSyncing(true);
+    setIsOffline(false);
+
+    try {
+      const success = await accountsCache.syncWithServer();
+
+      if (success) {
+        setIsStale(false);
+        setError(null);
+      } else {
+        // Sync failed (likely offline)
+        setIsOffline(true);
+      }
+    } catch (err: any) {
+      logger.error('[useAccounts] Sync error:', err);
+      setIsOffline(true);
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
 
   // Refresh function (pull-to-refresh)
-  const refreshAccounts = useCallback(() => {
-    setAccounts([]);
-    setHasMore(true);
-    cursorRef.current = undefined;
-    fetchAccounts(true);
-  }, [fetchAccounts]);
+  const refreshAccounts = useCallback(async () => {
+    await syncInBackground();
+  }, [syncInBackground]);
 
-  // Load more function (infinite scroll)
+  // Load more function (pagination - not needed with cache-first, but kept for compatibility)
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
-      fetchAccounts(false, true);
-    }
-  }, [fetchAccounts, loadingMore, hasMore, loading]);
+    // With cache-first pattern, all accounts are loaded at once
+    // This is a no-op but kept for API compatibility
+    logger.log('[useAccounts] loadMore called (no-op in cache-first mode)');
+  }, []);
 
   return {
     accounts,
     loading,
+    syncing,
     loadingMore,
     error,
     isOffline,
+    isStale,
+    hasPendingCreations,
     hasMore,
     refreshAccounts,
     loadMore,
   };
 };
+
+// Re-export types and cache service for convenience
+export type { CachedAccount } from '../services/accountsCache';
+export { accountsCache } from '../services/accountsCache';
