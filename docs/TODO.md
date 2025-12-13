@@ -44,6 +44,28 @@
 
 ## Medium Priority
 
+### Detailed Performance View for Manager Dashboard
+- **Priority**: Medium
+- **Status**: Not Started
+- **Added**: 2024-12-13
+- **Context**: Add a "Detailed View" button to Team Stats page that loads comprehensive statistics for managers (National Heads, Admins, Area Managers). Shows in-depth analytics for the selected month - may take longer to load.
+- **Key Files**:
+  - `functions/src/api/managerStats.ts` (extend or new endpoint)
+  - `mobile/src/screens/manager/TeamStatsScreen.tsx`
+  - `manager-dashboard/app/(dashboard)/team/`
+- **Features to Include**:
+  - **Individual Rep Cards**: Target achievement %, visits vs target, sheets vs target, days active, expenses
+  - **Leaderboards**: Top performers by sheets, visits, target %; most improved (MoM)
+  - **Account Coverage**: Unique accounts visited, new accounts added, neglected accounts (30+ days)
+  - **Visit Patterns**: Avg visits/rep/day, purpose distribution, peak days, photo compliance
+  - **Financial Summary**: Team expenses by category, per-rep comparison, avg expense/visit
+  - **Target Projections**: % on track, reps ahead/behind pace, projected month-end
+  - **Territory Analysis** (NH/Admin): Performance by region, underperforming areas
+- **Technical Notes**:
+  - Consider new `getDetailedTeamStats` endpoint for expensive aggregations
+  - Use loading skeleton while fetching
+  - Cache results (5-10 min TTL)
+
 ### Navigation Bar Optimization
 - **Priority**: Medium
 - **Status**: Not Started
