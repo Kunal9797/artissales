@@ -23,6 +23,8 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useAppUpdate } from './src/hooks/useAppUpdate';
+import { UpdateModal } from './src/components/UpdateModal';
 console.log('[App] Core imports complete');
 
 // Initialize Firebase (must be imported before any Firebase usage)
@@ -59,12 +61,25 @@ const asyncStoragePersister = createAsyncStoragePersister({
 export default function App() {
   console.log('[App] App component rendering...');
 
+  // Check for app updates on launch
+  const {
+    checking: checkingUpdate,
+    needsUpdate,
+    forceUpdate,
+    currentVersion,
+    latestVersion,
+    updateMessage,
+    openPlayStore,
+    dismissUpdate,
+  } = useAppUpdate();
+
   // Initialize upload queue on app start
   useEffect(() => {
     console.log('[App] useEffect - initializing upload queue');
     uploadQueue.init();
     console.log('[App] App fully initialized!');
   }, []);
+
   const AppContent = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
@@ -77,6 +92,16 @@ export default function App() {
               <ToastProvider>
                 <AppStatusBar />
                 <RootNavigator />
+                {/* Update Modal - shows when app needs update */}
+                <UpdateModal
+                  visible={needsUpdate && !checkingUpdate}
+                  forceUpdate={forceUpdate}
+                  currentVersion={currentVersion}
+                  latestVersion={latestVersion}
+                  updateMessage={updateMessage}
+                  onUpdate={openPlayStore}
+                  onDismiss={dismissUpdate}
+                />
               </ToastProvider>
             </ProfileSheetProvider>
           </TenantThemeProvider>
