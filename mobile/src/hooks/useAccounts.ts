@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
 import { accountsCache, CachedAccount } from '../services/accountsCache';
+import { getNetworkState } from '../services/network';
 import { logger } from '../utils/logger';
 import { AccountType } from '../types';
 
@@ -173,7 +174,6 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
   // Background sync with server
   const syncInBackground = useCallback(async () => {
     setSyncing(true);
-    setIsOffline(false);
 
     try {
       const success = await accountsCache.syncWithServer();
@@ -181,13 +181,17 @@ export const useAccounts = (options: UseAccountsOptions = {}): UseAccountsReturn
       if (success) {
         setIsStale(false);
         setError(null);
+        setIsOffline(false);
       } else {
-        // Sync failed (likely offline)
-        setIsOffline(true);
+        // Only set offline if actually no network connection
+        const networkState = await getNetworkState();
+        setIsOffline(!networkState.isConnected);
       }
     } catch (err: any) {
       logger.error('[useAccounts] Sync error:', err);
-      setIsOffline(true);
+      // Check actual network state before flagging as offline
+      const networkState = await getNetworkState();
+      setIsOffline(!networkState.isConnected);
     } finally {
       setSyncing(false);
     }

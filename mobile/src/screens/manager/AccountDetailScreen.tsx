@@ -37,6 +37,7 @@ import { Skeleton } from '../../patterns';
 import { colors, spacing, featureColors } from '../../theme';
 import { PhotoViewer } from '../../components/PhotoViewer';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { formatPhoneForDisplay } from '../../utils/formatTime';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AccountDetail'>;
 
@@ -302,7 +303,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {account.phone?.trim() && (
             <TouchableOpacity style={styles.contactItem} onPress={handleCall}>
               <Phone size={14} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.contactText}>{account.phone}</Text>
+              <Text style={styles.contactText}>{formatPhoneForDisplay(account.phone)}</Text>
               <ExternalLink size={12} color="rgba(255,255,255,0.5)" />
             </TouchableOpacity>
           )}

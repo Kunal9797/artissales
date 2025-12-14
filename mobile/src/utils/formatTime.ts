@@ -47,3 +47,25 @@ export function getLastActiveColor(isoString: string | null): string {
   if (diffHours < 72) return '#F57C00'; // Orange - active within 3 days
   return '#999999'; // Gray - inactive
 }
+
+/**
+ * Format phone number for display (strips +91 prefix)
+ * E.164 format (+919876543210) -> 9876543210
+ * @param phone Phone number in E.164 format or any format
+ * @returns Display-friendly phone number without country code
+ */
+export function formatPhoneForDisplay(phone: string | undefined | null): string {
+  if (!phone) return '';
+
+  // Remove +91 prefix if present
+  if (phone.startsWith('+91')) {
+    return phone.slice(3);
+  }
+
+  // Remove 91 prefix if present (without +)
+  if (phone.startsWith('91') && phone.length === 12) {
+    return phone.slice(2);
+  }
+
+  return phone;
+}

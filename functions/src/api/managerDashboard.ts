@@ -150,9 +150,12 @@ export const getManagerDashboard = onRequest({cors: true}, async (request, respo
       userRole === "admin" || teamMemberIdSet.has(userId);
 
     // Filter and count pending sheets by team members
+    // Skip rejected sheets (they have rejectedAt timestamp)
     let pendingSheetsCount = 0;
     pendingSheetsSnapshot.docs.forEach((doc) => {
-      if (isTeamMember(doc.data().userId)) pendingSheetsCount++;
+      const data = doc.data();
+      if (data.rejectedAt) return;
+      if (isTeamMember(data.userId)) pendingSheetsCount++;
     });
 
     // Filter and count pending expenses by team members

@@ -21,11 +21,18 @@ import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
+interface FilterByUserVisits {
+  userId: string;
+  userName: string;
+  visitData: Record<string, { count: number; lastVisit: string }>;
+}
+
 interface SelectAccountScreenProps {
   navigation?: any;
   route?: {
     params?: {
       mode?: 'select' | 'manage';  // 'select' for LogVisit flow, 'manage' for AccountDetail flow
+      filterByUserVisits?: FilterByUserVisits;
     };
   };
 }
@@ -35,6 +42,7 @@ type AccountTypeFilter = 'all' | 'distributor' | 'dealer' | 'architect' | 'OEM';
 export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ navigation, route }) => {
   // Mode determines behavior: 'select' goes to LogVisit, 'manage' goes to AccountDetail
   const mode = route?.params?.mode || 'select';
+  const filterByUserVisits = route?.params?.filterByUserVisits;
   const { accounts, loading, syncing, error, isOffline, isStale, hasPendingCreations, refreshAccounts } = useAccounts();
   const { visitMap, loading: visitsLoading } = useMyVisits();
   const { user } = useAuth();
@@ -85,7 +93,13 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   const filteredAccounts = useMemo(() => {
     let filtered = accounts;
 
-    // Filter by type first
+    // Filter by user visits if specified (from manager viewing rep's accounts)
+    if (filterByUserVisits) {
+      const visitedIds = Object.keys(filterByUserVisits.visitData);
+      filtered = filtered.filter((account) => visitedIds.includes(account.id));
+    }
+
+    // Filter by type
     if (selectedType !== 'all') {
       filtered = filtered.filter((account) => account.type === selectedType);
     }
@@ -102,31 +116,44 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       );
     }
 
-    // Sort: user-created accounts first, then by my recent visits, then alphabetical
-    filtered = [...filtered].sort((a, b) => {
-      const aIsUserCreated = a.createdByUserId === currentUserId;
-      const bIsUserCreated = b.createdByUserId === currentUserId;
+    // Sort based on context
+    if (filterByUserVisits) {
+      // When viewing user's visited accounts: sort by visit count (highest first)
+      filtered = [...filtered].sort((a, b) => {
+        const aCount = filterByUserVisits.visitData[a.id]?.count || 0;
+        const bCount = filterByUserVisits.visitData[b.id]?.count || 0;
+        if (aCount !== bCount) {
+          return bCount - aCount; // Highest visit count first
+        }
+        return a.name.localeCompare(b.name);
+      });
+    } else {
+      // Default sorting: user-created accounts first, then by my recent visits, then alphabetical
+      filtered = [...filtered].sort((a, b) => {
+        const aIsUserCreated = a.createdByUserId === currentUserId;
+        const bIsUserCreated = b.createdByUserId === currentUserId;
 
-      // Priority 1: User-created accounts come first
-      if (aIsUserCreated && !bIsUserCreated) return -1;
-      if (!aIsUserCreated && bIsUserCreated) return 1;
+        // Priority 1: User-created accounts come first
+        if (aIsUserCreated && !bIsUserCreated) return -1;
+        if (!aIsUserCreated && bIsUserCreated) return 1;
 
-      // Priority 2: Accounts I visited recently (from visitMap - my own visits)
-      const aMyVisit = visitMap.get(a.id) || 0;
-      const bMyVisit = visitMap.get(b.id) || 0;
+        // Priority 2: Accounts I visited recently (from visitMap - my own visits)
+        const aMyVisit = visitMap.get(a.id) || 0;
+        const bMyVisit = visitMap.get(b.id) || 0;
 
-      // If both have visits or both don't, compare visit times
-      if (aMyVisit !== bMyVisit) {
-        // Most recent visit first (higher timestamp = more recent)
-        return bMyVisit - aMyVisit;
-      }
+        // If both have visits or both don't, compare visit times
+        if (aMyVisit !== bMyVisit) {
+          // Most recent visit first (higher timestamp = more recent)
+          return bMyVisit - aMyVisit;
+        }
 
-      // Priority 3: Alphabetical for accounts with same visit status
-      return a.name.localeCompare(b.name);
-    });
+        // Priority 3: Alphabetical for accounts with same visit status
+        return a.name.localeCompare(b.name);
+      });
+    }
 
     return filtered;
-  }, [accounts, searchQuery, selectedType, currentUserId, visitMap]);
+  }, [accounts, searchQuery, selectedType, currentUserId, visitMap, filterByUserVisits]);
 
   const handleSelectAccount = (account: Account) => {
     if (mode === 'manage') {
@@ -260,6 +287,25 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             <Text style={styles.accountLocation} numberOfLines={1}>
               {item.city}, {item.state.substring(0, 2).toUpperCase()}
             </Text>
+            {/* Visit badge - manager viewing rep's accounts (with count) */}
+            {filterByUserVisits?.visitData[item.id] && (
+              <View style={styles.visitBadge}>
+                <Text style={styles.visitBadgeText}>
+                  {filterByUserVisits.visitData[item.id].count} visits
+                  {filterByUserVisits.visitData[item.id].lastVisit && (
+                    ` • Last: ${new Date(filterByUserVisits.visitData[item.id].lastVisit).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                  )}
+                </Text>
+              </View>
+            )}
+            {/* Visit badge - sales rep's own last visit (from visitMap) */}
+            {!filterByUserVisits && visitMap.get(item.id) && (
+              <View style={styles.visitBadge}>
+                <Text style={styles.visitBadgeText}>
+                  Last visit: {new Date(visitMap.get(item.id)!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Edit button - compact icon only */}
@@ -285,14 +331,20 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   if (loading) {
     return (
       <View style={styles.container}>
+        {/* Real header - no skeleton needed here */}
         <View style={{
           backgroundColor: '#393735',
-          paddingHorizontal: 24,
           paddingTop: 52,
-          paddingBottom: 16,
+          paddingBottom: 14,
+          paddingHorizontal: 16,
         }}>
-          <Skeleton rows={1} />
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+            {filterByUserVisits
+              ? `${filterByUserVisits.userName}'s Accounts`
+              : (mode === 'manage' ? 'Accounts' : 'Select Account')}
+          </Text>
         </View>
+        {/* Skeleton for content */}
         <View style={{ padding: spacing.lg }}>
           <Skeleton rows={3} avatar />
           <Skeleton rows={3} avatar />
@@ -339,7 +391,9 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         justifyContent: 'space-between',
       }}>
         <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
-          {mode === 'manage' ? 'Accounts' : 'Select Account'}
+          {filterByUserVisits
+            ? `${filterByUserVisits.userName}'s Accounts`
+            : (mode === 'manage' ? 'Accounts' : 'Select Account')}
         </Text>
         <TouchableOpacity
           style={{
@@ -367,16 +421,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961' }}>Add</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Offline Banner - Show when using cached data */}
-      {isOffline && accounts.length > 0 && (
-        <View style={styles.offlineBanner}>
-          <WifiOff size={16} color="#856404" />
-          <Text style={styles.offlineBannerText}>
-            You're offline. Showing cached accounts.
-          </Text>
-        </View>
-      )}
 
       {/* Search Bar with sync indicator */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
@@ -408,10 +452,13 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           {syncing && (
             <ActivityIndicator size="small" color="#999999" />
           )}
-          {!syncing && isStale && (
+          {!syncing && isStale && !isOffline && (
             <TouchableOpacity onPress={refreshAccounts} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <RefreshCw size={18} color="#999999" />
             </TouchableOpacity>
+          )}
+          {!syncing && isOffline && (
+            <WifiOff size={18} color="#856404" />
           )}
         </View>
       </View>
@@ -567,6 +614,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Visit badge for filtered view
+  visitBadge: {
+    backgroundColor: '#F0F7FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  visitBadgeText: {
+    fontSize: 11,
+    color: '#2196F3',
+    fontWeight: '500',
+  },
   // Edit button
   editButton: {
     padding: 6,
@@ -605,22 +666,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.text.tertiary,
     textAlign: 'center',
-  },
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF3CD',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#FFE69C',
-  },
-  offlineBannerText: {
-    fontSize: 13,
-    color: '#856404',
-    fontWeight: '500',
   },
   retryButton: {
     marginTop: 16,

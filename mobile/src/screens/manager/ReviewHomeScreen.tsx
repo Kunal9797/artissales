@@ -5,7 +5,7 @@
  * Swipe right to approve, swipe left to reject
  */
 
-import React, { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect, memo, useTransition } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -20,7 +20,9 @@ import {
   ActivityIndicator,
   Image,
   Animated,
+  StyleSheet,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import {
   Layers,
   IndianRupee,
@@ -54,6 +56,7 @@ interface ReviewItemCardProps {
   item: PendingItem;
   isProcessing: boolean;
   isExpanded: boolean;
+  showUserName: boolean; // false when filtered to single user - show notes instead
   onToggleExpand: (id: string) => void;
   onApprove: (item: PendingItem) => void;
   onReject: (item: PendingItem) => void;
@@ -66,6 +69,7 @@ const ReviewItemCard = memo(({
   item,
   isProcessing,
   isExpanded,
+  showUserName,
   onToggleExpand,
   onApprove,
   onReject,
@@ -76,65 +80,34 @@ const ReviewItemCard = memo(({
   const isSheets = item.type === 'sheets';
   const hasDetails = item.description || (item.receiptPhotos && item.receiptPhotos.length > 0);
 
-  // Render right swipe action (Approve - Green)
-  const renderRightActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [80, 0],
-    });
+  // Stable callbacks that don't depend on item/callbacks changing
+  const handleApprove = useCallback(() => {
+    onApprove(item);
+  }, [item.id]); // Only recreate if item.id changes
 
-    return (
-      <Animated.View
-        style={{
-          width: 80,
-          backgroundColor: '#2E7D32',
-          justifyContent: 'center',
-          alignItems: 'center',
-          transform: [{ translateX }],
-        }}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
-          onPress={() => onApprove(item)}
-        >
-          <CheckCircle size={24} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-            Approve
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }, [item, onApprove]);
+  const handleReject = useCallback(() => {
+    onReject(item);
+  }, [item.id]); // Only recreate if item.id changes
 
-  // Render left swipe action (Reject - Red)
-  const renderLeftActions = useCallback((progress: Animated.AnimatedInterpolation<number>) => {
-    const translateX = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [-80, 0],
-    });
+  // Render right swipe action (Approve - Green) - simplified, no animation transform
+  const renderRightActions = useCallback(() => (
+    <View style={[cardStyles.swipeAction, cardStyles.swipeActionApprove]}>
+      <TouchableOpacity style={cardStyles.swipeActionButton} onPress={handleApprove}>
+        <CheckCircle size={24} color="#FFFFFF" />
+        <Text style={cardStyles.swipeActionText}>Approve</Text>
+      </TouchableOpacity>
+    </View>
+  ), [handleApprove]);
 
-    return (
-      <Animated.View
-        style={{
-          width: 80,
-          backgroundColor: '#EF5350',
-          justifyContent: 'center',
-          alignItems: 'center',
-          transform: [{ translateX }],
-        }}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, justifyContent: 'center', alignItems: 'center', width: '100%' }}
-          onPress={() => onReject(item)}
-        >
-          <XCircle size={24} color="#FFFFFF" />
-          <Text style={{ color: '#FFFFFF', fontSize: 12, marginTop: 4, fontWeight: '600' }}>
-            Reject
-          </Text>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  }, [item, onReject]);
+  // Render left swipe action (Reject - Red) - simplified, no animation transform
+  const renderLeftActions = useCallback(() => (
+    <View style={[cardStyles.swipeAction, cardStyles.swipeActionReject]}>
+      <TouchableOpacity style={cardStyles.swipeActionButton} onPress={handleReject}>
+        <XCircle size={24} color="#FFFFFF" />
+        <Text style={cardStyles.swipeActionText}>Reject</Text>
+      </TouchableOpacity>
+    </View>
+  ), [handleReject]);
 
   const handlePress = useCallback(() => {
     onToggleExpand(item.id);
@@ -149,20 +122,7 @@ const ReviewItemCard = memo(({
   }, [item.id, swipeableRef]);
 
   return (
-    <View
-      style={{
-        marginHorizontal: 16,
-        marginBottom: 12,
-        borderRadius: 12,
-        overflow: 'hidden',
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-        elevation: 3,
-        backgroundColor: '#FFFFFF',
-      }}
-    >
+    <View style={cardStyles.cardContainer}>
       <Swipeable
         ref={handleRef}
         renderRightActions={renderRightActions}
@@ -176,22 +136,12 @@ const ReviewItemCard = memo(({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handlePress}
-          style={{
-            backgroundColor: '#FFFFFF',
-            opacity: isProcessing ? 0.5 : 1,
-          }}
+          style={isProcessing ? cardStyles.cardContentProcessing : cardStyles.cardContent}
         >
           {/* Content container */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 14, gap: 12 }}>
+          <View style={cardStyles.cardRow}>
             {/* Type Icon */}
-            <View style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: isSheets ? '#FFF3E0' : '#F3E5F5',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View style={[cardStyles.iconContainer, isSheets ? cardStyles.iconContainerSheets : cardStyles.iconContainerExpense]}>
               {isSheets ? (
                 <Layers size={22} color="#EF6C00" />
               ) : (
@@ -200,26 +150,32 @@ const ReviewItemCard = memo(({
             </View>
 
             {/* Content */}
-            <View style={{ flex: 1 }}>
-              {/* Main row: Value + User */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>
+            <View style={cardStyles.contentContainer}>
+              {/* Main row: Value + User/Notes */}
+              <View style={cardStyles.mainRow}>
+                <Text style={cardStyles.valueText}>
                   {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
                 </Text>
-                <Text style={{ fontSize: 13, color: '#666666' }} numberOfLines={1}>
-                  {item.userName}
-                </Text>
+                {showUserName ? (
+                  <Text style={cardStyles.userNameText} numberOfLines={1}>
+                    {item.userName}
+                  </Text>
+                ) : item.description ? (
+                  <Text style={cardStyles.notesPreviewText} numberOfLines={1}>
+                    "{item.description}"
+                  </Text>
+                ) : null}
               </View>
 
               {/* Detail row: Category + Date */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-                <Text style={{ fontSize: 13, color: '#999999' }} numberOfLines={1}>
+              <View style={cardStyles.detailRow}>
+                <Text style={cardStyles.categoryText} numberOfLines={1}>
                   {isSheets ? item.catalog : item.category}
                   {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
                     <Text> • 📷</Text>
                   )}
                 </Text>
-                <Text style={{ fontSize: 12, color: '#999999' }}>
+                <Text style={cardStyles.dateText}>
                   {formatDate(item.date)}
                 </Text>
               </View>
@@ -233,17 +189,17 @@ const ReviewItemCard = memo(({
 
           {/* Expanded section */}
           {isExpanded && (
-            <View style={{ paddingHorizontal: 14, paddingBottom: 14, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F0F0F0' }}>
+            <View style={cardStyles.expandedSection}>
               {/* Notes/Description */}
               {item.description && (
-                <Text style={{ fontSize: 14, color: '#666666', marginBottom: 8 }}>
+                <Text style={cardStyles.descriptionText}>
                   {item.description}
                 </Text>
               )}
 
               {/* Receipt photos (expenses only) */}
               {item.receiptPhotos && item.receiptPhotos.length > 0 && (
-                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                <View style={cardStyles.photosContainer}>
                   {item.receiptPhotos.map((photo, idx) => (
                     <TouchableOpacity
                       key={idx}
@@ -251,7 +207,7 @@ const ReviewItemCard = memo(({
                     >
                       <Image
                         source={{ uri: photo }}
-                        style={{ width: 60, height: 60, borderRadius: 8, backgroundColor: '#F0F0F0' }}
+                        style={cardStyles.photoThumbnail}
                       />
                     </TouchableOpacity>
                   ))}
@@ -260,7 +216,7 @@ const ReviewItemCard = memo(({
 
               {/* Empty state */}
               {!hasDetails && (
-                <Text style={{ fontSize: 13, color: '#999999', fontStyle: 'italic' }}>
+                <Text style={cardStyles.emptyDetailsText}>
                   No additional details
                 </Text>
               )}
@@ -272,10 +228,20 @@ const ReviewItemCard = memo(({
   );
 }, (prevProps, nextProps) => {
   // Custom comparison - only re-render if these specific props change
+  // Compare item content that affects display, not just item.id
   return (
     prevProps.item.id === nextProps.item.id &&
+    prevProps.item.type === nextProps.item.type &&
+    prevProps.item.sheetsCount === nextProps.item.sheetsCount &&
+    prevProps.item.amount === nextProps.item.amount &&
+    prevProps.item.catalog === nextProps.item.catalog &&
+    prevProps.item.category === nextProps.item.category &&
+    prevProps.item.userName === nextProps.item.userName &&
+    prevProps.item.date === nextProps.item.date &&
+    prevProps.item.description === nextProps.item.description &&
     prevProps.isProcessing === nextProps.isProcessing &&
-    prevProps.isExpanded === nextProps.isExpanded
+    prevProps.isExpanded === nextProps.isExpanded &&
+    prevProps.showUserName === nextProps.showUserName
   );
 });
 
@@ -293,8 +259,12 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   const bottomPadding = useBottomSafeArea(12);
   const queryClient = useQueryClient();
 
-  // State
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  // Use transition for smooth tab switching - separates urgent (tab highlight) from non-urgent (list filter)
+  const [isPending, startTransition] = useTransition();
+
+  // State - split into visual state (immediate) and filter state (deferred)
+  const [selectedTab, setSelectedTab] = useState<TypeFilter>('all'); // Visual tab highlight - updates immediately
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all'); // Actual filter - updates via transition
   const [userFilter, setUserFilter] = useState<string>('all'); // 'all' or specific userName
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -360,6 +330,22 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
       userMap.set(item.userId, item.userName);
     });
     return Array.from(userMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [items]);
+
+  // Calculate pending counts per user (client-side from existing data)
+  const userPendingCounts = useMemo(() => {
+    const counts: Record<string, { sheets: number; expenses: number }> = {};
+    items.forEach((item: PendingItem) => {
+      if (!counts[item.userId]) {
+        counts[item.userId] = { sheets: 0, expenses: 0 };
+      }
+      if (item.type === 'sheets') {
+        counts[item.userId].sheets += 1; // Count number of entries, not sheetsCount
+      } else if (item.type === 'expense') {
+        counts[item.userId].expenses += 1;
+      }
+    });
+    return counts;
   }, [items]);
 
   // Filter items by type and user
@@ -542,6 +528,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
       item={item}
       isProcessing={actionLoading === item.id}
       isExpanded={expandedId === item.id}
+      showUserName={userFilter === 'all'}
       onToggleExpand={handleToggleExpand}
       onApprove={handleApprove}
       onReject={openRejectModal}
@@ -549,10 +536,20 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
       swipeableRef={handleSwipeableRef}
       onSwipeOpen={handleSwipeOpen}
     />
-  ), [actionLoading, expandedId, handleToggleExpand, handleApprove, openRejectModal, openPhotoViewer, handleSwipeableRef, handleSwipeOpen]);
+  ), [actionLoading, expandedId, userFilter, handleToggleExpand, handleApprove, openRejectModal, openPhotoViewer, handleSwipeableRef, handleSwipeOpen]);
 
   // Stable keyExtractor
   const keyExtractor = useCallback((item: PendingItem) => item.id, []);
+
+  // Handle type filter change - visual tab updates immediately, list filter deferred via transition
+  const handleTypeFilterChange = useCallback((newFilter: TypeFilter) => {
+    // Immediate: update tab highlight
+    setSelectedTab(newFilter);
+    // Deferred: update list filter (non-blocking)
+    startTransition(() => {
+      setTypeFilter(newFilter);
+    });
+  }, []);
 
   // Render empty state
   const renderEmptyState = () => (
@@ -613,7 +610,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         </TouchableOpacity>
       </View>
 
-      {/* Type Filter Toggle - matches TeamStatsScreen toggle design */}
+      {/* Type Filter Toggle - color-coded pills */}
       <View style={{
         backgroundColor: '#FFFFFF',
         paddingHorizontal: 16,
@@ -624,8 +621,8 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         <View style={{
           flexDirection: 'row',
           backgroundColor: '#F0F0F0',
-          borderRadius: 8,
-          padding: 4,
+          borderRadius: 10,
+          padding: 3,
         }}>
           {/* All */}
           <TouchableOpacity
@@ -633,17 +630,17 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
               flex: 1,
               paddingVertical: 10,
               paddingHorizontal: 8,
-              borderRadius: 6,
+              borderRadius: 8,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: typeFilter === 'all' ? '#FFFFFF' : 'transparent',
+              backgroundColor: selectedTab === 'all' ? '#6B7280' : 'transparent',
             }}
-            onPress={() => setTypeFilter('all')}
+            onPress={() => handleTypeFilterChange('all')}
           >
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: typeFilter === 'all' ? '#393735' : '#888888',
+              color: selectedTab === 'all' ? '#FFFFFF' : '#888888',
             }}>
               All ({counts.total})
             </Text>
@@ -655,17 +652,17 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
               flex: 1,
               paddingVertical: 10,
               paddingHorizontal: 8,
-              borderRadius: 6,
+              borderRadius: 8,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: typeFilter === 'sheets' ? '#FFFFFF' : 'transparent',
+              backgroundColor: selectedTab === 'sheets' ? '#C4784A' : 'transparent',
             }}
-            onPress={() => setTypeFilter('sheets')}
+            onPress={() => handleTypeFilterChange('sheets')}
           >
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: typeFilter === 'sheets' ? '#393735' : '#888888',
+              color: selectedTab === 'sheets' ? '#FFFFFF' : '#888888',
             }}>
               Sheets ({counts.sheets})
             </Text>
@@ -677,17 +674,17 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
               flex: 1,
               paddingVertical: 10,
               paddingHorizontal: 8,
-              borderRadius: 6,
+              borderRadius: 8,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: typeFilter === 'expense' ? '#FFFFFF' : 'transparent',
+              backgroundColor: selectedTab === 'expense' ? '#7C6B8E' : 'transparent',
             }}
-            onPress={() => setTypeFilter('expense')}
+            onPress={() => handleTypeFilterChange('expense')}
           >
             <Text style={{
               fontSize: 14,
               fontWeight: '600',
-              color: typeFilter === 'expense' ? '#393735' : '#888888',
+              color: selectedTab === 'expense' ? '#FFFFFF' : '#888888',
             }}>
               Expenses ({counts.expenses})
             </Text>
@@ -699,7 +696,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
       {loading ? (
         renderLoading()
       ) : (
-        <FlatList
+        <FlashList
           data={filteredItems}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
@@ -711,11 +708,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           ListEmptyComponent={renderEmptyState}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={true}
-          extraData={`${actionLoading}-${expandedId}`}
+          extraData={`${typeFilter}-${userFilter}-${actionLoading}-${expandedId}`}
         />
       )}
 
@@ -756,42 +749,70 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
             <FlatList
               data={[{ id: 'all', name: 'All Users' }, ...uniqueUsers]}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: 16,
-                    borderBottomWidth: 1,
-                    borderBottomColor: '#F0F0F0',
-                    backgroundColor: (item.id === 'all' ? userFilter === 'all' : userFilter === item.name) ? '#E3F2FD' : '#FFFFFF',
-                  }}
-                  onPress={() => {
-                    setUserFilter(item.id === 'all' ? 'all' : item.name);
-                    setUserFilterModalVisible(false);
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: '#F0F0F0',
+              contentContainerStyle={{ paddingBottom: 40 }}
+              renderItem={({ item }) => {
+                const pending = userPendingCounts[item.id];
+                const isSelected = item.id === 'all' ? userFilter === 'all' : userFilter === item.name;
+                return (
+                  <TouchableOpacity
+                    style={{
+                      flexDirection: 'row',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                    }}>
-                      <UserIcon size={16} color="#666666" />
+                      justifyContent: 'space-between',
+                      padding: 16,
+                      borderBottomWidth: 1,
+                      borderBottomColor: '#F0F0F0',
+                      backgroundColor: isSelected ? '#E3F2FD' : '#FFFFFF',
+                    }}
+                    onPress={() => {
+                      setUserFilter(item.id === 'all' ? 'all' : item.name);
+                      setUserFilterModalVisible(false);
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                      <View style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: '#F5F5F5',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        {item.id === 'all' ? (
+                          <UserIcon size={16} color="#666666" />
+                        ) : (
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#666' }}>
+                            {item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 15, fontWeight: '500', color: '#1A1A1A', flex: 1 }} numberOfLines={1}>
+                        {item.name}
+                      </Text>
                     </View>
-                    <Text style={{ fontSize: 16, color: '#1A1A1A' }}>
-                      {item.name}
-                    </Text>
-                  </View>
-                  {(item.id === 'all' ? userFilter === 'all' : userFilter === item.name) && (
-                    <CheckCircle size={20} color="#1976D2" />
-                  )}
-                </TouchableOpacity>
-              )}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {/* Pending badges */}
+                      {item.id !== 'all' && pending && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          {pending.sheets > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
+                              <Layers size={12} color="#FF9800" />
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF9800' }}>{pending.sheets}</Text>
+                            </View>
+                          )}
+                          {pending.expenses > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
+                              <IndianRupee size={12} color="#7B1FA2" />
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#7B1FA2' }}>{pending.expenses}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
+                      {isSelected && <CheckCircle size={20} color="#1976D2" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
             />
           </View>
         </TouchableOpacity>
@@ -967,6 +988,140 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
           )}
         </View>
       </Modal>
+
     </View>
   );
 };
+
+// Stable styles - extracted outside component to prevent recreation on every render
+const cardStyles = StyleSheet.create({
+  // Card styles
+  cardContainer: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  cardContent: {
+    backgroundColor: '#FFFFFF',
+  },
+  cardContentProcessing: {
+    backgroundColor: '#FFFFFF',
+    opacity: 0.5,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 12,
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainerSheets: {
+    backgroundColor: '#FFF3E0',
+  },
+  iconContainerExpense: {
+    backgroundColor: '#F3E5F5',
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  mainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  valueText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  userNameText: {
+    fontSize: 13,
+    color: '#666666',
+  },
+  notesPreviewText: {
+    fontSize: 12,
+    color: '#888888',
+    fontStyle: 'italic',
+    maxWidth: 140,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  categoryText: {
+    fontSize: 13,
+    color: '#999999',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#999999',
+  },
+  expandedSection: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 8,
+  },
+  photosContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  photoThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+  },
+  emptyDetailsText: {
+    fontSize: 13,
+    color: '#999999',
+    fontStyle: 'italic',
+  },
+  // Swipe action styles
+  swipeAction: {
+    width: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeActionApprove: {
+    backgroundColor: '#2E7D32',
+  },
+  swipeActionReject: {
+    backgroundColor: '#EF5350',
+  },
+  swipeActionButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  swipeActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+});

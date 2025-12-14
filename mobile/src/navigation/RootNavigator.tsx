@@ -42,7 +42,15 @@ export type RootStackParamList = {
   // HomeV3: undefined; // DISABLED - New design prototype (attendance-free)
   ManagerHome: undefined;
   Attendance: undefined;
-  SelectAccount: { editActivityId?: string };
+  SelectAccount: {
+    mode?: 'select' | 'manage';
+    editActivityId?: string;
+    filterByUserVisits?: {
+      userId: string;
+      userName: string;
+      visitData: Record<string, { count: number; lastVisit: string }>;
+    };
+  };
   LogVisit: { account?: { id: string; name: string; type: string }; editActivityId?: string };
   ExpenseEntry: { editActivityId?: string };
   ExpenseDesignPreview: undefined;

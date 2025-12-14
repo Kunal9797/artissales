@@ -442,7 +442,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
       timestamp: string;
       purpose: string;
     }> = [];
-    const accountVisitCounts: Record<string, {accountId: string; accountName: string; count: number}> = {};
+    const accountVisitCounts: Record<string, {accountId: string; accountName: string; count: number; lastVisit: string}> = {};
 
     visitsSnapshot.docs.forEach((doc) => {
       const data = doc.data();
@@ -470,24 +470,31 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
 
       // For single rep view: collect visit details
       if (isSingleRepView && data.timestamp) {
+        const visitTimestamp = data.timestamp.toDate().toISOString();
+
         recentVisits.push({
           id: doc.id,
           accountName: data.accountName || "Unknown",
           accountType: data.accountType || "unknown",
-          timestamp: data.timestamp.toDate().toISOString(),
+          timestamp: visitTimestamp,
           purpose: data.purpose || "other",
         });
 
-        // Track visits per account for "most visited"
+        // Track visits per account for "most visited" with lastVisit
         const accountId = data.accountId || "unknown";
         if (!accountVisitCounts[accountId]) {
           accountVisitCounts[accountId] = {
             accountId,
             accountName: data.accountName || "Unknown",
             count: 0,
+            lastVisit: visitTimestamp,
           };
         }
         accountVisitCounts[accountId].count++;
+        // Update lastVisit if this visit is more recent
+        if (visitTimestamp > accountVisitCounts[accountId].lastVisit) {
+          accountVisitCounts[accountId].lastVisit = visitTimestamp;
+        }
       }
     });
 
@@ -603,6 +610,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         accountId: string;
         accountName: string;
         visitCount: number;
+        lastVisit: string;
       }>;
     } | undefined;
 
@@ -612,14 +620,14 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 5);
 
-      // Sort accounts by visit count (most visited first) and take top 3
+      // Sort accounts by visit count (most visited first) - return ALL for "View All Accounts" feature
       const sortedAccounts = Object.values(accountVisitCounts)
         .sort((a, b) => b.count - a.count)
-        .slice(0, 3)
         .map((acc) => ({
           accountId: acc.accountId,
           accountName: acc.accountName,
           visitCount: acc.count,
+          lastVisit: acc.lastVisit,
         }));
 
       visitDetails = {
@@ -627,7 +635,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         topAccounts: sortedAccounts,
       };
 
-      logger.info(`[getTeamStats] Built visitDetails: ${sortedRecent.length} recent, ${sortedAccounts.length} top accounts`);
+      logger.info(`[getTeamStats] Built visitDetails: ${sortedRecent.length} recent, ${sortedAccounts.length} visited accounts`);
     }
 
     // Build dailyActivity array for week/month/custom view heatmap

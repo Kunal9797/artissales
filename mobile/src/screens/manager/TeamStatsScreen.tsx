@@ -61,6 +61,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { Skeleton } from '../../patterns/Skeleton';
 import { TargetProgress } from '../../types';
+import { formatPhoneForDisplay } from '../../utils/formatTime';
 
 // User type for filter (managers and reps)
 interface FilterUser {
@@ -1246,45 +1247,83 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             </View>
           </View>
 
-          {/* Expandable Visit Details (single rep only) */}
+          {/* Expandable Visit Details (single rep only) - Clean Account Coverage */}
           {filterType === 'rep' && visitsCardExpanded && stats?.visitDetails && (
             <View style={styles.visitDetailsContainer}>
-              {/* Recent Visits */}
-              {stats.visitDetails.recent && stats.visitDetails.recent.length > 0 && (
-                <View style={styles.visitDetailsSection}>
-                  <Text style={styles.visitDetailsSectionTitle}>Recent Visits</Text>
-                  {stats.visitDetails.recent.map((visit) => (
-                    <View key={visit.id} style={styles.visitDetailRow}>
-                      <View style={styles.visitDetailLeft}>
-                        <View style={[styles.visitTypeDot, { backgroundColor: getAccountTypeColor(visit.accountType) }]} />
-                        <View style={styles.visitDetailInfo}>
-                          <Text style={styles.visitDetailName} numberOfLines={1}>{visit.accountName}</Text>
-                          <Text style={styles.visitDetailMeta}>
-                            {visit.accountType.charAt(0).toUpperCase() + visit.accountType.slice(1)} • {visit.purpose.replace('_', ' ')}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.visitDetailTime}>{formatRelativeTime(visit.timestamp)}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
+              {/* Header with unique accounts count and View All */}
+              <TouchableOpacity
+                style={styles.accountCoverageHeaderRow}
+                onPress={() => {
+                  if (!selectedRepId || !stats?.visitDetails?.topAccounts?.length) return;
 
-              {/* Most Visited Accounts */}
-              {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
-                <View style={styles.visitDetailsSection}>
-                  <Text style={styles.visitDetailsSectionTitle}>Most Visited</Text>
-                  {stats.visitDetails.topAccounts.map((account, index) => (
-                    <View key={account.accountId} style={styles.topAccountRow}>
-                      <View style={styles.topAccountRank}>
-                        <Text style={styles.topAccountRankText}>{index + 1}</Text>
-                      </View>
-                      <Text style={styles.topAccountName} numberOfLines={1}>{account.accountName}</Text>
-                      <Text style={styles.topAccountCount}>{account.visitCount} visits</Text>
+                  const visitData: Record<string, { count: number; lastVisit: string }> = {};
+                  stats.visitDetails.topAccounts.forEach((acc: any) => {
+                    visitData[acc.accountId] = {
+                      count: acc.visitCount,
+                      lastVisit: acc.lastVisit || '',
+                    };
+                  });
+
+                  const repName = reps.find(r => r.id === selectedRepId)?.name || 'User';
+
+                  navigation?.navigate('SelectAccount', {
+                    mode: 'manage',
+                    filterByUserVisits: {
+                      userId: selectedRepId,
+                      userName: repName,
+                      visitData,
+                    },
+                  });
+                }}
+                activeOpacity={stats.visitDetails.topAccounts?.length ? 0.7 : 1}
+              >
+                <Text style={styles.accountCoverageMainText}>
+                  <Text style={styles.accountCoverageNumber}>{stats.visitDetails.topAccounts?.length || 0}</Text> unique accounts
+                </Text>
+                {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
+                  <View style={styles.viewAllChip}>
+                    <Text style={styles.viewAllChipText}>View All</Text>
+                    <ChevronRight size={14} color="#2196F3" />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Most Active & Latest - Full width cards */}
+              <View style={styles.accountHighlightRow}>
+                {/* Most Active Account */}
+                {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
+                  <View style={styles.accountHighlightCard}>
+                    <View style={styles.accountHighlightIcon}>
+                      <Target size={16} color="#FF9800" />
                     </View>
-                  ))}
-                </View>
-              )}
+                    <View style={styles.accountHighlightContent}>
+                      <Text style={styles.accountHighlightName} numberOfLines={1}>
+                        {stats.visitDetails.topAccounts[0].accountName}
+                      </Text>
+                      <Text style={styles.accountHighlightMeta}>
+                        {stats.visitDetails.topAccounts[0].visitCount} visits • Most active
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Latest Visit */}
+                {stats.visitDetails.recent && stats.visitDetails.recent.length > 0 && (
+                  <View style={styles.accountHighlightCard}>
+                    <View style={[styles.accountHighlightIcon, { backgroundColor: '#E8F5E9' }]}>
+                      <MapPin size={16} color="#4CAF50" />
+                    </View>
+                    <View style={styles.accountHighlightContent}>
+                      <Text style={styles.accountHighlightName} numberOfLines={1}>
+                        {stats.visitDetails.recent[0].accountName}
+                      </Text>
+                      <Text style={styles.accountHighlightMeta}>
+                        {formatRelativeTime(stats.visitDetails.recent[0].timestamp)} • Last visit
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
           )}
         </TouchableOpacity>
@@ -1517,7 +1556,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               <View style={styles.repActionInfoBlock}>
                 <Phone size={14} color="#888" />
                 <Text style={styles.repActionInfoLabel}>Phone</Text>
-                <Text style={styles.repActionInfoValue}>{selectedRepDetails?.phone || '—'}</Text>
+                <Text style={styles.repActionInfoValue}>{formatPhoneForDisplay(selectedRepDetails?.phone) || '—'}</Text>
               </View>
               <View style={styles.repActionInfoDivider} />
               <View style={styles.repActionInfoBlock}>
@@ -1747,7 +1786,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                                       {rep.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                     </Text>
                                   </View>
-                                  <Text style={styles.modalOptionName}>{rep.name}</Text>
+                                  <View>
+                                    <Text style={styles.modalOptionName}>{rep.name}</Text>
+                                    {rep.territory && (
+                                      <Text style={styles.modalOptionRole}>{rep.territory}</Text>
+                                    )}
+                                  </View>
                                 </View>
                                 {isRepSelected && <Check size={20} color="#2E7D32" />}
                               </TouchableOpacity>
@@ -2147,21 +2191,21 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     backgroundColor: '#F0F0F0',
-    borderRadius: 8,
-    padding: 4,
+    borderRadius: 10,
+    padding: 3,
   },
   togglePill: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 6,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  togglePillActive: { backgroundColor: '#FFFFFF' },
+  togglePillActive: { backgroundColor: '#4A5568' },
   togglePillIcon: { flex: 0, paddingHorizontal: 16 },
   toggleText: { fontSize: 14, fontWeight: '600', color: '#888' },
-  toggleTextActive: { color: '#393735' },
+  toggleTextActive: { color: '#FFFFFF' },
 
   // Scroll
   scrollView: { flex: 1 },
@@ -2675,6 +2719,71 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#2196F3',
+  },
+
+  // Account Coverage Section - Clean Design
+  accountCoverageHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  accountCoverageMainText: {
+    fontSize: 15,
+    color: '#666',
+  },
+  accountCoverageNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  viewAllChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 2,
+  },
+  viewAllChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2196F3',
+  },
+  accountHighlightRow: {
+    flexDirection: 'column',
+    gap: 10,
+  },
+  accountHighlightCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 10,
+    padding: 12,
+    gap: 12,
+  },
+  accountHighlightIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF3E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  accountHighlightContent: {
+    flex: 1,
+  },
+  accountHighlightName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  accountHighlightMeta: {
+    fontSize: 12,
+    color: '#888',
   },
 
   // Custom Range Display in Toggle

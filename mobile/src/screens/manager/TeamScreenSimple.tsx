@@ -11,7 +11,7 @@ import { User, Search, Plus } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
-import { formatLastActive, getLastActiveColor } from '../../utils/formatTime';
+import { formatLastActive, getLastActiveColor, formatPhoneForDisplay } from '../../utils/formatTime';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
 // Phase 2A: Module-level cache with 30-minute TTL
@@ -196,7 +196,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         {/* Territory + Phone + Last Active inline */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={{ fontSize: 13, color: '#999999', flex: 1 }} numberOfLines={1}>
-            {item.territory} • {item.phone}
+            {item.territory} • {formatPhoneForDisplay(item.phone)}
           </Text>
           {lastActiveText ? (
             <Text style={{
