@@ -24,7 +24,8 @@ export interface ThemeOverrides {
   // Role overrides
   roles?: {
     success?: RoleOverride;
-    warn?: RoleOverride;
+    warning?: RoleOverride;
+    warn?: RoleOverride; // Alias for warning
     error?: RoleOverride;
     info?: RoleOverride;
     neutral?: RoleOverride;

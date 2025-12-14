@@ -18,7 +18,13 @@ import { api } from '../../services/api';
 import { TargetsByCatalog, TargetsByAccountType } from '../../types';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
-type SetTargetScreenProps = NativeStackScreenProps<any, 'SetTarget'>;
+type SetTargetParams = {
+  userId: string;
+  userName: string;
+  currentMonth?: string;
+};
+
+type SetTargetScreenProps = NativeStackScreenProps<{ SetTarget: SetTargetParams }, 'SetTarget'>;
 
 const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodrica', 'Artis 1MM'];
 const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'OEM'];

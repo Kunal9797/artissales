@@ -1049,38 +1049,11 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
           {stats && (
             <DetailedStatsView
               stats={stats as any}
-              attendanceDays={attendanceDays}
-              attendancePercentage={attendancePercentage}
-              attendanceMarkedDates={(() => {
-                // Create marked dates from attendance records
-                const markedDates: any = {};
-                stats.attendance.records
-                  .filter(r => r.type === 'check_in')
-                  .forEach(r => {
-                    const date = new Date(r.timestamp).toISOString().substring(0, 10);
-                    markedDates[date] = { marked: true, dotColor: '#2E7D32', selected: false };
-                  });
-                return markedDates;
-              })()}
-              selectedMonth={(() => {
-                // Calculate selected month from timeRange
-                const today = new Date();
-                switch (timeRange) {
-                  case 'today':
-                  case 'week':
-                  case 'month':
-                    return today;
-                  case 'custom':
-                    return customStartDate ? new Date(customStartDate) : today;
-                  default:
-                    return today;
-                }
-              })()}
               targets={targets}
               userId={userId}
               onViewPending={(type) => {
                 // Navigate to Review tab with this user pre-filtered
-                navigation.navigate('Home', {
+                (navigation as any).navigate('Home', {
                   screen: 'ReviewTab',
                   params: { filterUserId: userId, filterUserName: userData?.name },
                 });

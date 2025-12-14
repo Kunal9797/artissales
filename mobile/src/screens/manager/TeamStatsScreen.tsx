@@ -909,13 +909,14 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
     // For AM/NH: if current user isn't in managers list, add them
     // This allows their reps to be shown in the expandable filter
-    if (user && currentUserId && managerRoles.includes(user.role) && !mgrs.find(m => m.id === currentUserId)) {
+    const userRole = user?.role;
+    if (user && currentUserId && userRole && managerRoles.includes(userRole) && !mgrs.find(m => m.id === currentUserId)) {
       mgrs = [{
         id: currentUserId,
         name: (user as any)?.displayName || (user as any)?._user?.displayName || 'My Team',
-        role: user.role,
+        role: userRole,
         territory: '',
-        reportsToUserId: null,
+        reportsToUserId: undefined,
         isActive: true,
       }, ...mgrs];
     }
@@ -1303,7 +1304,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               <Text style={styles.splitCardTitle}>SHEETS SOLD</Text>
               {!isLoading && (stats?.pending?.sheets ?? 0) > 0 && (
                 <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingBadgeText}>+{stats.pending.sheets} pending</Text>
+                  <Text style={styles.pendingBadgeText}>+{stats?.pending?.sheets} pending</Text>
                 </View>
               )}
               <View style={styles.teamCardExpandIcon}>

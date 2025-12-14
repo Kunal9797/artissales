@@ -370,7 +370,7 @@ export const KitchenSinkScreen: React.FC<KitchenSinkScreenProps> = ({ navigation
             <Button onPress={() => Alert.alert('Outline')} variant="outline" style={{ borderColor: primaryColor }}>
               Outline Button
             </Button>
-            <Button onPress={() => Alert.alert('Ghost')} variant="ghost" style={{ color: primaryColor }}>
+            <Button onPress={() => Alert.alert('Ghost')} variant="ghost">
               Ghost Button
             </Button>
             <Button onPress={() => Alert.alert('Danger')} variant="danger">

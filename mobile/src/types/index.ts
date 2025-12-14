@@ -31,6 +31,7 @@ export interface LogVisitRequest {
     lon: number;
     accuracyM?: number;
   };
+  requestId?: string; // For idempotency - prevents duplicates on retry
 }
 
 // Individual expense item in a report

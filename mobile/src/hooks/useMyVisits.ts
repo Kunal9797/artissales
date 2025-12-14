@@ -12,7 +12,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import firestore from '@react-native-firebase/firestore';
+import { getFirestore, collection, query, where, orderBy, limit, getDocs, FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { getAuth } from '@react-native-firebase/auth';
 import { logger } from '../utils/logger';
 
@@ -127,19 +127,21 @@ export function useMyVisits(): UseMyVisitsResult {
       setError(null);
 
       // Query user's visits, ordered by timestamp (newest first), limit 100
-      const snapshot = await firestore()
-        .collection('visits')
-        .where('userId', '==', userId)
-        .orderBy('timestamp', 'desc')
-        .limit(100)
-        .get();
+      const db = getFirestore();
+      const visitsQuery = query(
+        collection(db, 'visits'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+      const snapshot = await getDocs(visitsQuery);
 
-      const visitsData: MyVisitRecord[] = snapshot.docs.map(doc => {
+      const visitsData: MyVisitRecord[] = snapshot.docs.map((doc: FirebaseFirestoreTypes.QueryDocumentSnapshot) => {
         const data = doc.data();
         return {
-          accountId: data.accountId,
-          accountName: data.accountName || 'Unknown',
-          timestamp: data.timestamp?.toDate() || new Date(),
+          accountId: data.accountId as string,
+          accountName: (data.accountName as string) || 'Unknown',
+          timestamp: data.timestamp?.toDate?.() || new Date(),
         };
       });
 

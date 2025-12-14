@@ -92,7 +92,7 @@ const getActiveRouteName = (state: NavigationState | undefined): string | undefi
 export const RootNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const [confirmation, setConfirmation] = useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
-  const routeNameRef = useRef<string | undefined>();
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   // Reset confirmation when user logs out
   React.useEffect(() => {

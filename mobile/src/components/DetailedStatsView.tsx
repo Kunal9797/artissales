@@ -490,7 +490,7 @@ export const DetailedStatsView: React.FC<DetailedStatsProps> = ({
                         style={[
                           styles.progressBarFill,
                           {
-                            width: `${percentage}%`,
+                            width: `${percentage}%` as `${number}%`,
                             backgroundColor: color,
                           },
                         ]}

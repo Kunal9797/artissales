@@ -183,7 +183,7 @@ export const UserListScreen: React.FC<UserListScreenProps> = ({ navigation }) =>
 
       {/* User List */}
       {loading && filteredUsers.length === 0 ? (
-        <View style={styles.content}>
+        <View style={styles.listContent}>
           <Skeleton rows={3} avatar />
           <Skeleton rows={3} avatar />
           <Skeleton rows={3} avatar />

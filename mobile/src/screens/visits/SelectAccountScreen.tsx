@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
 import {
   View,
@@ -8,8 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import { useFocusEffect } from '@react-navigation/native';
 import { Search, Plus, Edit2, WifiOff, RefreshCw, CloudOff } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
@@ -42,6 +44,25 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<AccountTypeFilter>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Refresh accounts when screen comes into focus (e.g., after adding a new account)
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh accounts data when screen gains focus
+      refreshAccounts?.();
+    }, [refreshAccounts])
+  );
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshAccounts?.();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refreshAccounts]);
 
   // Get current user ID for sorting (use getAuth().currentUser for reliable uid access)
   const authInstance = getAuth();
@@ -193,10 +214,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       default:
         return '#666666';
     }
-  };
-
-  const getAccountTypeLabel = (type: string): string => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   const renderAccount = ({ item }: { item: Account }) => {
@@ -446,7 +463,16 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           renderItem={renderAccount}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[styles.listContainer, { paddingBottom: 80 + bottomPadding }]}
-          estimatedItemSize={62}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              colors={['#C9A961']}
+              tintColor="#C9A961"
+              title="Pull to refresh"
+              titleColor="#999999"
+            />
+          }
         />
       )}
     </View>

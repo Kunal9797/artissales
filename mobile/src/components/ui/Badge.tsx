@@ -54,7 +54,7 @@ export function Badge({
 
   const { bg, text, border } = getRoleColors();
 
-  const containerStyle: ViewStyle = [
+  const containerStyle = StyleSheet.flatten([
     styles.container,
     size === 'sm' ? styles.containerSm : styles.containerMd,
     {
@@ -62,13 +62,13 @@ export function Badge({
       borderColor: border,
     },
     style,
-  ] as ViewStyle;
+  ]);
 
-  const textStyle: TextStyle = [
+  const textStyle = StyleSheet.flatten([
     styles.text,
     size === 'sm' ? styles.textSm : styles.textMd,
     { color: text },
-  ] as TextStyle;
+  ]);
 
   return (
     <View style={containerStyle}>
