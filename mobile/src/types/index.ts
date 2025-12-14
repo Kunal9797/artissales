@@ -122,6 +122,7 @@ export interface AccountListItem {
   parentDistributorId?: string;
   createdByUserId: string;
   lastVisitAt?: string;
+  sharedWithAll?: boolean; // True for admin-created accounts (visible to all)
 }
 
 export interface GetAccountsListResponse {

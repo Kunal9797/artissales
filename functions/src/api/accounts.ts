@@ -17,33 +17,6 @@ import {getDirectReportIds} from "../utils/team";
 const db = getFirestore();
 
 /**
- * Batch fetch user roles to avoid N+1 queries
- * Firestore 'in' supports up to 30 items per query, so we chunk larger sets
- */
-async function batchFetchUserRoles(userIds: string[]): Promise<Map<string, string>> {
-  const roleMap = new Map<string, string>();
-  if (userIds.length === 0) return roleMap;
-
-  // Firestore 'in' supports up to 30 items per query
-  const chunks: string[][] = [];
-  for (let i = 0; i < userIds.length; i += 30) {
-    chunks.push(userIds.slice(i, i + 30));
-  }
-
-  await Promise.all(chunks.map(async (chunk) => {
-    const usersSnapshot = await db.collection("users")
-      .where("__name__", "in", chunk)
-      .select("role")
-      .get();
-    usersSnapshot.docs.forEach((doc) => {
-      roleMap.set(doc.id, doc.data()?.role || "unknown");
-    });
-  }));
-
-  return roleMap;
-}
-
-/**
  * Helper function to check if user can create this account type
  */
 function canCreateAccount(
@@ -220,6 +193,11 @@ export const createAccount = onRequest({invoker: "public"}, async (request, resp
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
+
+    // Mark admin-created accounts as shared with all users
+    if (callerRole === "admin") {
+      newAccount.sharedWithAll = true;
+    }
 
     // Only add optional fields if they have values
     if (normalizedPhone) newAccount.phone = normalizedPhone;
@@ -440,6 +418,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
         parentDistributorId: data.parentDistributorId || undefined,
         createdByUserId: data.createdByUserId,
         lastVisitAt: data.lastVisitAt?.toDate().toISOString() || undefined,
+        sharedWithAll: data.sharedWithAll || false,
       };
     });
 
@@ -454,7 +433,7 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       // National Head / Area Manager: filter to accounts created by:
       // - Themselves (including pre-migration ID)
       // - Their direct reports
-      // - Admin (admin-created accounts are shared)
+      // - Shared accounts (sharedWithAll flag, e.g., admin-created)
       const directReportIds = await getDirectReportIds(userId);
       const migratedFromId = userDoc.data()?.migratedFrom;
 
@@ -462,26 +441,13 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       const managerIds = migratedFromId ? [userId, migratedFromId] : [userId];
       const teamMemberIds = new Set([...managerIds, ...directReportIds]);
 
-      // Get unique creator IDs to check which are admins
-      const creatorIds = [
-        ...new Set(
-          accounts
-            .map((acc) => acc.createdByUserId)
-            .filter((id): id is string => !!id && id.trim().length > 0)
-        ),
-      ];
-
-      // Batch fetch creator roles (fixes N+1 query problem)
-      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
-
-      // Identify admin creators
-      const adminCreatorIds = new Set<string>();
-      creatorRoleMap.forEach((role, id) => {
-        if (role === "admin") adminCreatorIds.add(id);
-      });
-
       // Filter accounts
       accounts = accounts.filter((account) => {
+        // Shared accounts (admin-created) are visible to everyone
+        if (account.sharedWithAll) {
+          return true;
+        }
+
         // Legacy data (no createdByUserId) - show it
         if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
           return true;
@@ -489,11 +455,6 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
         // Created by self or a direct report
         if (teamMemberIds.has(account.createdByUserId)) {
-          return true;
-        }
-
-        // Created by admin (shared accounts)
-        if (adminCreatorIds.has(account.createdByUserId)) {
           return true;
         }
 
@@ -506,35 +467,21 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       // - All distributors
       // - Accounts created by self
       // - Accounts created by their specific manager (reportsToUserId)
-      // - Accounts created by admin
+      // - Shared accounts (sharedWithAll flag, e.g., admin-created)
 
       // Get the rep's manager ID and migratedFrom ID (for visibility of pre-migration accounts)
       const reportsToUserId = userDoc.data()?.reportsToUserId;
       const migratedFromId = userDoc.data()?.migratedFrom;
 
-      // Get unique creator IDs to check their roles (filter out empty/undefined)
-      const creatorIds = [
-        ...new Set(
-          accounts
-            .filter((acc) => ["dealer", "architect", "OEM"].includes(acc.type))
-            .map((acc) => acc.createdByUserId)
-            .filter((id): id is string => !!id && id.trim().length > 0)
-        ),
-      ];
-
-      // Batch fetch creator roles (fixes N+1 query problem)
-      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
-
-      // Identify admin creators
-      const adminCreatorIds = new Set<string>();
-      creatorRoleMap.forEach((role, id) => {
-        if (role === "admin") adminCreatorIds.add(id);
-      });
-
       // Filter accounts based on rep visibility rules
       accounts = accounts.filter((account) => {
         // All distributors are visible
         if (account.type === "distributor") {
+          return true;
+        }
+
+        // Shared accounts (admin-created) are visible to everyone
+        if (account.sharedWithAll) {
           return true;
         }
 
@@ -555,11 +502,6 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
         // 3. Created by their specific manager (reportsToUserId)
         if (reportsToUserId && account.createdByUserId === reportsToUserId) {
-          return true;
-        }
-
-        // 4. Created by admin (shared accounts)
-        if (adminCreatorIds.has(account.createdByUserId)) {
           return true;
         }
 

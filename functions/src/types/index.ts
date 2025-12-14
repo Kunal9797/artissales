@@ -75,6 +75,9 @@ export interface Account {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 
+  // Visibility
+  sharedWithAll?: boolean; // If true, visible to all users (e.g., admin-created accounts)
+
   // Flexible fields for future
   extra?: Record<string, any>; // Can add: gst, pan, targets, etc.
 }
