@@ -1106,17 +1106,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       <View style={{
         backgroundColor: '#393735',
         paddingHorizontal: 20,
-        paddingTop: 50,
-        paddingBottom: 16,
+        paddingTop: 48,
+        paddingBottom: 12,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
         {/* Time icon + Welcome, Name */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {greeting.icon === 'sunrise' && <Sunrise size={22} color="#C9A961" />}
-          {greeting.icon === 'sun' && <Sun size={22} color="#C9A961" />}
-          {greeting.icon === 'moon' && <Moon size={22} color="#C9A961" />}
+          {greeting.icon === 'sunrise' && <Sunrise size={20} color="#C9A961" />}
+          {greeting.icon === 'sun' && <Sun size={20} color="#C9A961" />}
+          {greeting.icon === 'moon' && <Moon size={20} color="#C9A961" />}
           <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>
             Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'User'}
           </Text>
@@ -1127,19 +1127,36 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           onPress={showProfileSheet}
           activeOpacity={0.7}
           style={{
-            // Glow container
             shadowColor: '#C9A961',
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 0.8,
-            shadowRadius: 12,
-            elevation: 8,
+            shadowOpacity: 0.6,
+            shadowRadius: 8,
+            elevation: 6,
           }}
         >
           <Image
             source={require('../../assets/images/artislogo_blackbgrd.png')}
-            style={{ width: 52, height: 52 }}
+            style={{ width: 44, height: 44 }}
             resizeMode="contain"
           />
+          {/* User initial badge */}
+          <View style={{
+            position: 'absolute',
+            bottom: -2,
+            right: -2,
+            width: 18,
+            height: 18,
+            borderRadius: 9,
+            backgroundColor: colors.accent,
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderWidth: 2,
+            borderColor: colors.primary,
+          }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+              {userName ? userName.charAt(0).toUpperCase() : 'U'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -2072,7 +2089,7 @@ const styles = StyleSheet.create({
   greetingBar: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.lg,
-    paddingTop: 52, // Status bar space
+    paddingTop: 52,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',

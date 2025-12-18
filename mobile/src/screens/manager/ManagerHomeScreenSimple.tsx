@@ -187,7 +187,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
       <View style={styles.header}>
         {/* Time icon + Hi, Name */}
         <View style={styles.greetingRow}>
-          <GreetingIcon size={22} color={colors.accent} />
+          <GreetingIcon size={20} color={colors.accent} />
           <Text style={styles.greetingText}>
             Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'Manager'}
           </Text>
@@ -204,6 +204,12 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             style={styles.logoImage}
             resizeMode="contain"
           />
+          {/* User initial badge */}
+          <View style={styles.userBadge}>
+            <Text style={styles.userBadgeText}>
+              {userName ? userName.charAt(0).toUpperCase() : 'M'}
+            </Text>
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -453,24 +459,41 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: spacing.screenPadding,
-    paddingTop: 50,
-    paddingBottom: 16,
+    paddingTop: 48,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   logoButton: {
     zIndex: 10,
-    // Stronger glow effect
     shadowColor: '#C9A961',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
   },
   logoImage: {
-    width: 52,
-    height: 52,
+    width: 44,
+    height: 44,
+  },
+  userBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  userBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primary,
   },
   headerContent: {
     zIndex: 1,

@@ -1619,7 +1619,11 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           activeOpacity={1}
           onPress={() => setFilterModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+            style={styles.modalContent}
+          >
             {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Filter by Team</Text>
@@ -1806,7 +1810,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 return options;
               })()}
             </ScrollView>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
 

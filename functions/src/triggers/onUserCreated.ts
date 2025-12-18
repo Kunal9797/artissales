@@ -34,14 +34,7 @@ export const onUserCreated = functions.auth.user().onCreate(async (user) => {
   }
 
   try {
-    // Check if a user doc already exists with this Auth UID
-    const existingDocWithUid = await db.collection("users").doc(authUid).get();
-    if (existingDocWithUid.exists) {
-      logger.info(`[onUserCreated] User doc already exists with Auth UID ${authUid}, no migration needed`);
-      return;
-    }
-
-    // Look for a user doc with matching phone number (created by manager)
+    // Look for ALL user docs with matching phone number
     const usersSnapshot = await db.collection("users")
       .where("phone", "==", phoneNumber)
       .get();
@@ -53,40 +46,89 @@ export const onUserCreated = functions.auth.user().onCreate(async (user) => {
       return;
     }
 
-    // Handle potential duplicates - find the doc that's NOT the Auth UID
-    const docsToMigrate = usersSnapshot.docs.filter((doc) => doc.id !== authUid);
+    // Check if Auth UID doc exists
+    const authUidDocExists = usersSnapshot.docs.some((doc) => doc.id === authUid);
 
-    if (docsToMigrate.length === 0) {
-      logger.info(`[onUserCreated] All docs already have correct ID, no migration needed`);
+    // Find docs that need to be migrated/deleted (old docs not matching Auth UID)
+    const oldDocs = usersSnapshot.docs.filter((doc) => doc.id !== authUid);
+
+    if (oldDocs.length === 0) {
+      logger.info(`[onUserCreated] No old docs to clean up for ${authUid}`);
       return;
     }
 
-    // Take the first doc (oldest one, created by manager)
-    const oldDoc = docsToMigrate[0];
-    const oldDocId = oldDoc.id;
-    const userData = oldDoc.data();
+    logger.info(`[onUserCreated] Found ${oldDocs.length} old doc(s) to clean up for ${authUid}`);
 
-    logger.info(`[onUserCreated] Migrating user doc from ${oldDocId} to ${authUid}`);
+    // Build mapping of old IDs to new Auth UID for reference updates
+    const oldDocIds = oldDocs.map((doc) => doc.id);
 
-    // Create new doc with Auth UID
-    await db.collection("users").doc(authUid).set({
-      ...userData,
-      id: authUid,
-      migratedFrom: oldDocId,
-      migratedAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
+    // If Auth UID doc doesn't exist yet, create it from the first old doc
+    if (!authUidDocExists) {
+      const oldDoc = oldDocs[0];
+      const userData = oldDoc.data();
+      const oldDocId = oldDoc.id;
 
-    logger.info(`[onUserCreated] Created new doc with Auth UID ${authUid}`);
+      logger.info(`[onUserCreated] Creating Auth UID doc from ${oldDocId}`);
 
-    // Delete old doc(s) with this phone number (cleanup any duplicates)
-    const deletePromises = docsToMigrate.map((doc) => {
+      await db.collection("users").doc(authUid).set({
+        ...userData,
+        id: authUid,
+        migratedFrom: oldDocId,
+        migratedAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+
+      logger.info(`[onUserCreated] Created new doc with Auth UID ${authUid}`);
+    }
+
+    // Step 1: Update all reportsToUserId references pointing to old IDs
+    const allUsersSnapshot = await db.collection("users").get();
+    let refsUpdated = 0;
+
+    for (const userDoc of allUsersSnapshot.docs) {
+      const data = userDoc.data();
+      if (data.reportsToUserId && oldDocIds.includes(data.reportsToUserId)) {
+        logger.info(`[onUserCreated] Updating reportsToUserId for ${data.name}: ${data.reportsToUserId} -> ${authUid}`);
+        await userDoc.ref.update({
+          reportsToUserId: authUid,
+          updatedAt: Timestamp.now(),
+        });
+        refsUpdated++;
+      }
+    }
+
+    if (refsUpdated > 0) {
+      logger.info(`[onUserCreated] Updated ${refsUpdated} reportsToUserId references`);
+    }
+
+    // Step 2: Update createdByUserId in accounts collection
+    const accountsSnapshot = await db.collection("accounts").get();
+    let accountsUpdated = 0;
+
+    for (const accountDoc of accountsSnapshot.docs) {
+      const data = accountDoc.data();
+      if (data.createdByUserId && oldDocIds.includes(data.createdByUserId)) {
+        logger.info(`[onUserCreated] Updating account ${data.name} createdByUserId: ${data.createdByUserId} -> ${authUid}`);
+        await accountDoc.ref.update({
+          createdByUserId: authUid,
+          updatedAt: Timestamp.now(),
+        });
+        accountsUpdated++;
+      }
+    }
+
+    if (accountsUpdated > 0) {
+      logger.info(`[onUserCreated] Updated ${accountsUpdated} account createdByUserId references`);
+    }
+
+    // Step 3: Delete old duplicate documents
+    const deletePromises = oldDocs.map((doc) => {
       logger.info(`[onUserCreated] Deleting old doc: ${doc.id}`);
       return doc.ref.delete();
     });
     await Promise.all(deletePromises);
 
-    logger.info(`[onUserCreated] ✅ Migration complete: ${oldDocId} -> ${authUid}, deleted ${docsToMigrate.length} old doc(s)`);
+    logger.info(`[onUserCreated] ✅ Migration complete for ${authUid}: cleaned up ${oldDocs.length} old doc(s), updated ${refsUpdated} refs, updated ${accountsUpdated} accounts`);
   } catch (error: any) {
     logger.error(`[onUserCreated] ❌ Migration failed for ${authUid}:`, error);
     // Don't throw - let the user continue logging in

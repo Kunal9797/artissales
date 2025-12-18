@@ -21,7 +21,6 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowLeft,
-  Building2,
   Phone,
   MapPin,
   Edit2,
@@ -29,8 +28,9 @@ import {
   User,
   Camera,
   ChevronDown,
-  ExternalLink,
+  Gift,
 } from 'lucide-react-native';
+import { WhatsAppIcon } from '../../components/icons/WhatsAppIcon';
 import { api } from '../../services/api';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Skeleton } from '../../patterns';
@@ -46,11 +46,37 @@ interface AccountData {
   name: string;
   type: string;
   phone?: string;
+  email?: string;
+  contactPerson?: string;
+  address?: string;
   city: string;
   state: string;
   pincode?: string;
-  createdBy?: string;
+  birthdate?: string;           // YYYY-MM-DD format
+  parentDistributorId?: string;
+  territory?: string;
+  assignedRepUserId?: string;
+  status?: string;              // 'active' | 'inactive'
+  lastVisitAt?: string;         // ISO timestamp
+  createdAt?: string;           // ISO timestamp
+  createdByUserId?: string;
+  extra?: {
+    catalogs?: string[];        // Catalogs this distributor services
+  };
 }
+
+// Catalog colors (matching SheetsEntryScreen)
+const CATALOG_COLORS: Record<string, { bg: string; text: string }> = {
+  'Fine Decor': { bg: '#F3E5F5', text: '#9C27B0' },
+  'Artvio': { bg: '#E3F2FD', text: '#1976D2' },
+  'Woodrica': { bg: '#E8F5E9', text: '#388E3C' },
+  'Artis 1MM': { bg: '#FFF3E0', text: '#E65100' },
+  'Artis': { bg: '#FFF3E0', text: '#E65100' },
+};
+
+const getCatalogColor = (catalog: string) => {
+  return CATALOG_COLORS[catalog] || { bg: '#F5F5F5', text: '#666666' };
+};
 
 interface Visit {
   id: string;
@@ -82,6 +108,16 @@ const getTypeLabel = (type: string) => {
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
+// Get type abbreviation for badge (matching SelectAccountScreen)
+const getTypeAbbr = (type: string) => {
+  const t = type.toLowerCase();
+  if (t === 'distributor') return 'D';
+  if (t === 'dealer') return 'DL';
+  if (t === 'architect') return 'A';
+  if (t === 'oem') return 'O';
+  return t.charAt(0).toUpperCase();
+};
+
 // Purpose badge colors
 const PURPOSE_COLORS: Record<string, { bg: string; text: string }> = {
   sample_delivery: { bg: '#E3F2FD', text: '#1976D2' },
@@ -101,6 +137,28 @@ const formatPurpose = (purpose: string) => {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+};
+
+// Calculate days until birthday (handles year wrap)
+const getDaysUntilBirthday = (birthdate: string | undefined): number | null => {
+  if (!birthdate) return null;
+  try {
+    const [, month, day] = birthdate.split('-').map(Number);
+    if (!month || !day) return null;
+    const today = new Date();
+    const thisYear = today.getFullYear();
+    let birthday = new Date(thisYear, month - 1, day);
+    // Reset time to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+    birthday.setHours(0, 0, 0, 0);
+    if (birthday < today) {
+      birthday = new Date(thisYear + 1, month - 1, day);
+    }
+    const diff = birthday.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  } catch {
+    return null;
+  }
 };
 
 export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -135,6 +193,16 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     // encodeURIComponent converts + to %2B which Android dialer understands
     const url = `tel:${encodeURIComponent(phoneNumber)}`;
     Linking.openURL(url).catch(err => logger.error('Failed to open phone:', err));
+  }, [account?.phone]);
+
+  // Handle WhatsApp
+  const handleWhatsApp = useCallback(() => {
+    const phone = account?.phone?.trim();
+    if (!phone) return;
+    // WhatsApp expects number without + prefix
+    const cleaned = phone.replace(/[^\d]/g, '');
+    const url = `whatsapp://send?phone=${cleaned}`;
+    Linking.openURL(url).catch(err => logger.error('Failed to open WhatsApp:', err));
   }, [account?.phone]);
 
   // Lazy load photos when user taps
@@ -254,20 +322,30 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const typeColor = getTypeColor(account.type);
 
+  // Compute birthday info
+  const daysUntilBirthday = getDaysUntilBirthday(account.birthdate);
+  const showBirthday = daysUntilBirthday !== null && daysUntilBirthday <= 30;
+
   return (
     <View style={styles.container}>
-      {/* Header - Shows instantly */}
+      {/* Header - Compact design */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <ArrowLeft size={24} color={colors.text.inverse} />
           </TouchableOpacity>
 
+          {/* Quick Actions */}
           <View style={styles.headerActions}>
             {account.phone?.trim() && (
-              <TouchableOpacity style={styles.headerActionBtn} onPress={handleCall}>
-                <Phone size={20} color={colors.accent} />
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity style={styles.headerActionBtn} onPress={handleCall}>
+                  <Phone size={20} color={colors.accent} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerActionBtn} onPress={handleWhatsApp}>
+                  <WhatsAppIcon size={20} />
+                </TouchableOpacity>
+              </>
             )}
             <TouchableOpacity
               style={[styles.headerActionBtn, styles.editBtn]}
@@ -279,51 +357,85 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               }}
             >
               <Edit2 size={18} color={colors.primary} />
-              <Text style={styles.editBtnText}>Edit</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Account Info Card */}
-        <View style={styles.accountCard}>
-          <View style={[styles.accountIcon, { backgroundColor: typeColor.light }]}>
-            <Building2 size={28} color={typeColor.primary} />
+        {/* Account Identity - Compact with type badge */}
+        <View style={styles.accountRow}>
+          <View style={[styles.typeIndicator, { backgroundColor: typeColor.primary }]}>
+            <Text style={styles.typeIndicatorText}>{getTypeAbbr(account.type)}</Text>
           </View>
-
-          <View style={styles.accountInfo}>
+          <View style={styles.accountDetails}>
             <Text style={styles.accountName} numberOfLines={2}>{account.name}</Text>
-            <View style={[styles.typeBadge, { backgroundColor: typeColor.primary }]}>
-              <Text style={styles.typeBadgeText}>{getTypeLabel(account.type)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Contact Details */}
-        <View style={styles.contactRow}>
-          {account.phone?.trim() && (
-            <TouchableOpacity style={styles.contactItem} onPress={handleCall}>
-              <Phone size={14} color="rgba(255,255,255,0.7)" />
-              <Text style={styles.contactText}>{formatPhoneForDisplay(account.phone)}</Text>
-              <ExternalLink size={12} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
-          <View style={styles.contactItem}>
-            <MapPin size={14} color="rgba(255,255,255,0.7)" />
-            <Text style={styles.contactText}>
-              {account.city}, {account.state}
-              {account.pincode && ` - ${account.pincode}`}
-            </Text>
+            {account.contactPerson?.trim() && (
+              <Text style={styles.contactPersonText}>{account.contactPerson}</Text>
+            )}
+            {account.status && account.status !== 'active' && (
+              <Text style={styles.inactiveText}>Inactive</Text>
+            )}
           </View>
         </View>
       </View>
 
-      {/* Content - Visit History */}
+      {/* Content */}
       <ScrollView
         style={styles.content}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + bottomPadding }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Visit History Section */}
+        {/* Quick Info */}
+        <View style={styles.infoCard}>
+          {/* Phone */}
+          <View style={styles.infoRow}>
+            <Phone size={18} color={colors.primary} />
+            <Text style={styles.infoValue}>{formatPhoneForDisplay(account.phone)}</Text>
+          </View>
+          {/* Location */}
+          <View style={styles.infoRow}>
+            <MapPin size={18} color={colors.primary} />
+            <Text style={styles.infoValue}>
+              {[
+                account.address?.trim(),
+                account.city,
+                account.state,
+                account.pincode,
+              ].filter(Boolean).join(', ')}
+            </Text>
+          </View>
+          {/* Catalogs - for distributors */}
+          {account.extra?.catalogs && account.extra.catalogs.length > 0 && (
+            <View style={styles.catalogsRow}>
+              {account.extra.catalogs.map((catalog) => {
+                const catalogColor = getCatalogColor(catalog);
+                // Normalize "Artis" to "Artis 1MM" for display
+                const displayName = catalog === 'Artis' ? 'Artis 1MM' : catalog;
+                return (
+                  <View
+                    key={catalog}
+                    style={[styles.catalogBadge, { backgroundColor: catalogColor.bg }]}
+                  >
+                    <Text style={[styles.catalogBadgeText, { color: catalogColor.text }]}>
+                      {displayName}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        {/* Birthday Alert - only when relevant */}
+        {showBirthday && (
+          <View style={styles.birthdayBanner}>
+            <Gift size={18} color="#E65100" />
+            <Text style={styles.birthdayBannerText}>
+              {daysUntilBirthday === 0 ? 'Birthday Today!' : `Birthday in ${daysUntilBirthday} days`}
+            </Text>
+          </View>
+        )}
+
+        {/* Visit History Section - Main Focus */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
@@ -350,17 +462,17 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.emptySubtext}>Visits to this account will appear here</Text>
             </View>
           ) : (
-            /* Visit Cards */
+            /* Visit Cards - Compact */
             <>
               {visits.map((visit) => {
                 const purposeColor = getPurposeColor(visit.purpose);
                 return (
                   <View key={visit.id} style={styles.visitCard}>
-                    {/* Visit Header */}
-                    <View style={styles.visitHeader}>
-                      <View style={styles.visitUserRow}>
+                    {/* Top Row: User + Date + Purpose */}
+                    <View style={styles.visitTopRow}>
+                      <View style={styles.visitUserInfo}>
                         <View style={styles.visitUserAvatar}>
-                          <User size={14} color="#666" />
+                          <User size={12} color="#888" />
                         </View>
                         <Text style={styles.visitUserName}>{visit.userName || 'Unknown'}</Text>
                       </View>
@@ -373,36 +485,34 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                       </Text>
                     </View>
 
-                    {/* Purpose Badge */}
-                    <View style={[styles.purposeBadge, { backgroundColor: purposeColor.bg }]}>
-                      <Text style={[styles.purposeText, { color: purposeColor.text }]}>
-                        {formatPurpose(visit.purpose)}
-                      </Text>
+                    {/* Bottom Row: Purpose + Photos */}
+                    <View style={styles.visitBottomRow}>
+                      <View style={[styles.purposeBadge, { backgroundColor: purposeColor.bg }]}>
+                        <Text style={[styles.purposeText, { color: purposeColor.text }]}>
+                          {formatPurpose(visit.purpose)}
+                        </Text>
+                      </View>
+                      {visit.photoCount !== undefined && visit.photoCount > 0 && (
+                        <TouchableOpacity
+                          style={styles.photosBtn}
+                          onPress={() => handlePhotoTap(visit.id, visit.photoCount!)}
+                          disabled={loadingPhotos === visit.id}
+                        >
+                          {loadingPhotos === visit.id ? (
+                            <ActivityIndicator size="small" color="#666" />
+                          ) : (
+                            <Camera size={14} color="#666" />
+                          )}
+                          <Text style={styles.photosBtnText}>
+                            {loadingPhotos === visit.id ? '...' : `${visit.photoCount} Photo`}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
 
-                    {/* Notes */}
+                    {/* Notes - only if present */}
                     {visit.notes && (
-                      <Text style={styles.visitNotes}>{visit.notes}</Text>
-                    )}
-
-                    {/* Photos Button */}
-                    {visit.photoCount !== undefined && visit.photoCount > 0 && (
-                      <TouchableOpacity
-                        style={styles.photosBtn}
-                        onPress={() => handlePhotoTap(visit.id, visit.photoCount!)}
-                        disabled={loadingPhotos === visit.id}
-                      >
-                        {loadingPhotos === visit.id ? (
-                          <ActivityIndicator size="small" color="#666" />
-                        ) : (
-                          <Camera size={16} color="#666" />
-                        )}
-                        <Text style={styles.photosBtnText}>
-                          {loadingPhotos === visit.id
-                            ? 'Loading...'
-                            : `${visit.photoCount} ${visit.photoCount === 1 ? 'Photo' : 'Photos'}`}
-                        </Text>
-                      </TouchableOpacity>
+                      <Text style={styles.visitNotes} numberOfLines={2}>{visit.notes}</Text>
                     )}
                   </View>
                 );
@@ -489,73 +599,107 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerActionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   editBtn: {
-    width: 'auto',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    gap: 6,
     backgroundColor: colors.accent,
   },
-  editBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
 
-  // Account Card
-  accountCard: {
+  // Account Row - Compact header layout
+  accountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
-  accountIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  typeIndicator: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  accountInfo: {
+  typeIndicatorText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  accountDetails: {
     flex: 1,
   },
   accountName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.text.inverse,
-    marginBottom: 8,
+    lineHeight: 22,
   },
-  typeBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+  contactPersonText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
   },
-  typeBadgeText: {
+  inactiveText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.text.inverse,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
   },
 
-  // Contact Row
-  contactRow: {
-    marginTop: 16,
-    gap: 8,
+  // Info Card
+  infoCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    gap: 12,
   },
-  contactItem: {
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  infoValue: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text.primary,
+    lineHeight: 22,
+  },
+  catalogsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  catalogBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  catalogBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  birthdayBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 16,
   },
-  contactText: {
+  birthdayBannerText: {
+    flex: 1,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
+    color: '#E65100',
+    fontWeight: '600',
   },
 
   // Content
@@ -624,36 +768,36 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Visit Card
+  // Visit Card - Compact
   visitCard: {
     backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.border.light,
   },
-  visitHeader: {
+  visitTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  visitUserRow: {
+  visitUserInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   visitUserAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#F0F0F0',
     alignItems: 'center',
     justifyContent: 'center',
   },
   visitUserName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text.primary,
   },
@@ -661,36 +805,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.tertiary,
   },
+  visitBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   purposeBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   purposeText: {
     fontSize: 12,
     fontWeight: '600',
   },
   visitNotes: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.text.secondary,
-    lineHeight: 20,
-    marginTop: 4,
+    lineHeight: 18,
+    marginTop: 8,
   },
   photosBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+    borderRadius: 6,
   },
   photosBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#666',
     fontWeight: '500',
   },

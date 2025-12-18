@@ -93,3 +93,37 @@ export async function getTeamMemberIds(
 export function isManagerRole(role: string): boolean {
   return ["area_manager", "zonal_head", "national_head", "admin"].includes(role);
 }
+
+/**
+ * Get primary distributor IDs for a list of user IDs
+ * Used for visibility rules - managers see distributors assigned to their team
+ *
+ * @param userIds - Array of user IDs to check
+ * @returns Set of distributor IDs assigned to these users
+ */
+export async function getTeamDistributorIds(userIds: string[]): Promise<Set<string>> {
+  const distributorIds = new Set<string>();
+
+  if (userIds.length === 0) return distributorIds;
+
+  // Firestore 'in' supports up to 30 items per query
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 30) {
+    chunks.push(userIds.slice(i, i + 30));
+  }
+
+  for (const chunk of chunks) {
+    const usersSnap = await db.collection("users")
+      .where("__name__", "in", chunk)
+      .get();
+
+    usersSnap.docs.forEach((doc) => {
+      const primaryDistributorId = doc.data().primaryDistributorId;
+      if (primaryDistributorId && primaryDistributorId.trim().length > 0) {
+        distributorIds.add(primaryDistributorId);
+      }
+    });
+  }
+
+  return distributorIds;
+}

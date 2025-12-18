@@ -12,12 +12,11 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useFocusEffect } from '@react-navigation/native';
-import { Search, Plus, Edit2, WifiOff, RefreshCw, CloudOff } from 'lucide-react-native';
+import { Search, Plus, Info, WifiOff, RefreshCw, CloudOff } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { useMyVisits } from '../../hooks/useMyVisits';
 import { colors, spacing, typography } from '../../theme';
-import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
@@ -45,7 +44,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   const filterByUserVisits = route?.params?.filterByUserVisits;
   const { accounts, loading, syncing, error, isOffline, isStale, hasPendingCreations, refreshAccounts } = useAccounts();
   const { visitMap, loading: visitsLoading } = useMyVisits();
-  const { user } = useAuth();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -194,40 +192,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
     }
   };
 
-  // Check if current user can edit this account
-  const canEditAccount = (account: Account): boolean => {
-    if (!user) {
-      return false;
-    }
-
-    // The Firebase user object properties are getters, need to access differently
-    const authInstance = getAuth();
-    const currentUser = authInstance.currentUser;
-    const userId = currentUser?.uid;
-
-    // Admin and National Head can edit any account
-    if (user.role === 'admin' || user.role === 'national_head') {
-      return true;
-    }
-
-    // Reps can only edit dealers/architects/OEMs they created
-    if (user.role === 'rep') {
-      const isCorrectType = account.type === 'dealer' || account.type === 'architect' || account.type === 'OEM';
-      const isCreatedByUser = account.createdByUserId === userId;
-      return isCorrectType && isCreatedByUser;
-    }
-
-    return false;
-  };
-
-  const handleEditAccount = (account: Account, event: any) => {
-    event.stopPropagation(); // Prevent card click
-    navigation.navigate('EditAccount', {
-      account,
-      onAccountUpdated: () => refreshAccounts?.(),
-    });
-  };
-
   const getAccountTypeColor = (type: string): string => {
     switch (type) {
       case 'distributor':
@@ -244,7 +208,6 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   };
 
   const renderAccount = ({ item }: { item: Account }) => {
-    const showEditButton = canEditAccount(item);
     const isPending = item._syncStatus === 'pending';
     const isFailed = item._syncStatus === 'failed';
 
@@ -308,14 +271,17 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             )}
           </View>
 
-          {/* Edit button - compact icon only */}
-          {showEditButton && !isPending && !isFailed && (
+          {/* Info button - view account details */}
+          {!isPending && !isFailed && (
             <TouchableOpacity
-              onPress={(e) => handleEditAccount(item, e)}
-              style={styles.editButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                navigation.navigate('AccountDetail', { accountId: item.id, account: item });
+              }}
+              style={styles.infoButton}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Edit2 size={16} color="#999" />
+              <Info size={18} color={colors.primary} />
             </TouchableOpacity>
           )}
 
@@ -628,10 +594,10 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontWeight: '500',
   },
-  // Edit button
-  editButton: {
-    padding: 6,
-    borderRadius: 6,
+  // Info button
+  infoButton: {
+    padding: 8,
+    borderRadius: 8,
     backgroundColor: '#F5F5F5',
   },
   // Chevron

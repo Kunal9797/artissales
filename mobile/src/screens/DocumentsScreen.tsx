@@ -42,7 +42,12 @@ import {
   Trash2,
   ArrowLeft,
   Image as ImageIcon,
+  MoreVertical,
+  Check,
 } from 'lucide-react-native';
+
+// TEMPORARY: Design preview flag - set to false to hide design options
+const SHOW_DESIGN_PREVIEW = false;
 
 interface DocumentsScreenProps {
   navigation: any;
@@ -389,6 +394,22 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
     return `${(sizeInBytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // Get 1-2 letter initials from document name
+  const getDocInitials = (name: string): string => {
+    // Remove file extension
+    const baseName = name.replace(/\.[^/.]+$/, '');
+    const words = baseName.split(/[\s_-]+/).filter(w => w.length > 0);
+
+    if (words.length >= 2) {
+      // First letter of first two words: "Fine Decor" -> "FD"
+      return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+    } else if (words.length === 1) {
+      // Single word: just first letter - "Woodrica" -> "W", "Artis" -> "A"
+      return words[0].charAt(0).toUpperCase();
+    }
+    return 'D';
+  };
+
   const formatDate = (dateValue: any): string => {
     if (!dateValue) return 'Recently';
 
@@ -496,17 +517,15 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       <TouchableOpacity
         style={[
           styles.documentCard,
-          isLastItem && !loadingOnline && { marginBottom: 0 },
+          isLastItem && styles.documentCardLast,
         ]}
         onPress={() => handleDocumentPress(doc)}
         disabled={isDownloading}
       >
-        <View style={styles.documentIcon}>
-          {isPdf ? (
-            <FileText size={24} color={colors.primary} />
-          ) : (
-            <ImageIcon size={24} color={colors.primary} />
-          )}
+        <View style={styles.documentInitial}>
+          <Text style={styles.documentInitialText}>
+            {getDocInitials(doc.name)}
+          </Text>
         </View>
 
         <View style={styles.documentInfo}>
@@ -526,40 +545,19 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
         <View style={styles.documentActions}>
           {isDownloading ? (
             <ActivityIndicator size="small" color={colors.primary} />
-          ) : filterMode === 'offline' ? (
-            <>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleSharePress(doc)}
-                disabled={isDeleting}
-              >
-                <Share2 size={20} color="#F57C00" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, isDeleting && styles.deletingButton]}
-                onPress={() => handleDeletePress(doc)}
-                disabled={isDeleting}
-              >
-                {isDeleting ? (
-                  <ActivityIndicator size="small" color={colors.error} />
-                ) : (
-                  <Trash2 size={20} color={colors.error} />
-                )}
-              </TouchableOpacity>
-            </>
           ) : isCached ? (
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => handleSharePress(doc)}
             >
-              <Share2 size={20} color="#F57C00" />
+              <Share2 size={22} color="#F57C00" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.actionButton}
               onPress={() => handleDownloadPress(doc)}
             >
-              <Download size={20} color={colors.info} />
+              <Download size={22} color={colors.info} />
             </TouchableOpacity>
           )}
         </View>
@@ -576,93 +574,148 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
     <View style={styles.container}>
       {/* Dark Header */}
       <View style={styles.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {/* Back button for stack screen (managers) */}
-            {isStackScreen && (
-              <TouchableOpacity
-                onPress={() => navigation.goBack()}
-                style={{ marginRight: 4 }}
-              >
-                <ArrowLeft size={20} color="#C9A961" />
-              </TouchableOpacity>
-            )}
-            <Folder size={20} color="#C9A961" />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
-                Documents
-              </Text>
-              <Text style={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
-                {documents.length} documents • {offlineCount} offline
-              </Text>
+        <Text style={styles.headerTitle}>Documents</Text>
+
+        {/* Upload button (managers only) */}
+        {canManageDocuments && (
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={() => navigation.navigate('UploadDocument', { onUploadSuccess: loadDocuments })}
+          >
+            <Plus size={16} color={colors.accent} />
+            <Text style={styles.uploadButtonText}>Upload</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Filter Row - Single toggle chip */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={filterMode === 'offline' ? styles.filterChipActive : styles.filterChipInactive}
+          onPress={() => setFilterMode(filterMode === 'offline' ? 'all' : 'offline')}
+        >
+          {filterMode === 'offline' ? (
+            <Check size={14} color="#FFFFFF" />
+          ) : (
+            <Download size={14} color={colors.text.secondary} />
+          )}
+          <Text style={filterMode === 'offline' ? styles.filterChipTextActive : styles.filterChipTextInactive}>
+            Offline only
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.docCount}>
+          {filterMode === 'offline' ? offlineCount : documents.length} documents
+        </Text>
+      </View>
+
+      {/* TEMPORARY: Design Preview Section */}
+      {SHOW_DESIGN_PREVIEW && (
+        <View style={previewStyles.container}>
+          <Text style={previewStyles.title}>Choose a Design Style</Text>
+          <Text style={previewStyles.subtitle}>Tap to select your preferred document row style</Text>
+
+          {/* Option A: Current Card Style */}
+          <View style={previewStyles.optionContainer}>
+            <Text style={previewStyles.optionLabel}>A. Cards (Current)</Text>
+            <View style={previewStyles.optionPreview}>
+              <View style={[styles.documentCard, { marginBottom: 0 }]}>
+                <View style={styles.documentIcon}>
+                  <FileText size={24} color={colors.primary} />
+                </View>
+                <View style={styles.documentInfo}>
+                  <Text style={styles.documentName} numberOfLines={1}>Product Catalog 2024.pdf</Text>
+                  <Text style={styles.documentMeta}>2.4 MB • Dec 15, 2024</Text>
+                </View>
+                <View style={styles.documentActions}>
+                  <View style={styles.actionButton}>
+                    <Download size={20} color={colors.info} />
+                  </View>
+                </View>
+              </View>
+            </View>
+            <TouchableOpacity style={previewStyles.selectButton} onPress={() => Alert.alert('Option A', 'Keep current card design')}>
+              <Text style={previewStyles.selectButtonText}>Select</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Option B: Clean Rows */}
+          <View style={previewStyles.optionContainer}>
+            <Text style={previewStyles.optionLabel}>B. Clean Rows</Text>
+            <View style={previewStyles.optionPreview}>
+              {/* Example: Not downloaded yet */}
+              <View style={previewStyles.cleanRow}>
+                <FileText size={28} color={colors.primary} />
+                <View style={previewStyles.cleanRowInfo}>
+                  <Text style={previewStyles.cleanRowName} numberOfLines={1}>Product Catalog 2024.pdf</Text>
+                  <Text style={previewStyles.cleanRowMeta}>2.4 MB • Dec 15, 2024</Text>
+                </View>
+                <Download size={22} color={colors.info} />
+              </View>
+              <View style={previewStyles.separator} />
+              {/* Example: Already downloaded */}
+              <View style={previewStyles.cleanRow}>
+                <FileText size={28} color={colors.primary} />
+                <View style={previewStyles.cleanRowInfo}>
+                  <Text style={previewStyles.cleanRowName} numberOfLines={1}>Brochure Design.pdf</Text>
+                  <Text style={previewStyles.cleanRowMeta}>1.1 MB • Dec 12, 2024</Text>
+                </View>
+                <Share2 size={22} color="#F57C00" />
+              </View>
+              <View style={previewStyles.separator} />
+            </View>
+            <TouchableOpacity style={previewStyles.selectButton} onPress={() => Alert.alert('Option B', 'Clean rows - Download or Share icon based on state')}>
+              <Text style={previewStyles.selectButtonText}>Select</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Option C: Compact List */}
+          <View style={previewStyles.optionContainer}>
+            <Text style={previewStyles.optionLabel}>C. Compact</Text>
+            <View style={previewStyles.optionPreview}>
+              <View style={previewStyles.compactRow}>
+                <FileText size={22} color={colors.text.secondary} />
+                <Text style={previewStyles.compactName} numberOfLines={1}>Product Catalog 2024.pdf</Text>
+                <Text style={previewStyles.compactMeta}>2.4 MB</Text>
+                <Download size={18} color={colors.info} />
+              </View>
+              <View style={previewStyles.separator} />
+            </View>
+            <TouchableOpacity style={previewStyles.selectButton} onPress={() => Alert.alert('Option C', 'Compact single-line design')}>
+              <Text style={previewStyles.selectButtonText}>Select</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Filter Chip Options */}
+          <Text style={[previewStyles.title, { marginTop: spacing.lg }]}>Filter Style</Text>
+          <Text style={previewStyles.subtitle}>Single toggle chip instead of two tabs</Text>
+
+          <View style={previewStyles.optionContainer}>
+            <Text style={previewStyles.optionLabel}>Filter Chip (Inactive)</Text>
+            <View style={previewStyles.optionPreview}>
+              <View style={previewStyles.filterChipRow}>
+                <View style={previewStyles.filterChipInactive}>
+                  <Download size={14} color={colors.text.secondary} />
+                  <Text style={previewStyles.filterChipTextInactive}>Offline only</Text>
+                </View>
+                <Text style={previewStyles.docCount}>{documents.length} documents</Text>
+              </View>
             </View>
           </View>
 
-          {/* Upload button (managers only) */}
-          {canManageDocuments && (
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#C9A961',
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: 8,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-              onPress={() => navigation.navigate('UploadDocument', { onUploadSuccess: loadDocuments })}
-            >
-              <Plus size={18} color="#393735" />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Upload</Text>
-            </TouchableOpacity>
-          )}
+          <View style={previewStyles.optionContainer}>
+            <Text style={previewStyles.optionLabel}>Filter Chip (Active)</Text>
+            <View style={previewStyles.optionPreview}>
+              <View style={previewStyles.filterChipRow}>
+                <View style={previewStyles.filterChipActive}>
+                  <Check size={14} color="#FFFFFF" />
+                  <Text style={previewStyles.filterChipTextActive}>Offline only</Text>
+                </View>
+                <Text style={previewStyles.docCount}>{offlineCount} documents</Text>
+              </View>
+            </View>
+          </View>
         </View>
-      </View>
-
-      {/* Filter Pills - Below header */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: '#FFFFFF' }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: filterMode === 'all' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: filterMode === 'all' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setFilterMode('all')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: filterMode === 'all' ? '#FFFFFF' : '#666666',
-            }}>
-              All ({documents.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 16,
-              backgroundColor: filterMode === 'offline' ? '#393735' : '#FFFFFF',
-              borderWidth: 1,
-              borderColor: filterMode === 'offline' ? '#393735' : '#E0E0E0',
-            }}
-            onPress={() => setFilterMode('offline')}
-          >
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: filterMode === 'offline' ? '#FFFFFF' : '#666666',
-            }}>
-              Offline ({offlineCount})
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -700,8 +753,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
           renderItem={renderDocumentItem}
           keyExtractor={keyExtractor}
           contentContainerStyle={{
-            paddingHorizontal: spacing.screenPadding,
-            paddingTop: spacing.screenPadding,
+            paddingTop: spacing.md,
             paddingBottom: isStackScreen ? bottomPadding + 24 : 80 + bottomPadding,
           }}
           refreshControl={
@@ -732,10 +784,76 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#393735',
-    paddingHorizontal: 24,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
     paddingTop: 52,
-    paddingBottom: 16,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.inverse,
+    flex: 1,
+  },
+  uploadButton: {
+    backgroundColor: 'rgba(201, 169, 97, 0.25)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: spacing.borderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  uploadButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.accent,
+  },
+  // Filter row styles
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.screenPadding,
+    paddingVertical: spacing.md,
+    backgroundColor: '#FFFFFF',
+  },
+  filterChipInactive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: '#FFFFFF',
+  },
+  filterChipTextInactive: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  filterChipActive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+  },
+  filterChipTextActive: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: '#FFFFFF',
+  },
+  docCount: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.tertiary,
   },
   content: {
     padding: spacing.screenPadding,
@@ -752,31 +870,33 @@ const styles = StyleSheet.create({
     color: colors.text.tertiary,
   },
   documentCard: {
-    backgroundColor: '#fff',
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.screenPadding,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
   },
   documentCardLast: {
-    marginBottom: spacing.lg,
+    borderBottomWidth: 0,
   },
   documentIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: spacing.borderRadius.md,
-    backgroundColor: colors.surface,
+    marginRight: spacing.md,
+  },
+  documentInitial: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
+  },
+  documentInitialText: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.semiBold,
+    color: '#FFFFFF',
   },
   documentInfo: {
     flex: 1,
@@ -799,17 +919,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
   documentActions: {
-    flexDirection: 'row',
-    gap: spacing.xs,
     marginLeft: spacing.sm,
+    padding: spacing.sm,
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: spacing.borderRadius.lg,
-    backgroundColor: colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // Clean style - no background, just the icon
   },
   deletingButton: {
     opacity: 0.5,
@@ -860,5 +974,141 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: '#F57C00',
     textAlign: 'center',
+  },
+});
+
+// TEMPORARY: Preview styles for design exploration
+const previewStyles = StyleSheet.create({
+  container: {
+    backgroundColor: '#FAFAFA',
+    padding: spacing.screenPadding,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.default,
+  },
+  title: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  subtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+  },
+  optionContainer: {
+    marginBottom: spacing.lg,
+  },
+  optionLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  optionPreview: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: spacing.borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  selectButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: spacing.borderRadius.md,
+    alignSelf: 'flex-start',
+  },
+  selectButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semiBold,
+    color: '#FFFFFF',
+  },
+  // Option B: Clean Row styles
+  cleanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  cleanRowInfo: {
+    flex: 1,
+  },
+  cleanRowName: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.primary,
+    marginBottom: 2,
+  },
+  cleanRowMeta: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+  },
+  menuButton: {
+    padding: spacing.sm,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border.light,
+    marginLeft: 44, // Align with text after icon
+  },
+  // Option C: Compact Row styles
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.sm,
+  },
+  compactName: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.primary,
+  },
+  compactMeta: {
+    fontSize: typography.fontSize.xs,
+    color: colors.text.tertiary,
+    marginRight: spacing.sm,
+  },
+  // Filter chip styles
+  filterChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  filterChipInactive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    backgroundColor: '#FFFFFF',
+  },
+  filterChipTextInactive: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.secondary,
+  },
+  filterChipActive: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+  },
+  filterChipTextActive: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: '#FFFFFF',
+  },
+  docCount: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.tertiary,
   },
 });

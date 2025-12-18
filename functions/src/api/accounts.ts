@@ -12,7 +12,7 @@ import {
 } from "../utils/validation";
 import {requireAuth} from "../utils/auth";
 import {AccountType, ApiError} from "../types";
-import {getDirectReportIds} from "../utils/team";
+import {getDirectReportIds, getTeamDistributorIds} from "../utils/team";
 
 const db = getFirestore();
 
@@ -445,8 +445,8 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
     // 6. Apply visibility rules based on role
     // - Admin: sees all accounts
-    // - National Head / Area Manager: sees accounts created by self + direct reports + admin
-    // - Reps: see all distributors + their own created accounts + manager-created accounts
+    // - National Head / Area Manager: sees distributors assigned to team + accounts created by self/reports/admin
+    // - Reps: see only their assigned distributor + their own accounts + manager/admin accounts
 
     if (callerRole === "admin") {
       // Admin sees all - no filtering needed
@@ -455,12 +455,16 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       // - Themselves (including pre-migration ID)
       // - Their direct reports
       // - Admin (admin-created accounts are shared)
+      // PLUS: Distributors assigned to their team members via primaryDistributorId
       const directReportIds = await getDirectReportIds(userId);
       const migratedFromId = userDoc.data()?.migratedFrom;
 
       // Include both current ID and migratedFrom ID for the manager
       const managerIds = migratedFromId ? [userId, migratedFromId] : [userId];
       const teamMemberIds = new Set([...managerIds, ...directReportIds]);
+
+      // Get distributor IDs assigned to team members (for distributor visibility)
+      const teamDistributorIds = await getTeamDistributorIds([...teamMemberIds]);
 
       // Get unique creator IDs to check which are admins
       const creatorIds = [
@@ -482,6 +486,11 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
       // Filter accounts
       accounts = accounts.filter((account) => {
+        // Distributors: only show if assigned to a team member
+        if (account.type === "distributor") {
+          return teamDistributorIds.has(account.id);
+        }
+
         // Legacy data (no createdByUserId) - show it
         if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
           return true;
@@ -503,12 +512,13 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
     } else {
       // Reps: visibility rules
       // Can see:
-      // - All distributors
+      // - Only their assigned distributor (via primaryDistributorId)
       // - Accounts created by self
       // - Accounts created by their specific manager (reportsToUserId)
       // - Accounts created by admin
 
-      // Get the rep's manager ID and migratedFrom ID (for visibility of pre-migration accounts)
+      // Get the rep's assigned distributor, manager ID, and migratedFrom ID
+      const primaryDistributorId = userDoc.data()?.primaryDistributorId;
       const reportsToUserId = userDoc.data()?.reportsToUserId;
       const migratedFromId = userDoc.data()?.migratedFrom;
 
@@ -533,9 +543,9 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
 
       // Filter accounts based on rep visibility rules
       accounts = accounts.filter((account) => {
-        // All distributors are visible
+        // Distributors: only show if it's their assigned distributor
         if (account.type === "distributor") {
-          return true;
+          return primaryDistributorId && account.id === primaryDistributorId;
         }
 
         // For dealer/architect/OEM:
