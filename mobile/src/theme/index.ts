@@ -3,7 +3,15 @@
  * Export all design tokens from one place
  */
 
-export { colors } from './colors';
+// Colors (static exports for backwards compatibility)
+export { colors, lightColors, darkColors } from './colors';
+export type { Colors, ColorKey } from './colors';
+
+// Theme context for dynamic theming
+export { ThemeProvider, useTheme, useThemeColors, useIsDarkMode } from './ThemeContext';
+export type { ThemeMode } from './ThemeContext';
+
+// Other tokens
 export { typography } from './typography';
 export { spacing, spacingMultiplier } from './spacing';
 export { shadows } from './shadows';
@@ -12,10 +20,9 @@ export { states, applyState } from './states';
 export { featureColors, getFeatureColor } from './featureColors';
 export { themeConfig, runtimeConfig, resetThemeConfig } from './config';
 
-// Re-export types
+// Re-export types (ColorKey already exported from colors.ts)
 export type {
   Theme,
-  ColorKey,
   RoleKey,
   RoleVariant,
   StateKey,

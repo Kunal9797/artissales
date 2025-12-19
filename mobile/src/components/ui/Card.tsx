@@ -2,6 +2,7 @@
  * Card Component
  * Reusable card container for content
  * Enhanced with better press states and modern styling
+ * Supports dark mode via ThemeContext
  */
 
 import React from 'react';
@@ -10,9 +11,8 @@ import {
   StyleSheet,
   Pressable,
   ViewStyle,
-  Animated,
 } from 'react-native';
-import { colors, spacing, shadows } from '../../theme';
+import { spacing, shadows, useTheme } from '../../theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -29,6 +29,8 @@ export const Card: React.FC<CardProps> = ({
   elevation = 'md',
   padding = 'md',
 }) => {
+  const { colors } = useTheme();
+
   const getPadding = () => {
     switch (padding) {
       case 'none':
@@ -47,7 +49,11 @@ export const Card: React.FC<CardProps> = ({
   const baseStyles: ViewStyle[] = [
     styles.base,
     shadows[elevation],
-    { padding: getPadding() },
+    {
+      padding: getPadding(),
+      backgroundColor: colors.surface,
+      borderColor: colors.border.default,
+    },
   ];
 
   if (style) {
@@ -75,10 +81,8 @@ export const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: colors.surface,
     borderRadius: spacing.borderRadius.lg,
     borderWidth: 1,
-    borderColor: colors.border.default,
   },
   pressed: {
     opacity: 0.9,

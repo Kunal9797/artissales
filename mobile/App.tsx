@@ -15,6 +15,7 @@ import { ErrorBoundary } from './src/providers/ErrorBoundary';
 console.log('[App] ErrorBoundary imported');
 
 import { ThemeRuntimeProvider } from './src/theme/runtime';
+import { ThemeProvider } from './src/theme';
 import { ToastProvider } from './src/providers/ToastProvider';
 import { TenantThemeProvider } from './src/providers/TenantThemeProvider';
 import { ProfileSheetProvider } from './src/providers/ProfileSheetProvider';
@@ -83,29 +84,31 @@ export default function App() {
   const AppContent = (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
-        <PersistQueryClientProvider
-          client={queryClient}
-          persistOptions={{ persister: asyncStoragePersister }}
-        >
-          <TenantThemeProvider>
-            <ProfileSheetProvider>
-              <ToastProvider>
-                <AppStatusBar />
-                <RootNavigator />
-                {/* Update Modal - shows when app needs update */}
-                <UpdateModal
-                  visible={needsUpdate && !checkingUpdate}
-                  forceUpdate={forceUpdate}
-                  currentVersion={currentVersion}
-                  latestVersion={latestVersion}
-                  updateMessage={updateMessage}
-                  onUpdate={openPlayStore}
-                  onDismiss={dismissUpdate}
-                />
-              </ToastProvider>
-            </ProfileSheetProvider>
-          </TenantThemeProvider>
-        </PersistQueryClientProvider>
+        <ThemeProvider>
+          <PersistQueryClientProvider
+            client={queryClient}
+            persistOptions={{ persister: asyncStoragePersister }}
+          >
+            <TenantThemeProvider>
+              <ProfileSheetProvider>
+                <ToastProvider>
+                  <AppStatusBar />
+                  <RootNavigator />
+                  {/* Update Modal - shows when app needs update */}
+                  <UpdateModal
+                    visible={needsUpdate && !checkingUpdate}
+                    forceUpdate={forceUpdate}
+                    currentVersion={currentVersion}
+                    latestVersion={latestVersion}
+                    updateMessage={updateMessage}
+                    onUpdate={openPlayStore}
+                    onDismiss={dismissUpdate}
+                  />
+                </ToastProvider>
+              </ProfileSheetProvider>
+            </TenantThemeProvider>
+          </PersistQueryClientProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );

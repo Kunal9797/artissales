@@ -13,14 +13,15 @@ import {
   Linking,
   Modal,
   TextInput,
+  Switch,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot, getDoc } from '@react-native-firebase/firestore';
 import { api } from '../../services/api';
-import { User as UserIcon, Mail, Phone, Camera, MapPin, Briefcase, PhoneCall, Edit, X } from 'lucide-react-native';
+import { User as UserIcon, Mail, Phone, Camera, MapPin, Briefcase, PhoneCall, Edit, X, Moon, Sun } from 'lucide-react-native';
 import { uploadProfilePhoto, deleteProfilePhoto, cacheProfilePhotoLocally, getLocalProfilePhoto } from '../../services/storage';
 import { selectPhoto } from '../../utils/photoUtils';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, useTheme } from '../../theme';
 import { Card } from '../../components/ui';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -32,6 +33,9 @@ interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Theme context for dark mode
+  const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -287,9 +291,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={{
-          backgroundColor: '#393735',
+          backgroundColor: isDark ? themeColors.surface : '#393735',
           paddingHorizontal: 24,
           paddingTop: 52,
           paddingBottom: 20,
@@ -306,10 +310,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : '#393735',
         paddingHorizontal: 24,
         paddingTop: 52,
         paddingBottom: 16,
@@ -322,7 +326,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               style={{ width: 48, height: 48 }}
               resizeMode="contain"
             />
-            <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>
+            <Text style={{ fontSize: 24, fontWeight: '600', color: themeColors.text.inverse }}>
               Profile
             </Text>
           </View>
@@ -333,7 +337,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: signingOut ? '#E0E0E0' : '#C9A961',
+              backgroundColor: signingOut ? themeColors.border.default : themeColors.accent,
               paddingHorizontal: 16,
               paddingVertical: 10,
               borderRadius: 8,
@@ -342,9 +346,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             disabled={signingOut}
           >
             {signingOut ? (
-              <ActivityIndicator size="small" color="#393735" />
+              <ActivityIndicator size="small" color={themeColors.text.inverse} />
             ) : (
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#393735' }}>Logout</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: themeColors.text.inverse }}>Logout</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -357,8 +361,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+            colors={[themeColors.accent]}
+            tintColor={themeColors.accent}
           />
         }
       >
@@ -498,6 +502,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
           )}
         </Card>
         )}
+
+        {/* Appearance Settings */}
+        <Card elevation="sm" style={styles.settingsCard}>
+          <Text style={styles.settingsTitle}>Appearance</Text>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <View style={[styles.settingIcon, { backgroundColor: isDark ? '#4A4235' : '#FFF3E0' }]}>
+                {isDark ? (
+                  <Moon size={18} color="#C9A961" />
+                ) : (
+                  <Sun size={18} color="#EF6C00" />
+                )}
+              </View>
+              <View>
+                <Text style={[styles.settingLabel, { color: themeColors.text.primary }]}>
+                  Dark Mode
+                </Text>
+                <Text style={[styles.settingDescription, { color: themeColors.text.secondary }]}>
+                  {isDark ? 'Dark theme active' : 'Light theme active'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#E0E0E0', true: '#4A4235' }}
+              thumbColor={isDark ? '#C9A961' : '#FFFFFF'}
+              ios_backgroundColor="#E0E0E0"
+            />
+          </View>
+        </Card>
 
         {/* Sign Out button moved to header */}
       </ScrollView>
@@ -769,6 +805,46 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border.light,
     marginVertical: spacing.xs,
+  },
+  // Settings Card (Appearance)
+  settingsCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  settingsTitle: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.xs,
+  },
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  settingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    marginBottom: 2,
+  },
+  settingDescription: {
+    fontSize: 13,
   },
   // Sign Out Button
   signOutButton: {

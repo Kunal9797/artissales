@@ -37,7 +37,7 @@ import { KpiCard } from '../patterns/KpiCard';
 import { ActivityItem, Activity } from '../components/ActivityItem';
 import { PhotoViewer } from '../components/PhotoViewer';
 import { CameraCapture } from '../components/CameraCapture';
-import { colors, spacing, typography, featureColors, shadows } from '../theme';
+import { colors, spacing, typography, featureColors, shadows, useTheme } from '../theme';
 import { api } from '../services/api';
 import { getGreeting } from '../utils/greeting';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
@@ -166,6 +166,9 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
+
+  // Theme context for dark mode
+  const { isDark, colors: themeColors } = useTheme();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -1101,10 +1104,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Minimal Header */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : '#393735',
         paddingHorizontal: 20,
         paddingTop: 48,
         paddingBottom: 12,
@@ -1114,10 +1117,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
       }}>
         {/* Time icon + Welcome, Name */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          {greeting.icon === 'sunrise' && <Sunrise size={20} color="#C9A961" />}
-          {greeting.icon === 'sun' && <Sun size={20} color="#C9A961" />}
-          {greeting.icon === 'moon' && <Moon size={20} color="#C9A961" />}
-          <Text style={{ fontSize: 22, fontWeight: '600', color: '#FFFFFF' }}>
+          {greeting.icon === 'sunrise' && <Sunrise size={20} color={themeColors.accent} />}
+          {greeting.icon === 'sun' && <Sun size={20} color={themeColors.accent} />}
+          {greeting.icon === 'moon' && <Moon size={20} color={themeColors.accent} />}
+          <Text style={{ fontSize: 22, fontWeight: '600', color: themeColors.text.inverse }}>
             Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'User'}
           </Text>
         </View>
@@ -1127,7 +1130,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           onPress={showProfileSheet}
           activeOpacity={0.7}
           style={{
-            shadowColor: '#C9A961',
+            shadowColor: themeColors.accent,
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.6,
             shadowRadius: 8,
@@ -1147,13 +1150,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             width: 18,
             height: 18,
             borderRadius: 9,
-            backgroundColor: colors.accent,
+            backgroundColor: themeColors.accent,
             justifyContent: 'center',
             alignItems: 'center',
             borderWidth: 2,
-            borderColor: colors.primary,
+            borderColor: isDark ? themeColors.surface : colors.primary,
           }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: themeColors.text.inverse }}>
               {userName ? userName.charAt(0).toUpperCase() : 'U'}
             </Text>
           </View>
