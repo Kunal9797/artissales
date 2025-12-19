@@ -22,6 +22,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  Switch,
 } from 'react-native';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { getFirestore, doc, onSnapshot, getDoc } from '@react-native-firebase/firestore';
@@ -35,8 +36,10 @@ import {
   LogOut,
   ChevronRight,
   HelpCircle,
+  Moon,
+  Sun,
 } from 'lucide-react-native';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, useTheme } from '../theme';
 import { getLocalProfilePhoto } from '../services/storage';
 import { logger } from '../utils/logger';
 import { FeedbackForm } from './FeedbackForm';
@@ -57,6 +60,9 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
   const authInstance = getAuth();
   const user = authInstance.currentUser;
   const bottomPadding = BOTTOM_SAFE_AREA_PADDING;
+
+  // Theme context for dark mode
+  const { isDark, toggleTheme, colors: themeColors } = useTheme();
 
   // User data state
   const [name, setName] = useState('');
@@ -206,7 +212,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         {/* Sheet Content */}
-        <View style={[styles.sheet, { paddingBottom: bottomPadding }]}>
+        <View style={[styles.sheet, { paddingBottom: bottomPadding, backgroundColor: themeColors.background }]}>
           {/* Drag Handle */}
           <View style={styles.handleContainer}>
             <View style={styles.handle} />
@@ -321,6 +327,33 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
             </View>
             <ChevronRight size={20} color={colors.text.tertiary} />
           </TouchableOpacity>
+
+          {/* Dark Mode Toggle */}
+          <View style={styles.divider} />
+          <View style={styles.themeRow}>
+            <View style={styles.themeLeft}>
+              <View style={[styles.themeIconContainer, { backgroundColor: isDark ? '#4A4235' : '#FFF3E0' }]}>
+                {isDark ? (
+                  <Moon size={20} color={themeColors.accent} />
+                ) : (
+                  <Sun size={20} color="#EF6C00" />
+                )}
+              </View>
+              <View>
+                <Text style={styles.themeTitle}>Dark Mode</Text>
+                <Text style={styles.themeSubtitle}>
+                  {isDark ? 'Dark theme active' : 'Light theme active'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: '#E0E0E0', true: '#4A4235' }}
+              thumbColor={isDark ? '#C9A961' : '#FFFFFF'}
+              ios_backgroundColor="#E0E0E0"
+            />
+          </View>
 
           {/* Sign Out Button */}
           <View style={styles.signOutSection}>
@@ -538,6 +571,34 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   helpSubtitle: {
+    fontSize: 13,
+    color: colors.text.tertiary,
+  },
+  // Theme toggle styles
+  themeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  themeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  themeIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  themeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  themeSubtitle: {
     fontSize: 13,
     color: colors.text.tertiary,
   },
