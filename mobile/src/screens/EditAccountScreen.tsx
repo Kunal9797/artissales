@@ -56,10 +56,17 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
   const [loading, setLoading] = useState(false);
 
   // Check if user can create distributors
-  const canCreateDistributor = user?.role === 'national_head' || user?.role === 'admin';
+  const canCreateDistributor = user?.role === 'national_head' || user?.role === 'admin' || user?.role === 'area_manager';
 
   // Check if user can delete accounts (only admin and national_head)
   const canDeleteAccount = user?.role === 'national_head' || user?.role === 'admin';
+
+  // Check if user can edit account type
+  // - Admin/NH/AM: can edit type for any account
+  // - Reps: can edit type only for accounts they created (but not to distributor)
+  const isPrivilegedRole = user?.role === 'admin' || user?.role === 'national_head' || user?.role === 'area_manager';
+  const isOwnAccount = account?.createdByUserId === user?.uid;
+  const canEditType = isPrivilegedRole || isOwnAccount;
 
   useEffect(() => {
     // Load distributors for linking
@@ -137,6 +144,7 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
     try {
       const response = await api.updateAccount({
         accountId: account.id,
+        type: accountType,
         name: name.trim(),
         contactPerson: contactPerson.trim() || undefined,
         phone: phone.replace(/\D/g, '') || undefined,
@@ -231,67 +239,85 @@ export const EditAccountScreen: React.FC<EditAccountScreenProps> = ({ navigation
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { paddingBottom: 80 + bottomPadding }]}>
-        {/* Account Type Display (read-only) */}
+        {/* Account Type */}
         <Text style={styles.sectionLabel}>Account Type</Text>
-        <View style={styles.accountTypeDisplayContainer}>
-          <Text style={styles.accountTypeDisplay}>
-            {accountType.charAt(0).toUpperCase() + accountType.slice(1)}
-          </Text>
-        </View>
-
-        {/* Hide the old selector
-        <View style={styles.accountTypeContainer}>
-          {canCreateDistributor && (
+        {canEditType ? (
+          <View style={styles.accountTypeContainer}>
+            {/* Distributor option - only for privileged roles */}
+            {canCreateDistributor && (
+              <TouchableOpacity
+                style={[
+                  styles.accountTypeButton,
+                  accountType === 'distributor' && styles.accountTypeButtonActive,
+                ]}
+                onPress={() => setAccountType('distributor')}
+              >
+                <Text
+                  style={[
+                    styles.accountTypeText,
+                    accountType === 'distributor' && styles.accountTypeTextActive,
+                  ]}
+                >
+                  Distributor
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
                 styles.accountTypeButton,
-                accountType === 'distributor' && styles.accountTypeButtonActive,
+                accountType === 'dealer' && styles.accountTypeButtonActive,
               ]}
-              onPress={() => setAccountType('distributor')}
+              onPress={() => setAccountType('dealer')}
             >
               <Text
                 style={[
                   styles.accountTypeText,
-                  accountType === 'distributor' && styles.accountTypeTextActive,
+                  accountType === 'dealer' && styles.accountTypeTextActive,
                 ]}
               >
-                Distributor
+                Dealer
               </Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.accountTypeButton,
-              accountType === 'dealer' && styles.accountTypeButtonActive,
-            ]}
-            onPress={() => setAccountType('dealer')}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.accountTypeText,
-                accountType === 'dealer' && styles.accountTypeTextActive,
+                styles.accountTypeButton,
+                accountType === 'architect' && styles.accountTypeButtonActive,
               ]}
+              onPress={() => setAccountType('architect')}
             >
-              Dealer
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.accountTypeButton,
-              accountType === 'architect' && styles.accountTypeButtonActive,
-            ]}
-            onPress={() => setAccountType('architect')}
-          >
-            <Text
+              <Text
+                style={[
+                  styles.accountTypeText,
+                  accountType === 'architect' && styles.accountTypeTextActive,
+                ]}
+              >
+                Architect
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                styles.accountTypeText,
-                accountType === 'architect' && styles.accountTypeTextActive,
+                styles.accountTypeButton,
+                accountType === 'OEM' && styles.accountTypeButtonActive,
               ]}
+              onPress={() => setAccountType('OEM')}
             >
-              Architect
+              <Text
+                style={[
+                  styles.accountTypeText,
+                  accountType === 'OEM' && styles.accountTypeTextActive,
+                ]}
+              >
+                OEM
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.accountTypeDisplayContainer}>
+            <Text style={styles.accountTypeDisplay}>
+              {accountType === 'OEM' ? 'OEM' : accountType.charAt(0).toUpperCase() + accountType.slice(1)}
             </Text>
-          </TouchableOpacity>
-        </View> */}
+          </View>
+        )}
 
         {/* Account Name */}
         <View style={styles.inputContainer}>

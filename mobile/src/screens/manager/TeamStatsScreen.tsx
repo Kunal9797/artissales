@@ -49,6 +49,7 @@ import {
   Edit2,
   Target,
   IndianRupee,
+  BarChart3,
 } from 'lucide-react-native';
 
 // Enable LayoutAnimation on Android
@@ -1073,7 +1074,10 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Team Performance</Text>
+        <View style={styles.headerTitleRow}>
+          <BarChart3 size={24} color="#C9A961" />
+          <Text style={styles.headerTitle}>Stats</Text>
+        </View>
         <TouchableOpacity
           style={styles.headerFilterChip}
           onPress={() => setFilterModalVisible(true)}
@@ -2171,7 +2175,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
   headerFilterChip: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -672,6 +672,7 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
     logger.info(`[updateAccount] 📥 Received request body:`, JSON.stringify(request.body));
     const {
       accountId,
+      type,
       name,
       contactPerson,
       phone,
@@ -715,6 +716,7 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
     const canEdit =
       callerRole === "admin" ||
       callerRole === "national_head" ||
+      callerRole === "area_manager" ||
       (["dealer", "architect", "OEM"].includes(existingAccount?.type) &&
        existingAccount?.createdByUserId === userId);
 
@@ -726,6 +728,48 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
       };
       response.status(403).json(error);
       return;
+    }
+
+    // 4.5 Validate type change if provided
+    if (type !== undefined) {
+      // Validate type value
+      if (!["distributor", "dealer", "architect", "OEM"].includes(type)) {
+        const error: ApiError = {
+          ok: false,
+          error: "Invalid account type. Must be: distributor, dealer, architect, or OEM",
+          code: "INVALID_TYPE",
+        };
+        response.status(400).json(error);
+        return;
+      }
+
+      // Check type change permissions
+      const isPrivileged = callerRole === "admin" ||
+                           callerRole === "national_head" ||
+                           callerRole === "area_manager";
+
+      // Reps can only change type for their own accounts, and cannot change TO distributor
+      if (!isPrivileged) {
+        if (existingAccount?.createdByUserId !== userId) {
+          const error: ApiError = {
+            ok: false,
+            error: "You can only change type for accounts you created",
+            code: "INSUFFICIENT_PERMISSIONS",
+          };
+          response.status(403).json(error);
+          return;
+        }
+
+        if (type === "distributor") {
+          const error: ApiError = {
+            ok: false,
+            error: "Only managers can change account type to distributor",
+            code: "INSUFFICIENT_PERMISSIONS",
+          };
+          response.status(403).json(error);
+          return;
+        }
+      }
     }
 
     // 5. Validate phone if provided
@@ -800,6 +844,7 @@ export const updateAccount = onRequest({invoker: "public"}, async (request, resp
       updatedAt: Timestamp.now(),
     };
 
+    if (type !== undefined) updates.type = type;
     if (name !== undefined) updates.name = name.trim();
     if (contactPerson !== undefined) {
       if (contactPerson.trim()) {

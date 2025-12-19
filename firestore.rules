@@ -88,22 +88,27 @@ service cloud.firestore {
 
       // Update rules:
       // - Admin can edit any account
-      // - National Head can edit any account
+      // - National Head / Area Manager can edit any account
       // - Reps can only edit dealers/architects/OEMs they created
+      //   AND cannot change type TO distributor
       allow update: if isAuthenticated() && (
         isAdmin() ||
         isNationalHeadOrAdmin() ||
+        isManager() ||
         (resource.data.type in ['dealer', 'architect', 'OEM'] &&
-         resource.data.createdByUserId == request.auth.uid)
+         resource.data.createdByUserId == request.auth.uid &&
+         // Prevent reps from changing type to distributor
+         (!('type' in request.resource.data) || request.resource.data.type != 'distributor'))
       );
 
       // Delete rules:
       // - Admin can delete any account
-      // - National Head can delete any account
+      // - National Head / Area Manager can delete any account
       // - Reps can only delete dealers/architects/OEMs they created
       allow delete: if isAuthenticated() && (
         isAdmin() ||
         isNationalHeadOrAdmin() ||
+        isManager() ||
         (resource.data.type in ['dealer', 'architect', 'OEM'] &&
          resource.data.createdByUserId == request.auth.uid)
       );

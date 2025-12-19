@@ -574,7 +574,10 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
     <View style={styles.container}>
       {/* Dark Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Documents</Text>
+        <View style={styles.headerTitleRow}>
+          <Folder size={24} color={colors.accent} />
+          <Text style={styles.headerTitle}>Documents</Text>
+        </View>
 
         {/* Upload button (managers only) */}
         {canManageDocuments && (
@@ -792,11 +795,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   headerTitle: {
     fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.inverse,
-    flex: 1,
   },
   uploadButton: {
     backgroundColor: 'rgba(201, 169, 97, 0.25)',

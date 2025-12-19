@@ -721,7 +721,7 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
         <View style={styles.headerTop}>
           <View style={styles.headerTitleRow}>
             <BarChart2 size={20} color="#C9A961" />
-            <Text style={styles.headerTitle}>Performance</Text>
+            <Text style={styles.headerTitle}>Stats</Text>
           </View>
         </View>
       </View>

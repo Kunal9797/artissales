@@ -587,9 +587,12 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
-          Review
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+          <CheckCircle size={24} color="#C9A961" />
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+            Review
+          </Text>
+        </View>
         <TouchableOpacity
           style={{
             flexDirection: 'row',

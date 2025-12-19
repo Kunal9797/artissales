@@ -136,6 +136,7 @@ export interface GetAccountsListResponse {
 
 export interface UpdateAccountRequest {
   accountId: string;
+  type?: AccountType;
   name?: string;
   contactPerson?: string;
   phone?: string;

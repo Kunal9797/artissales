@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useFocusEffect } from '@react-navigation/native';
-import { Search, Plus, Info, WifiOff, RefreshCw, CloudOff } from 'lucide-react-native';
+import { Search, Plus, Info, WifiOff, RefreshCw, CloudOff, Building2 } from 'lucide-react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { useMyVisits } from '../../hooks/useMyVisits';
@@ -304,11 +304,14 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           paddingBottom: 14,
           paddingHorizontal: 16,
         }}>
-          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
-            {filterByUserVisits
-              ? `${filterByUserVisits.userName}'s Accounts`
-              : (mode === 'manage' ? 'Accounts' : 'Select Account')}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Building2 size={24} color="#C9A961" />
+            <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+              {filterByUserVisits
+                ? `${filterByUserVisits.userName}'s Accounts`
+                : (mode === 'manage' ? 'Accounts' : 'Select Account')}
+            </Text>
+          </View>
         </View>
         {/* Skeleton for content */}
         <View style={{ padding: spacing.lg }}>
@@ -356,11 +359,14 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF', flex: 1 }}>
-          {filterByUserVisits
-            ? `${filterByUserVisits.userName}'s Accounts`
-            : (mode === 'manage' ? 'Accounts' : 'Select Account')}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+          <Building2 size={24} color="#C9A961" />
+          <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
+            {filterByUserVisits
+              ? `${filterByUserVisits.userName}'s Accounts`
+              : (mode === 'manage' ? 'Accounts' : 'Select Account')}
+          </Text>
+        </View>
         <TouchableOpacity
           style={{
             flexDirection: 'row',
