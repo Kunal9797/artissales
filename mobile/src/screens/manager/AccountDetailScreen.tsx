@@ -17,7 +17,9 @@ import {
   StyleSheet,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   ArrowLeft,
@@ -34,7 +36,7 @@ import { WhatsAppIcon } from '../../components/icons/WhatsAppIcon';
 import { api } from '../../services/api';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { Skeleton } from '../../patterns';
-import { colors, spacing, featureColors } from '../../theme';
+import { colors, spacing, featureColors, useTheme } from '../../theme';
 import { PhotoViewer } from '../../components/PhotoViewer';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { formatPhoneForDisplay } from '../../utils/formatTime';
@@ -162,6 +164,7 @@ const getDaysUntilBirthday = (birthdate: string | undefined): number | null => {
 };
 
 export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
+  const { isDark, colors: themeColors } = useTheme();
   const bottomPadding = useBottomSafeArea(12);
   const { accountId, account: passedAccount } = route.params as { accountId: string; account?: AccountData };
 
@@ -204,6 +207,41 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     const url = `whatsapp://send?phone=${cleaned}`;
     Linking.openURL(url).catch(err => logger.error('Failed to open WhatsApp:', err));
   }, [account?.phone]);
+
+  // Handle long-press on phone number - show copy/call options
+  const handlePhoneLongPress = useCallback(() => {
+    const phone = account?.phone?.trim();
+    if (!phone) return;
+
+    const displayPhone = formatPhoneForDisplay(phone);
+
+    Alert.alert(
+      displayPhone,
+      'What would you like to do?',
+      [
+        {
+          text: 'Copy Number',
+          onPress: async () => {
+            await Clipboard.setStringAsync(phone.replace(/[^\d+]/g, ''));
+            // Could show a toast here if desired
+          },
+        },
+        {
+          text: 'Call',
+          onPress: handleCall,
+        },
+        {
+          text: 'WhatsApp',
+          onPress: handleWhatsApp,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  }, [account?.phone, handleCall, handleWhatsApp]);
 
   // Lazy load photos when user taps
   const handlePhotoTap = useCallback(async (visitId: string, photoCount: number) => {
@@ -293,10 +331,10 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   // Loading state for account (only if not passed)
   if (accountLoading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
+      <View style={[styles.container, { backgroundColor: themeColors.surface }]}>
+        <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={24} color={colors.text.inverse} />
+            <ArrowLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Skeleton rows={1} />
         </View>
@@ -311,9 +349,9 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   // Account not found
   if (!account) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>Account not found</Text>
-        <TouchableOpacity style={styles.goBackBtn} onPress={() => navigation.goBack()}>
+      <View style={[styles.container, styles.centerContent, { backgroundColor: themeColors.surface }]}>
+        <Text style={[styles.errorText, { color: themeColors.error }]}>Account not found</Text>
+        <TouchableOpacity style={[styles.goBackBtn, { backgroundColor: themeColors.primary }]} onPress={() => navigation.goBack()}>
           <Text style={styles.goBackBtnText}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -327,22 +365,22 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const showBirthday = daysUntilBirthday !== null && daysUntilBirthday <= 30;
 
   return (
-    <View style={styles.container}>
-      {/* Header - Compact design */}
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
+    <View style={[styles.container, { backgroundColor: themeColors.surface }]}>
+      {/* Header - Compact: just back button and actions */}
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary, paddingTop: 48, paddingBottom: 8 }]}>
+        <View style={[styles.headerTop, { marginBottom: 0 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={24} color={colors.text.inverse} />
+            <ArrowLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
 
           {/* Quick Actions */}
           <View style={styles.headerActions}>
             {account.phone?.trim() && (
               <>
-                <TouchableOpacity style={styles.headerActionBtn} onPress={handleCall}>
-                  <Phone size={20} color={colors.accent} />
+                <TouchableOpacity style={[styles.headerActionBtn, { backgroundColor: isDark ? 'rgba(201, 169, 97, 0.2)' : 'rgba(255,255,255,0.15)' }]} onPress={handleCall}>
+                  <Phone size={20} color={themeColors.accent} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.headerActionBtn} onPress={handleWhatsApp}>
+                <TouchableOpacity style={[styles.headerActionBtn, { backgroundColor: isDark ? 'rgba(37, 211, 102, 0.2)' : 'rgba(255,255,255,0.15)' }]} onPress={handleWhatsApp}>
                   <WhatsAppIcon size={20} />
                 </TouchableOpacity>
               </>
@@ -356,24 +394,8 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 });
               }}
             >
-              <Edit2 size={18} color={colors.primary} />
+              <Edit2 size={18} color={isDark ? themeColors.text.inverse : colors.primary} />
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Account Identity - Compact with type badge */}
-        <View style={styles.accountRow}>
-          <View style={[styles.typeIndicator, { backgroundColor: typeColor.primary }]}>
-            <Text style={styles.typeIndicatorText}>{getTypeAbbr(account.type)}</Text>
-          </View>
-          <View style={styles.accountDetails}>
-            <Text style={styles.accountName} numberOfLines={2}>{account.name}</Text>
-            {account.contactPerson?.trim() && (
-              <Text style={styles.contactPersonText}>{account.contactPerson}</Text>
-            )}
-            {account.status && account.status !== 'active' && (
-              <Text style={styles.inactiveText}>Inactive</Text>
-            )}
           </View>
         </View>
       </View>
@@ -381,20 +403,41 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Content */}
       <ScrollView
         style={styles.content}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + bottomPadding }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 80 + bottomPadding, paddingTop: 8 }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Quick Info */}
-        <View style={styles.infoCard}>
-          {/* Phone */}
-          <View style={styles.infoRow}>
-            <Phone size={18} color={colors.primary} />
-            <Text style={styles.infoValue}>{formatPhoneForDisplay(account.phone)}</Text>
+        {/* Account Identity - Now at top of scroll, right above info card */}
+        <View style={[styles.accountRow, { marginBottom: 10 }]}>
+          <View style={[styles.typeIndicator, { backgroundColor: typeColor.primary }]}>
+            <Text style={styles.typeIndicatorText}>{getTypeAbbr(account.type)}</Text>
           </View>
+          <View style={styles.accountDetails}>
+            <Text style={[styles.accountName, { color: themeColors.text.primary }]} numberOfLines={2}>{account.name}</Text>
+            {account.contactPerson?.trim() && (
+              <Text style={[styles.contactPersonText, { color: themeColors.text.secondary }]}>{account.contactPerson}</Text>
+            )}
+            {account.status && account.status !== 'active' && (
+              <Text style={[styles.inactiveText, { color: themeColors.text.tertiary }]}>Inactive</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Quick Info */}
+        <View style={[styles.infoCard, { backgroundColor: themeColors.background, borderColor: themeColors.border.light }]}>
+          {/* Phone - tap to call, long-press for options */}
+          <TouchableOpacity
+            style={styles.infoRow}
+            onPress={handleCall}
+            onLongPress={handlePhoneLongPress}
+            activeOpacity={0.7}
+          >
+            <Phone size={18} color={themeColors.accent} />
+            <Text style={[styles.infoValue, { color: themeColors.text.primary }]}>{formatPhoneForDisplay(account.phone)}</Text>
+          </TouchableOpacity>
           {/* Location */}
           <View style={styles.infoRow}>
-            <MapPin size={18} color={colors.primary} />
-            <Text style={styles.infoValue}>
+            <MapPin size={18} color={themeColors.accent} />
+            <Text style={[styles.infoValue, { color: themeColors.text.primary }]}>
               {[
                 account.address?.trim(),
                 account.city,
@@ -413,9 +456,9 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 return (
                   <View
                     key={catalog}
-                    style={[styles.catalogBadge, { backgroundColor: catalogColor.bg }]}
+                    style={[styles.catalogBadge, { backgroundColor: isDark ? catalogColor.text + '20' : catalogColor.bg }]}
                   >
-                    <Text style={[styles.catalogBadgeText, { color: catalogColor.text }]}>
+                    <Text style={[styles.catalogBadgeText, { color: isDark ? catalogColor.text : catalogColor.text }]}>
                       {displayName}
                     </Text>
                   </View>
@@ -427,9 +470,9 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* Birthday Alert - only when relevant */}
         {showBirthday && (
-          <View style={styles.birthdayBanner}>
-            <Gift size={18} color="#E65100" />
-            <Text style={styles.birthdayBannerText}>
+          <View style={[styles.birthdayBanner, { backgroundColor: isDark ? 'rgba(230, 81, 0, 0.15)' : '#FFF3E0' }]}>
+            <Gift size={18} color={isDark ? '#FFB74D' : '#E65100'} />
+            <Text style={[styles.birthdayBannerText, { color: isDark ? '#FFB74D' : '#E65100' }]}>
               {daysUntilBirthday === 0 ? 'Birthday Today!' : `Birthday in ${daysUntilBirthday} days`}
             </Text>
           </View>
@@ -439,27 +482,27 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionTitleRow}>
-              <View style={[styles.sectionIcon, { backgroundColor: featureColors.visits.light }]}>
+              <View style={[styles.sectionIcon, { backgroundColor: isDark ? featureColors.visits.primary + '30' : featureColors.visits.light }]}>
                 <Calendar size={16} color={featureColors.visits.primary} />
               </View>
-              <Text style={styles.sectionTitle}>VISIT HISTORY</Text>
+              <Text style={[styles.sectionTitle, { color: themeColors.text.tertiary }]}>VISIT HISTORY</Text>
             </View>
             {visits.length > 0 && (
-              <Text style={styles.sectionCount}>{visits.length}{hasMore ? '+' : ''}</Text>
+              <Text style={[styles.sectionCount, { color: themeColors.text.secondary }]}>{visits.length}{hasMore ? '+' : ''}</Text>
             )}
           </View>
 
           {/* Loading State */}
           {visitsLoading ? (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: themeColors.background }]}>
               <Skeleton rows={3} />
             </View>
           ) : visits.length === 0 ? (
             /* Empty State */
-            <View style={styles.emptyCard}>
-              <Calendar size={48} color="#E0E0E0" />
-              <Text style={styles.emptyText}>No visits recorded yet</Text>
-              <Text style={styles.emptySubtext}>Visits to this account will appear here</Text>
+            <View style={[styles.emptyCard, { backgroundColor: themeColors.background }]}>
+              <Calendar size={48} color={themeColors.text.tertiary} />
+              <Text style={[styles.emptyText, { color: themeColors.text.secondary }]}>No visits recorded yet</Text>
+              <Text style={[styles.emptySubtext, { color: themeColors.text.tertiary }]}>Visits to this account will appear here</Text>
             </View>
           ) : (
             /* Visit Cards - Compact */
@@ -467,16 +510,16 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {visits.map((visit) => {
                 const purposeColor = getPurposeColor(visit.purpose);
                 return (
-                  <View key={visit.id} style={styles.visitCard}>
+                  <View key={visit.id} style={[styles.visitCard, { backgroundColor: themeColors.background, borderColor: themeColors.border.light }]}>
                     {/* Top Row: User + Date + Purpose */}
                     <View style={styles.visitTopRow}>
                       <View style={styles.visitUserInfo}>
-                        <View style={styles.visitUserAvatar}>
-                          <User size={12} color="#888" />
+                        <View style={[styles.visitUserAvatar, { backgroundColor: isDark ? themeColors.surfaceAlt : '#F0F0F0' }]}>
+                          <User size={12} color={themeColors.text.tertiary} />
                         </View>
-                        <Text style={styles.visitUserName}>{visit.userName || 'Unknown'}</Text>
+                        <Text style={[styles.visitUserName, { color: themeColors.text.primary }]}>{visit.userName || 'Unknown'}</Text>
                       </View>
-                      <Text style={styles.visitDate}>
+                      <Text style={[styles.visitDate, { color: themeColors.text.tertiary }]}>
                         {new Date(visit.timestamp).toLocaleDateString('en-IN', {
                           day: 'numeric',
                           month: 'short',
@@ -487,23 +530,23 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
                     {/* Bottom Row: Purpose + Photos */}
                     <View style={styles.visitBottomRow}>
-                      <View style={[styles.purposeBadge, { backgroundColor: purposeColor.bg }]}>
+                      <View style={[styles.purposeBadge, { backgroundColor: isDark ? purposeColor.text + '20' : purposeColor.bg }]}>
                         <Text style={[styles.purposeText, { color: purposeColor.text }]}>
                           {formatPurpose(visit.purpose)}
                         </Text>
                       </View>
                       {visit.photoCount !== undefined && visit.photoCount > 0 && (
                         <TouchableOpacity
-                          style={styles.photosBtn}
+                          style={[styles.photosBtn, { backgroundColor: isDark ? themeColors.surfaceAlt : '#F5F5F5' }]}
                           onPress={() => handlePhotoTap(visit.id, visit.photoCount!)}
                           disabled={loadingPhotos === visit.id}
                         >
                           {loadingPhotos === visit.id ? (
-                            <ActivityIndicator size="small" color="#666" />
+                            <ActivityIndicator size="small" color={themeColors.text.secondary} />
                           ) : (
-                            <Camera size={14} color="#666" />
+                            <Camera size={14} color={themeColors.text.secondary} />
                           )}
-                          <Text style={styles.photosBtnText}>
+                          <Text style={[styles.photosBtnText, { color: themeColors.text.secondary }]}>
                             {loadingPhotos === visit.id ? '...' : `${visit.photoCount} Photo`}
                           </Text>
                         </TouchableOpacity>
@@ -512,7 +555,7 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
                     {/* Notes - only if present */}
                     {visit.notes && (
-                      <Text style={styles.visitNotes} numberOfLines={2}>{visit.notes}</Text>
+                      <Text style={[styles.visitNotes, { color: themeColors.text.secondary }]} numberOfLines={2}>{visit.notes}</Text>
                     )}
                   </View>
                 );
@@ -521,16 +564,16 @@ export const AccountDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {/* Load More Button */}
               {hasMore && (
                 <TouchableOpacity
-                  style={styles.loadMoreBtn}
+                  style={[styles.loadMoreBtn, { backgroundColor: themeColors.background }]}
                   onPress={loadMoreVisits}
                   disabled={loadingMore}
                 >
                   {loadingMore ? (
-                    <ActivityIndicator size="small" color="#666" />
+                    <ActivityIndicator size="small" color={themeColors.text.secondary} />
                   ) : (
                     <>
-                      <ChevronDown size={18} color="#666" />
-                      <Text style={styles.loadMoreText}>Load More Visits</Text>
+                      <ChevronDown size={18} color={themeColors.text.secondary} />
+                      <Text style={[styles.loadMoreText, { color: themeColors.text.secondary }]}>Load More Visits</Text>
                     </>
                   )}
                 </TouchableOpacity>

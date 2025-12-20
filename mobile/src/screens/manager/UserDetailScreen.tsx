@@ -39,7 +39,7 @@ import {
   Activity,
 } from 'lucide-react-native';
 import { Calendar, DateData } from 'react-native-calendars';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, useTheme } from '../../theme';
 import { RootStackParamList } from '../../navigation/RootNavigator';
 import { api } from '../../services/api';
 import { DetailedStatsView } from '../../components/DetailedStatsView';
@@ -396,6 +396,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
   navigation,
   route,
 }) => {
+  const { isDark, colors: themeColors } = useTheme();
   const bottomPadding = useBottomSafeArea(12);
   const { userId } = route.params;
   const { user: currentUser } = useAuth(); // Get logged-in user
@@ -1210,25 +1211,26 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         onRequestClose={() => setShowEditModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.editModalContent}>
+          <View style={[styles.editModalContent, { backgroundColor: themeColors.surface }]}>
             <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Edit User Details</Text>
+              <Text style={[styles.editModalTitle, { color: themeColors.text.primary }]}>Edit User Details</Text>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <X size={24} color={colors.text.primary} />
+                <X size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.editModalScroll} showsVerticalScrollIndicator={false}>
               {/* Name Input */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Name</Text>
-                <View style={styles.inputWithIcon}>
-                  <User size={18} color={colors.text.tertiary} />
+                <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Name</Text>
+                <View style={[styles.inputWithIcon, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+                  <User size={18} color={themeColors.text.tertiary} />
                   <TextInput
-                    style={styles.inputField}
+                    style={[styles.inputField, { color: themeColors.text.primary }]}
                     value={editName}
                     onChangeText={setEditName}
                     placeholder="Enter name"
+                    placeholderTextColor={themeColors.text.tertiary}
                     editable={!saving}
                   />
                 </View>
@@ -1236,14 +1238,15 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
               {/* Phone Input */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Phone Number</Text>
-                <View style={styles.inputWithIcon}>
-                  <Phone size={18} color={colors.text.tertiary} />
+                <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Phone Number</Text>
+                <View style={[styles.inputWithIcon, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+                  <Phone size={18} color={themeColors.text.tertiary} />
                   <TextInput
-                    style={styles.inputField}
+                    style={[styles.inputField, { color: themeColors.text.primary }]}
                     value={editPhone}
                     onChangeText={setEditPhone}
                     placeholder="Enter phone number"
+                    placeholderTextColor={themeColors.text.tertiary}
                     keyboardType="phone-pad"
                     editable={!saving}
                   />
@@ -1252,14 +1255,15 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
               {/* Territory Input */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Territory</Text>
-                <View style={styles.inputWithIcon}>
-                  <MapPin size={18} color={colors.text.tertiary} />
+                <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Territory</Text>
+                <View style={[styles.inputWithIcon, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+                  <MapPin size={18} color={themeColors.text.tertiary} />
                   <TextInput
-                    style={styles.inputField}
+                    style={[styles.inputField, { color: themeColors.text.primary }]}
                     value={editTerritory}
                     onChangeText={setEditTerritory}
                     placeholder="Enter territory"
+                    placeholderTextColor={themeColors.text.tertiary}
                     editable={!saving}
                   />
                 </View>
@@ -1267,17 +1271,17 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
               {/* Distributor Picker */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Assigned Distributor</Text>
+                <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Assigned Distributor</Text>
                 <TouchableOpacity
-                  style={styles.dropdownButton}
+                  style={[styles.dropdownButton, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                   onPress={() => setShowDistributorModal(true)}
                   disabled={saving}
                 >
-                  <Building2 size={18} color={colors.text.tertiary} />
-                  <Text style={editDistributorName ? styles.dropdownText : styles.dropdownPlaceholder}>
+                  <Building2 size={18} color={themeColors.text.tertiary} />
+                  <Text style={editDistributorName ? [styles.dropdownText, { color: themeColors.text.primary }] : [styles.dropdownPlaceholder, { color: themeColors.text.tertiary }]}>
                     {editDistributorName || 'Select distributor...'}
                   </Text>
-                  <ChevronDown size={18} color={colors.text.tertiary} />
+                  <ChevronDown size={18} color={themeColors.text.tertiary} />
                 </TouchableOpacity>
                 {editDistributorId && (
                   <TouchableOpacity
@@ -1287,7 +1291,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                     }}
                     style={styles.clearButton}
                   >
-                    <Text style={styles.clearButtonText}>Clear selection</Text>
+                    <Text style={[styles.clearButtonText, { color: themeColors.accent }]}>Clear selection</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1295,17 +1299,17 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
               {/* Reports To (Manager) - Admin only */}
               {currentUser?.role === 'admin' && userData?.role === 'rep' && (
                 <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Reports To</Text>
+                  <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Reports To</Text>
                   <TouchableOpacity
-                    style={styles.dropdownButton}
+                    style={[styles.dropdownButton, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                     onPress={() => setShowManagerModal(true)}
                     disabled={saving}
                   >
-                    <Users size={18} color={colors.text.tertiary} />
-                    <Text style={editManagerName ? styles.dropdownText : styles.dropdownPlaceholder}>
+                    <Users size={18} color={themeColors.text.tertiary} />
+                    <Text style={editManagerName ? [styles.dropdownText, { color: themeColors.text.primary }] : [styles.dropdownPlaceholder, { color: themeColors.text.tertiary }]}>
                       {editManagerName || 'Select manager...'}
                     </Text>
-                    <ChevronDown size={18} color={colors.text.tertiary} />
+                    <ChevronDown size={18} color={themeColors.text.tertiary} />
                   </TouchableOpacity>
                   {editManagerId && (
                     <TouchableOpacity
@@ -1315,7 +1319,7 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                       }}
                       style={styles.clearButton}
                     >
-                      <Text style={styles.clearButtonText}>Clear selection</Text>
+                      <Text style={[styles.clearButtonText, { color: themeColors.accent }]}>Clear selection</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -1323,21 +1327,21 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
               {/* Active Status Toggle */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Account Status</Text>
-                <View style={styles.switchRow}>
+                <Text style={[styles.inputLabel, { color: themeColors.text.secondary }]}>Account Status</Text>
+                <View style={[styles.switchRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
                   <View style={styles.switchLabelContainer}>
-                    <Text style={[styles.switchLabel, { color: editIsActive ? colors.success : colors.error }]}>
+                    <Text style={[styles.switchLabel, { color: editIsActive ? themeColors.success : themeColors.error }]}>
                       {editIsActive ? 'Active' : 'Inactive'}
                     </Text>
-                    <Text style={styles.switchSubLabel}>
+                    <Text style={[styles.switchSubLabel, { color: themeColors.text.tertiary }]}>
                       {editIsActive ? 'User can access the app' : 'User is blocked from the app'}
                     </Text>
                   </View>
                   <Switch
                     value={editIsActive}
                     onValueChange={setEditIsActive}
-                    trackColor={{ false: colors.error + '40', true: colors.success + '40' }}
-                    thumbColor={editIsActive ? colors.success : colors.error}
+                    trackColor={{ false: themeColors.error + '40', true: themeColors.success + '40' }}
+                    thumbColor={editIsActive ? themeColors.success : themeColors.error}
                     disabled={saving}
                   />
                 </View>
@@ -1346,21 +1350,21 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
 
             <View style={styles.editModalButtons}>
               <TouchableOpacity
-                style={[styles.editModalButton, styles.cancelButton]}
+                style={[styles.editModalButton, styles.cancelButton, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                 onPress={() => setShowEditModal(false)}
                 disabled={saving}
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
+                <Text style={[styles.cancelButtonText, { color: themeColors.text.secondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.editModalButton, styles.saveButton]}
+                style={[styles.editModalButton, styles.saveButton, { backgroundColor: themeColors.accent }]}
                 onPress={handleSaveEdit}
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                  <Text style={[styles.saveButtonText, { color: colors.primary }]}>Save Changes</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1376,18 +1380,18 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         onRequestClose={() => setShowDistributorModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.distributorModalContent}>
+          <View style={[styles.distributorModalContent, { backgroundColor: themeColors.surface }]}>
             <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Select Distributor</Text>
+              <Text style={[styles.editModalTitle, { color: themeColors.text.primary }]}>Select Distributor</Text>
               <TouchableOpacity onPress={() => setShowDistributorModal(false)}>
-                <X size={24} color={colors.text.primary} />
+                <X size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
 
             {loadingDistributors ? (
               <View style={styles.distributorLoading}>
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={styles.distributorLoadingText}>Loading distributors...</Text>
+                <ActivityIndicator size="small" color={themeColors.accent} />
+                <Text style={[styles.distributorLoadingText, { color: themeColors.text.secondary }]}>Loading distributors...</Text>
               </View>
             ) : (
               <FlatList
@@ -1396,22 +1400,22 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                 style={styles.distributorList}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={styles.distributorItem}
+                    style={[styles.distributorItem, { borderBottomColor: themeColors.border.default }]}
                     onPress={() => {
                       setEditDistributorId(item.id);
                       setEditDistributorName(item.name);
                       setShowDistributorModal(false);
                     }}
                   >
-                    <Text style={styles.distributorName}>{item.name}</Text>
-                    <Text style={styles.distributorMeta}>
+                    <Text style={[styles.distributorName, { color: themeColors.text.primary }]}>{item.name}</Text>
+                    <Text style={[styles.distributorMeta, { color: themeColors.text.secondary }]}>
                       {item.city}, {item.state}
                     </Text>
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   <View style={styles.distributorEmpty}>
-                    <Text style={styles.distributorEmptyText}>No distributors found</Text>
+                    <Text style={[styles.distributorEmptyText, { color: themeColors.text.secondary }]}>No distributors found</Text>
                   </View>
                 }
               />
@@ -1428,18 +1432,18 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
         onRequestClose={() => setShowManagerModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.distributorModalContent}>
+          <View style={[styles.distributorModalContent, { backgroundColor: themeColors.surface }]}>
             <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Select Manager</Text>
+              <Text style={[styles.editModalTitle, { color: themeColors.text.primary }]}>Select Manager</Text>
               <TouchableOpacity onPress={() => setShowManagerModal(false)}>
-                <X size={24} color={colors.text.primary} />
+                <X size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
 
             {loadingManagers ? (
               <View style={styles.distributorLoading}>
-                <ActivityIndicator size="small" color={colors.accent} />
-                <Text style={styles.distributorLoadingText}>Loading managers...</Text>
+                <ActivityIndicator size="small" color={themeColors.accent} />
+                <Text style={[styles.distributorLoadingText, { color: themeColors.text.secondary }]}>Loading managers...</Text>
               </View>
             ) : (
               <FlatList
@@ -1448,22 +1452,22 @@ export const UserDetailScreen: React.FC<UserDetailScreenProps> = ({
                 style={styles.distributorList}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={styles.distributorItem}
+                    style={[styles.distributorItem, { borderBottomColor: themeColors.border.default }]}
                     onPress={() => {
                       setEditManagerId(item.id);
                       setEditManagerName(item.name);
                       setShowManagerModal(false);
                     }}
                   >
-                    <Text style={styles.distributorName}>{item.name}</Text>
-                    <Text style={styles.distributorMeta}>
+                    <Text style={[styles.distributorName, { color: themeColors.text.primary }]}>{item.name}</Text>
+                    <Text style={[styles.distributorMeta, { color: themeColors.text.secondary }]}>
                       {item.role.replace('_', ' ')} • {item.territory}
                     </Text>
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
                   <View style={styles.distributorEmpty}>
-                    <Text style={styles.distributorEmptyText}>No managers found</Text>
+                    <Text style={[styles.distributorEmptyText, { color: themeColors.text.secondary }]}>No managers found</Text>
                   </View>
                 }
               />

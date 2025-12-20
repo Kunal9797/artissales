@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ArrowLeft, Save } from 'lucide-react-native';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, useTheme } from '../../theme';
 import { api } from '../../services/api';
 import { TargetsByCatalog, TargetsByAccountType } from '../../types';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -22,6 +22,7 @@ type SetTargetParams = {
   userId: string;
   userName: string;
   currentMonth?: string;
+  existingTarget?: any; // Pre-fetched target data from TeamStatsScreen
 };
 
 type SetTargetScreenProps = NativeStackScreenProps<{ SetTarget: SetTargetParams }, 'SetTarget'>;
@@ -30,20 +31,31 @@ const CATALOGS: Array<keyof TargetsByCatalog> = ['Fine Decor', 'Artvio', 'Woodri
 const ACCOUNT_TYPES: Array<keyof TargetsByAccountType> = ['dealer', 'architect', 'OEM'];
 
 export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, route }) => {
-  const { userId, userName, currentMonth } = route.params;
+  const { isDark, colors: themeColors } = useTheme();
+  const { userId, userName, currentMonth, existingTarget: passedTarget } = route.params;
   const bottomPadding = useBottomSafeArea(12);
 
   const [month, setMonth] = useState<string>(currentMonth || getCurrentMonth());
   const [targets, setTargets] = useState<TargetsByCatalog>({});
   const [visitTargets, setVisitTargets] = useState<TargetsByAccountType>({});
   const [autoRenew, setAutoRenew] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!passedTarget); // Skip loading if data passed
   const [saving, setSaving] = useState(false);
-  const [existingTarget, setExistingTarget] = useState<any>(null);
+  const [existingTarget, setExistingTarget] = useState<any>(passedTarget || null);
 
   useEffect(() => {
-    loadExistingTarget();
-  }, [userId, month]);
+    // If target data was passed, use it immediately
+    if (passedTarget) {
+      setExistingTarget(passedTarget);
+      setTargets(passedTarget.targetsByCatalog || {});
+      setVisitTargets(passedTarget.targetsByAccountType || {});
+      setAutoRenew(passedTarget.autoRenew || false);
+      setLoading(false);
+    } else {
+      // Only fetch if no data was passed
+      loadExistingTarget();
+    }
+  }, [userId, month, passedTarget]);
 
   function getCurrentMonth(): string {
     const now = new Date();
@@ -57,9 +69,9 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
       if (response.ok && response.target) {
         setExistingTarget(response.target);
-        setTargets(response.target.targetsByCatalog);
+        setTargets(response.target.targetsByCatalog || {});
         setVisitTargets(response.target.targetsByAccountType || {});
-        setAutoRenew(response.target.autoRenew);
+        setAutoRenew(response.target.autoRenew || false);
       } else {
         // No existing target
         setTargets({});
@@ -211,26 +223,34 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <ArrowLeft size={24} color={colors.text.inverse} />
+      <View style={{ flex: 1, backgroundColor: themeColors.background }}>
+        <View style={{
+          backgroundColor: isDark ? themeColors.surface : '#393735',
+          paddingHorizontal: 24,
+          paddingTop: 52,
+          paddingBottom: 20,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+          <TouchableOpacity style={{ padding: 8, marginLeft: -8 }} onPress={() => navigation.goBack()}>
+            <Text style={{ fontSize: 28, color: themeColors.accent }}>←</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Set Target</Text>
+          <Text style={{ fontSize: 24, fontWeight: '600', color: '#FFFFFF' }}>Set Target</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading target...</Text>
+          <ActivityIndicator size="large" color={themeColors.accent} />
+          <Text style={[styles.loadingText, { color: themeColors.text.secondary }]}>Loading target...</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       {/* Header - Dark style */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : '#393735',
         paddingHorizontal: 24,
         paddingTop: 52,
         paddingBottom: 20,
@@ -240,7 +260,7 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
             style={{ padding: 8, marginLeft: -8 }}
             onPress={() => navigation.goBack()}
           >
-            <Text style={{ fontSize: 28, color: '#C9A961' }}>←</Text>
+            <Text style={{ fontSize: 28, color: themeColors.accent }}>←</Text>
           </TouchableOpacity>
 
           <View style={{ flex: 1 }}>
@@ -256,30 +276,31 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 80 + bottomPadding }}>
         <View style={styles.content}>
-          {/* Month Display */}
-          <View style={styles.monthCard}>
-            <Text style={styles.monthLabel}>Target Month</Text>
-            <Text style={styles.monthValue}>{formatMonth(month)}</Text>
+          {/* Month Display - Compact horizontal */}
+          <View style={[styles.monthCard, { backgroundColor: themeColors.surface, borderColor: themeColors.accent + '40' }]}>
+            <Text style={[styles.monthLabel, { color: themeColors.text.secondary }]}>Target Month</Text>
+            <Text style={[styles.monthValue, { color: themeColors.accent }]}>{formatMonth(month)}</Text>
           </View>
 
           {/* Sheet Sales Targets */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📊 SHEET SALES TARGETS</Text>
-            <Text style={styles.sectionSubtitle}>Set monthly sheet targets for each catalog</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>📊 SHEET SALES TARGETS</Text>
+            <Text style={[styles.sectionSubtitle, { color: themeColors.text.secondary }]}>Set monthly sheet targets for each catalog</Text>
 
             {CATALOGS.map((catalog) => (
               <View key={catalog} style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>{catalog}</Text>
-                <View style={styles.inputWrapper}>
+                <Text style={[styles.inputLabel, { color: themeColors.text.primary }]}>{catalog}</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: themeColors.text.primary }]}
                     value={targets[catalog]?.toString() || ''}
                     onChangeText={(value) => handleTargetChange(catalog, value)}
                     placeholder="0"
+                    placeholderTextColor={themeColors.text.tertiary}
                     keyboardType="number-pad"
                     editable={!saving}
                   />
-                  <Text style={styles.inputUnit}>sheets</Text>
+                  <Text style={[styles.inputUnit, { color: themeColors.text.secondary }]}>sheets</Text>
                 </View>
               </View>
             ))}
@@ -287,24 +308,25 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
           {/* Visit Targets */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>👥 VISIT TARGETS</Text>
-            <Text style={styles.sectionSubtitle}>Set monthly visit targets by account type</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>👥 VISIT TARGETS</Text>
+            <Text style={[styles.sectionSubtitle, { color: themeColors.text.secondary }]}>Set monthly visit targets by account type</Text>
 
             {ACCOUNT_TYPES.map((type) => {
               const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
               return (
                 <View key={type} style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>{capitalize(type)} Visits</Text>
-                  <View style={styles.inputWrapper}>
+                  <Text style={[styles.inputLabel, { color: themeColors.text.primary }]}>{capitalize(type)} Visits</Text>
+                  <View style={[styles.inputWrapper, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { color: themeColors.text.primary }]}
                       value={visitTargets[type]?.toString() || ''}
                       onChangeText={(value) => handleVisitTargetChange(type, value)}
                       placeholder="0"
+                      placeholderTextColor={themeColors.text.tertiary}
                       keyboardType="number-pad"
                       editable={!saving}
                     />
-                    <Text style={styles.inputUnit}>visits</Text>
+                    <Text style={[styles.inputUnit, { color: themeColors.text.secondary }]}>visits</Text>
                   </View>
                 </View>
               );
@@ -313,25 +335,25 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
           {/* Auto-Renew Toggle */}
           <View style={styles.section}>
-            <View style={styles.autoRenewHeader}>
+            <View style={[styles.autoRenewHeader, { backgroundColor: themeColors.surface }]}>
               <View style={styles.autoRenewLeft}>
-                <Text style={styles.sectionTitle}>AUTO-RENEW</Text>
-                <Text style={styles.autoRenewDescription}>
+                <Text style={[styles.sectionTitle, { color: themeColors.text.secondary }]}>AUTO-RENEW</Text>
+                <Text style={[styles.autoRenewDescription, { color: themeColors.text.secondary }]}>
                   Automatically copy all targets (sheets + visits) to future months
                 </Text>
               </View>
               <Switch
                 value={autoRenew}
                 onValueChange={setAutoRenew}
-                trackColor={{ false: colors.text.tertiary, true: colors.accent }}
+                trackColor={{ false: themeColors.text.tertiary, true: themeColors.accent }}
                 thumbColor="#fff"
                 disabled={saving}
               />
             </View>
 
             {autoRenew && (
-              <View style={styles.autoRenewInfo}>
-                <Text style={styles.autoRenewInfoText}>
+              <View style={[styles.autoRenewInfo, { backgroundColor: themeColors.info + '15', borderLeftColor: themeColors.info }]}>
+                <Text style={[styles.autoRenewInfoText, { color: themeColors.text.secondary }]}>
                   ℹ️ Target will be copied to next month on the 1st at 12:01 AM.
                   You can turn this off anytime.
                 </Text>
@@ -352,16 +374,16 @@ export const SetTargetScreen: React.FC<SetTargetScreenProps> = ({ navigation, ro
 
           {/* Save Button */}
           <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            style={[styles.saveButton, { backgroundColor: themeColors.accent }, saving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
               <>
-                <Save size={20} color="#fff" />
-                <Text style={styles.saveButtonText}>
+                <Save size={20} color={colors.primary} />
+                <Text style={[styles.saveButtonText, { color: colors.primary }]}>
                   {existingTarget ? 'Update Target' : 'Save Target'}
                 </Text>
               </>
@@ -428,109 +450,111 @@ const styles = StyleSheet.create({
   },
   monthCard: {
     backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.accent + '40',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   monthLabel: {
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.secondary,
     textTransform: 'uppercase',
-    marginBottom: spacing.xs,
   },
   monthValue: {
-    fontSize: typography.fontSize.xl,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     color: colors.accent,
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.bold,
     color: colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   sectionSubtitle: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   inputContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   inputLabel: {
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semiBold,
+    fontWeight: typography.fontWeight.medium,
     color: colors.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.md,
+    borderRadius: spacing.borderRadius.sm,
     borderWidth: 1,
     borderColor: colors.border.default,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   input: {
     flex: 1,
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text.primary,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
   inputUnit: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
-    marginLeft: spacing.sm,
+    marginLeft: spacing.xs,
   },
   autoRenewHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: spacing.borderRadius.lg,
-    padding: spacing.lg,
+    borderRadius: spacing.borderRadius.md,
+    padding: spacing.md,
   },
   autoRenewLeft: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   autoRenewDescription: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
-    marginTop: spacing.xs / 2,
+    marginTop: 2,
   },
   autoRenewInfo: {
     backgroundColor: colors.info + '15',
-    borderRadius: spacing.borderRadius.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-    borderLeftWidth: 3,
+    borderRadius: spacing.borderRadius.sm,
+    padding: spacing.sm,
+    marginTop: spacing.xs,
+    borderLeftWidth: 2,
     borderLeftColor: colors.info,
   },
   autoRenewInfoText: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.text.secondary,
-    lineHeight: typography.fontSize.sm * 1.4,
+    lineHeight: typography.fontSize.xs * 1.4,
   },
   stopAutoRenewButton: {
     backgroundColor: colors.warning,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: spacing.borderRadius.md,
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   stopAutoRenewButtonText: {
-    fontSize: typography.fontSize.base,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semiBold,
     color: '#fff',
   },
@@ -539,9 +563,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm + 2,
     borderRadius: spacing.borderRadius.md,
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   saveButtonDisabled: {
     opacity: 0.6,

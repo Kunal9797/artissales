@@ -85,24 +85,24 @@ export const darkColors = {
   accentDark: ANTIQUE_GOLD_DARK,
   accentLight: '#4A4235',    // Muted gold for dark backgrounds
 
-  // Neutral Colors - Material Design dark surfaces
-  background: '#121212',     // Main background (true dark)
-  surface: '#1E1E1E',        // Elevated cards (+1dp)
-  surfaceAlt: '#252525',     // Higher elevation (+2dp)
+  // Neutral Colors - Lighter dark surfaces (more comfortable)
+  background: '#2C2C2C',     // Main background (lighter dark gray)
+  surface: '#383838',        // Elevated cards (+1dp)
+  surfaceAlt: '#454545',     // Higher elevation (+2dp)
 
   // Text Colors
   text: {
     primary: '#FFFFFF',      // Main text (high emphasis)
-    secondary: '#B3B3B3',    // Secondary text (medium emphasis)
-    tertiary: '#666666',     // Disabled text, placeholders
+    secondary: '#C0C0C0',    // Secondary text (medium emphasis) - lighter
+    tertiary: '#888888',     // Disabled text, placeholders - lighter for readability
     inverse: '#1A1A1A',      // Text on light/gold backgrounds
   },
 
   // Border Colors
   border: {
-    default: '#333333',      // Default borders
-    light: '#2A2A2A',        // Subtle borders
-    dark: '#444444',         // Stronger borders
+    default: '#454545',      // Default borders - lighter
+    light: '#383838',        // Subtle borders
+    dark: '#555555',         // Stronger borders
     active: ANTIQUE_GOLD,    // Gold border for active/focused states
   },
 

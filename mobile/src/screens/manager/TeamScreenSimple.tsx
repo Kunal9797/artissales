@@ -3,16 +3,18 @@
  * Built with inline styles to avoid StyleSheet.create issues
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { logger } from '../../utils/logger';
-import { View, Text, TouchableOpacity, TextInput, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, RefreshControl, ScrollView, Alert, Linking } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { User, Search, Plus } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { api } from '../../services/api';
 import { UserListItem } from '../../types';
 import { Skeleton } from '../../patterns';
 import { formatLastActive, getLastActiveColor, formatPhoneForDisplay } from '../../utils/formatTime';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
+import { useTheme } from '../../theme';
 
 // Phase 2A: Module-level cache with 30-minute TTL
 const teamCache: {
@@ -45,6 +47,7 @@ export const invalidateTeamCache = () => {
 };
 
 export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
+  const { isDark, colors: themeColors } = useTheme();
   const bottomPadding = useBottomSafeArea(12);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserListItem[]>([]);
@@ -52,6 +55,36 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // Handle long-press on phone number
+  const handlePhoneLongPress = useCallback((phone: string) => {
+    if (!phone) return;
+    const displayPhone = formatPhoneForDisplay(phone);
+    Alert.alert(
+      displayPhone,
+      'What would you like to do?',
+      [
+        {
+          text: 'Copy Number',
+          onPress: async () => {
+            await Clipboard.setStringAsync(phone.replace(/[^\d+]/g, ''));
+          },
+        },
+        {
+          text: 'Call',
+          onPress: () => {
+            const phoneNumber = phone.replace(/[^\d+]/g, '').replace(/(?!^)\+/g, '');
+            Linking.openURL(`tel:${encodeURIComponent(phoneNumber)}`);
+          },
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  }, []);
 
   const loadUsers = async (forceRefresh = false) => {
     // Phase 2A: Check cache first
@@ -162,6 +195,16 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     }
   };
 
+  // Get last active color with dark mode support
+  const getThemedLastActiveColor = (isoString: string | null): string => {
+    const baseColor = getLastActiveColor(isoString);
+    if (!isDark) return baseColor;
+    // Brighter colors for dark mode
+    if (baseColor === '#2E7D32') return '#66BB6A'; // Brighter green
+    if (baseColor === '#F57C00') return '#FFB74D'; // Brighter orange
+    return '#AAAAAA'; // Brighter gray
+  };
+
   const renderUser = ({ item }: { item: UserListItem }) => {
     const isManager = isManagerRole(item.role);
     const lastActiveText = formatLastActive(item.lastActiveAt);
@@ -174,7 +217,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             style={{
               fontSize: 16,
               fontWeight: '600',
-              color: isManager ? '#666666' : '#1A1A1A',
+              color: isManager ? themeColors.text.tertiary : themeColors.text.primary,
               flex: 1,
             }}
             numberOfLines={1}
@@ -185,24 +228,30 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             paddingHorizontal: 8,
             paddingVertical: 4,
             borderRadius: 4,
-            backgroundColor: isManager ? '#E0E0E0' : getRoleColor(item.role),
+            backgroundColor: isManager ? (isDark ? themeColors.surfaceAlt : '#E0E0E0') : getRoleColor(item.role),
           }}>
-            <Text style={{ fontSize: 11, fontWeight: '600', color: isManager ? '#666666' : '#FFFFFF' }}>
+            <Text style={{ fontSize: 11, fontWeight: '600', color: isManager ? themeColors.text.tertiary : '#FFFFFF' }}>
               {getRoleDisplay(item.role)}
             </Text>
           </View>
         </View>
 
-        {/* Territory + Phone + Last Active inline */}
+        {/* Territory + Phone (long-press for options) + Last Active inline */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={{ fontSize: 13, color: '#999999', flex: 1 }} numberOfLines={1}>
-            {item.territory} • {formatPhoneForDisplay(item.phone)}
-          </Text>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onLongPress={() => handlePhoneLongPress(item.phone)}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 13, color: themeColors.text.tertiary }} numberOfLines={1}>
+              {item.territory} • {formatPhoneForDisplay(item.phone)}
+            </Text>
+          </TouchableOpacity>
           {lastActiveText ? (
             <Text style={{
               fontSize: 12,
               fontWeight: '500',
-              color: getLastActiveColor(item.lastActiveAt),
+              color: getThemedLastActiveColor(item.lastActiveAt),
               marginLeft: 8,
             }}>
               {lastActiveText}
@@ -217,12 +266,12 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       return (
         <View
           style={{
-            backgroundColor: '#F9F9F9',
+            backgroundColor: isDark ? themeColors.surface : '#F9F9F9',
             borderRadius: 12,
             padding: 16,
             marginBottom: 8,
             borderWidth: 1,
-            borderColor: '#E8E8E8',
+            borderColor: themeColors.border.default,
           }}
         >
           {cardContent}
@@ -234,12 +283,12 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: themeColors.background,
           borderRadius: 12,
           padding: 16,
           marginBottom: 8,
           borderWidth: 1,
-          borderColor: '#E0E0E0',
+          borderColor: themeColors.border.default,
         }}
         onPress={() => navigation?.navigate('UserDetail', { userId: item.id })}
         activeOpacity={0.7}
@@ -257,10 +306,10 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   ];
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       {/* Header - Compact single row design */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : '#393735',
         paddingTop: 52,
         paddingBottom: 14,
         paddingHorizontal: 16,
@@ -283,33 +332,33 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           }}
           onPress={() => navigation?.navigate('AddUser')}
         >
-          <Plus size={16} color="#C9A961" />
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961' }}>Add</Text>
+          <Plus size={16} color={themeColors.accent} />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: themeColors.accent }}>Add</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search Bar */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, backgroundColor: themeColors.surface }}>
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: themeColors.background,
           borderRadius: 8,
           paddingHorizontal: 12,
           borderWidth: 1,
-          borderColor: '#E0E0E0',
+          borderColor: themeColors.border.default,
         }}>
-          <Search size={20} color="#999999" />
+          <Search size={20} color={themeColors.text.tertiary} />
           <TextInput
             style={{
               flex: 1,
               paddingVertical: 12,
               paddingHorizontal: 8,
               fontSize: 16,
-              color: '#1A1A1A',
+              color: themeColors.text.primary,
             }}
             placeholder="Search team members..."
-            placeholderTextColor="#999999"
+            placeholderTextColor={themeColors.text.tertiary}
             value={searchTerm}
             onChangeText={setSearchTerm}
           />
@@ -317,7 +366,7 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       </View>
 
       {/* Status Filter Pills - horizontal scroll */}
-      <View style={{ paddingBottom: 12 }}>
+      <View style={{ paddingBottom: 12, backgroundColor: themeColors.surface }}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -332,16 +381,16 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 16,
-                  backgroundColor: isActive ? '#393735' : '#FFFFFF',
+                  backgroundColor: isActive ? (isDark ? themeColors.accent : '#393735') : themeColors.background,
                   borderWidth: 1,
-                  borderColor: isActive ? '#393735' : '#E0E0E0',
+                  borderColor: isActive ? (isDark ? themeColors.accent : '#393735') : themeColors.border.default,
                 }}
                 onPress={() => setStatusFilter(filter.value as any)}
               >
                 <Text style={{
                   fontSize: 14,
                   fontWeight: '600',
-                  color: isActive ? '#FFFFFF' : '#666666',
+                  color: isActive ? (isDark ? themeColors.text.inverse : '#FFFFFF') : themeColors.text.secondary,
                 }}>
                   {filter.label}{isActive ? ` (${filter.count})` : ''}
                 </Text>
@@ -367,8 +416,8 @@ export const TeamScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={{ padding: 40, alignItems: 'center' }}>
-              <User size={48} color="#E0E0E0" />
-              <Text style={{ fontSize: 16, color: '#666666', marginTop: 16 }}>
+              <User size={48} color={themeColors.text.tertiary} />
+              <Text style={{ fontSize: 16, color: themeColors.text.secondary, marginTop: 16 }}>
                 {searchTerm ? 'No team members found' : 'No team members yet'}
               </Text>
             </View>

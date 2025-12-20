@@ -40,7 +40,7 @@ import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { useProfileSheet } from '../../providers/ProfileSheetProvider';
 import { Skeleton } from '../../patterns/Skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { colors, spacing, typography, featureColors } from '../../theme';
+import { colors, spacing, typography, featureColors, useTheme } from '../../theme';
 
 // Types for the new API response
 interface ManagerDashboardResponse {
@@ -81,6 +81,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
   const bottomPadding = useBottomSafeArea(12);
   const queryClient = useQueryClient();
   const { showProfileSheet } = useProfileSheet();
+  const { isDark, colors: themeColors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
 
@@ -182,13 +183,13 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
   const GreetingIcon = greeting.Icon;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header with Greeting */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
         {/* Time icon + Hi, Name */}
         <View style={styles.greetingRow}>
-          <GreetingIcon size={20} color={colors.accent} />
-          <Text style={styles.greetingText}>
+          <GreetingIcon size={20} color={themeColors.accent} />
+          <Text style={[styles.greetingText, { color: '#FFFFFF' }]}>
             Hi, {userName ? userName.split(' ')[0].charAt(0).toUpperCase() + userName.split(' ')[0].slice(1) : 'Manager'}
           </Text>
         </View>
@@ -219,7 +220,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Section Header */}
-        <Text style={styles.sectionHeader}>Today's Overview</Text>
+        <Text style={[styles.sectionHeader, { color: themeColors.text.tertiary }]}>Today's Overview</Text>
 
         {/* KPI Cards - Feature Color Coded */}
         <View style={styles.kpiSection}>
@@ -245,9 +246,9 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 >
                   <View style={styles.kpiIconRow}>
                     <Users size={20} color={featureColors.attendance.primary} />
-                    <Text style={styles.kpiLabel}>TEAM</Text>
+                    <Text style={[styles.kpiLabel, { color: themeColors.text.secondary }]}>TEAM</Text>
                   </View>
-                  <Text style={styles.kpiValue}>{teamSize}</Text>
+                  <Text style={[styles.kpiValue, { color: themeColors.text.primary }]}>{teamSize}</Text>
                 </TouchableOpacity>
 
                 {/* Pending Approvals - Gold tint */}
@@ -257,10 +258,10 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                   activeOpacity={0.7}
                 >
                   <View style={styles.kpiIconRow}>
-                    <Bell size={20} color={colors.accent} />
-                    <Text style={styles.kpiLabel}>PENDING</Text>
+                    <Bell size={20} color={themeColors.accent} />
+                    <Text style={[styles.kpiLabel, { color: themeColors.text.secondary }]}>PENDING</Text>
                   </View>
-                  <Text style={styles.kpiValue}>{pendingTotal}</Text>
+                  <Text style={[styles.kpiValue, { color: themeColors.text.primary }]}>{pendingTotal}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -273,9 +274,9 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 >
                   <View style={styles.kpiIconRow}>
                     <MapPin size={20} color={featureColors.visits.primary} />
-                    <Text style={styles.kpiLabel}>VISITS</Text>
+                    <Text style={[styles.kpiLabel, { color: themeColors.text.secondary }]}>VISITS</Text>
                   </View>
-                  <Text style={styles.kpiValue}>{todayVisits}</Text>
+                  <Text style={[styles.kpiValue, { color: themeColors.text.primary }]}>{todayVisits}</Text>
                 </TouchableOpacity>
 
                 {/* Today's Sheets - Orange tint */}
@@ -286,9 +287,9 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 >
                   <View style={styles.kpiIconRow}>
                     <Layers size={20} color={featureColors.sheets.primary} />
-                    <Text style={styles.kpiLabel}>SHEETS</Text>
+                    <Text style={[styles.kpiLabel, { color: themeColors.text.secondary }]}>SHEETS</Text>
                   </View>
-                  <Text style={styles.kpiValue}>{todaySheets}</Text>
+                  <Text style={[styles.kpiValue, { color: themeColors.text.primary }]}>{todaySheets}</Text>
                 </TouchableOpacity>
               </View>
             </>
@@ -296,7 +297,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
         </View>
 
         {/* Section Header */}
-        <Text style={styles.sectionHeader}>Quick Access</Text>
+        <Text style={[styles.sectionHeader, { color: themeColors.text.tertiary }]}>Quick Access</Text>
 
         {/* Document Library Card */}
         <TouchableOpacity
@@ -309,10 +310,10 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
               <BookOpen size={20} color={featureColors.documents.primary} />
             </View>
             <View style={styles.documentsTextContainer}>
-              <Text style={styles.documentsTitle}>Document Library</Text>
-              <Text style={styles.documentsSubtitle}>Catalogs, price lists & resources</Text>
+              <Text style={[styles.documentsTitle, { color: themeColors.text.primary }]}>Document Library</Text>
+              <Text style={[styles.documentsSubtitle, { color: themeColors.text.secondary }]}>Catalogs, price lists & resources</Text>
             </View>
-            <ChevronRight size={20} color={colors.text.tertiary} />
+            <ChevronRight size={20} color={themeColors.text.tertiary} />
           </View>
         </TouchableOpacity>
       </ScrollView>
@@ -325,16 +326,16 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
         onRequestClose={() => setActiveSheet(null)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setActiveSheet(null)}>
-          <Pressable style={styles.bottomSheet} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.bottomSheet, { backgroundColor: themeColors.background }]} onPress={(e) => e.stopPropagation()}>
             {/* Drag handle */}
-            <View style={styles.sheetHandle} />
+            <View style={[styles.sheetHandle, { backgroundColor: themeColors.border.default }]} />
 
             {/* Close button */}
             <TouchableOpacity
               style={styles.sheetCloseButton}
               onPress={() => setActiveSheet(null)}
             >
-              <X size={20} color={colors.text.tertiary} />
+              <X size={20} color={themeColors.text.tertiary} />
             </TouchableOpacity>
 
             {/* Content */}
@@ -343,23 +344,24 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 <View style={[styles.sheetIconCircle, { backgroundColor: featureColors.visits.light }]}>
                   <MapPin size={24} color={featureColors.visits.primary} />
                 </View>
-                <Text style={styles.sheetTitle}>Today's Visits</Text>
-                <Text style={styles.sheetValue}>{todayVisits}</Text>
+                <Text style={[styles.sheetTitle, { color: themeColors.text.primary }]}>Today's Visits</Text>
+                <Text style={[styles.sheetValue, { color: themeColors.text.primary }]}>{todayVisits}</Text>
 
                 {/* Recent visits list */}
                 {visitsSummaryLoading ? (
                   <ActivityIndicator size="small" color={featureColors.visits.primary} style={{ marginVertical: spacing.md }} />
                 ) : visitsSummary?.recentVisits && visitsSummary.recentVisits.length > 0 ? (
-                  <View style={styles.recentVisitsList}>
-                    <Text style={styles.recentVisitsHeader}>Recent Activity</Text>
+                  <View style={[styles.recentVisitsList, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
+                    <Text style={[styles.recentVisitsHeader, { color: themeColors.text.tertiary, backgroundColor: themeColors.background, borderBottomColor: themeColors.border.default }]}>Recent Activity</Text>
                     {visitsSummary.recentVisits.map((visit, index) => (
                       <View key={visit.id} style={[
                         styles.recentVisitItem,
+                        { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border.default },
                         index === visitsSummary.recentVisits.length - 1 && { borderBottomWidth: 0 }
                       ]}>
                         <View style={styles.recentVisitContent}>
                           <View style={styles.recentVisitRow}>
-                            <Text style={styles.recentVisitAccount} numberOfLines={1}>
+                            <Text style={[styles.recentVisitAccount, { color: themeColors.text.primary }]} numberOfLines={1}>
                               {visit.accountName}
                             </Text>
                             <View style={[styles.accountTypeBadge, { backgroundColor: getAccountTypeColor(visit.accountType) }]}>
@@ -369,10 +371,10 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                             </View>
                           </View>
                           <View style={styles.recentVisitMeta}>
-                            <Text style={styles.recentVisitRep}>by {visit.repName}</Text>
+                            <Text style={[styles.recentVisitRep, { color: themeColors.text.secondary }]}>by {visit.repName}</Text>
                             <View style={styles.recentVisitTimeRow}>
-                              <Clock size={12} color={colors.text.tertiary} />
-                              <Text style={styles.recentVisitTime}>{formatRelativeTime(visit.timestamp)}</Text>
+                              <Clock size={12} color={themeColors.text.tertiary} />
+                              <Text style={[styles.recentVisitTime, { color: themeColors.text.tertiary }]}>{formatRelativeTime(visit.timestamp)}</Text>
                             </View>
                           </View>
                         </View>
@@ -380,7 +382,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                     ))}
                   </View>
                 ) : (
-                  <Text style={styles.sheetDescription}>
+                  <Text style={[styles.sheetDescription, { color: themeColors.text.secondary }]}>
                     {todayVisits === 0
                       ? 'No visits logged by your team today'
                       : 'Loading recent visits...'}
@@ -388,7 +390,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 )}
 
                 <TouchableOpacity
-                  style={styles.sheetButton}
+                  style={[styles.sheetButton, { backgroundColor: isDark ? themeColors.accent : colors.primary }]}
                   onPress={() => {
                     setActiveSheet(null);
                     navigation?.navigate('AccountsList');
@@ -404,9 +406,9 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                 <View style={[styles.sheetIconCircle, { backgroundColor: featureColors.sheets.light }]}>
                   <Layers size={24} color={featureColors.sheets.primary} />
                 </View>
-                <Text style={styles.sheetTitle}>Today's Sheets</Text>
-                <Text style={styles.sheetValue}>{todaySheets}</Text>
-                <Text style={styles.sheetDescription}>
+                <Text style={[styles.sheetTitle, { color: themeColors.text.primary }]}>Today's Sheets</Text>
+                <Text style={[styles.sheetValue, { color: themeColors.text.primary }]}>{todaySheets}</Text>
+                <Text style={[styles.sheetDescription, { color: themeColors.text.secondary }]}>
                   {todaySheets === 0
                     ? 'No sheets recorded by your team today'
                     : todaySheets === 1
@@ -414,7 +416,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
                     : `${todaySheets} sheets recorded by your team today`}
                 </Text>
                 <TouchableOpacity
-                  style={styles.sheetButton}
+                  style={[styles.sheetButton, { backgroundColor: isDark ? themeColors.accent : colors.primary }]}
                   onPress={() => {
                     setActiveSheet(null);
                     navigation?.navigate('StatsTab');

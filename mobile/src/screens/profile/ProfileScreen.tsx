@@ -503,37 +503,39 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
         </Card>
         )}
 
-        {/* Appearance Settings */}
-        <Card elevation="sm" style={styles.settingsCard}>
-          <Text style={styles.settingsTitle}>Appearance</Text>
+        {/* Appearance Settings - Only shown for manager-level roles */}
+        {isManager && (
+          <Card elevation="sm" style={styles.settingsCard}>
+            <Text style={styles.settingsTitle}>Appearance</Text>
 
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <View style={[styles.settingIcon, { backgroundColor: isDark ? '#4A4235' : '#FFF3E0' }]}>
-                {isDark ? (
-                  <Moon size={18} color="#C9A961" />
-                ) : (
-                  <Sun size={18} color="#EF6C00" />
-                )}
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <View style={[styles.settingIcon, { backgroundColor: isDark ? '#4A4235' : '#FFF3E0' }]}>
+                  {isDark ? (
+                    <Moon size={18} color="#C9A961" />
+                  ) : (
+                    <Sun size={18} color="#EF6C00" />
+                  )}
+                </View>
+                <View>
+                  <Text style={[styles.settingLabel, { color: themeColors.text.primary }]}>
+                    Dark Mode
+                  </Text>
+                  <Text style={[styles.settingDescription, { color: themeColors.text.secondary }]}>
+                    {isDark ? 'Dark theme active' : 'Light theme active'}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text style={[styles.settingLabel, { color: themeColors.text.primary }]}>
-                  Dark Mode
-                </Text>
-                <Text style={[styles.settingDescription, { color: themeColors.text.secondary }]}>
-                  {isDark ? 'Dark theme active' : 'Light theme active'}
-                </Text>
-              </View>
+              <Switch
+                value={isDark}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#E0E0E0', true: '#4A4235' }}
+                thumbColor={isDark ? '#C9A961' : '#FFFFFF'}
+                ios_backgroundColor="#E0E0E0"
+              />
             </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#E0E0E0', true: '#4A4235' }}
-              thumbColor={isDark ? '#C9A961' : '#FFFFFF'}
-              ios_backgroundColor="#E0E0E0"
-            />
-          </View>
-        </Card>
+          </Card>
+        )}
 
         {/* Sign Out button moved to header */}
       </ScrollView>

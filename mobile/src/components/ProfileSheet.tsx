@@ -215,7 +215,7 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
         <View style={[styles.sheet, { paddingBottom: bottomPadding, backgroundColor: themeColors.background }]}>
           {/* Drag Handle */}
           <View style={styles.handleContainer}>
-            <View style={styles.handle} />
+            <View style={[styles.handle, { backgroundColor: themeColors.border.default }]} />
           </View>
 
           {/* Profile Header */}
@@ -224,41 +224,41 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
               {(localPhotoUri || profilePhotoUrl) ? (
                 <Image
                   source={{ uri: (localPhotoUri || profilePhotoUrl) as string }}
-                  style={styles.avatar}
+                  style={[styles.avatar, { borderColor: themeColors.accent }]}
                 />
               ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <UserIcon size={32} color={colors.accent} />
+                <View style={[styles.avatarPlaceholder, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
+                  <UserIcon size={32} color={themeColors.accent} />
                 </View>
               )}
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.name}>{name || 'User'}</Text>
-              <Text style={styles.roleTerritory}>
+              <Text style={[styles.name, { color: themeColors.text.primary }]}>{name || 'User'}</Text>
+              <Text style={[styles.roleTerritory, { color: themeColors.text.secondary }]}>
                 {getRoleDisplay(role)} {territory ? `\u2022 ${territory}` : ''}
               </Text>
             </View>
           </View>
 
           {/* Divider */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border.light }]} />
 
           {/* Contact Details */}
           <View style={styles.detailsSection}>
             <View style={styles.detailRow}>
-              <Mail size={18} color={colors.text.tertiary} />
-              <Text style={styles.detailText}>{email || 'No email set'}</Text>
+              <Mail size={18} color={themeColors.text.tertiary} />
+              <Text style={[styles.detailText, { color: themeColors.text.primary }]}>{email || 'No email set'}</Text>
             </View>
             <View style={styles.detailRow}>
-              <Phone size={18} color={colors.text.tertiary} />
-              <Text style={styles.detailText}>{user?.phoneNumber || 'No phone'}</Text>
+              <Phone size={18} color={themeColors.text.tertiary} />
+              <Text style={[styles.detailText, { color: themeColors.text.primary }]}>{user?.phoneNumber || 'No phone'}</Text>
             </View>
           </View>
 
           {/* Quick Contacts */}
           {(managerInfo || distributorInfo) && (
             <>
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: themeColors.border.light }]} />
               <View style={styles.contactsSection}>
                 {managerInfo && (
                   <TouchableOpacity
@@ -267,18 +267,18 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
                     activeOpacity={0.7}
                   >
                     <View style={styles.contactLeft}>
-                      <View style={styles.contactAvatar}>
-                        <Text style={styles.contactAvatarText}>
+                      <View style={[styles.contactAvatar, { backgroundColor: themeColors.accent }]}>
+                        <Text style={[styles.contactAvatarText, { color: themeColors.text.inverse }]}>
                           {managerInfo.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View>
-                        <Text style={styles.contactName}>{managerInfo.name}</Text>
-                        <Text style={styles.contactRole}>Manager</Text>
+                        <Text style={[styles.contactName, { color: themeColors.text.primary }]}>{managerInfo.name}</Text>
+                        <Text style={[styles.contactRole, { color: themeColors.text.tertiary }]}>Manager</Text>
                       </View>
                     </View>
-                    <View style={styles.callButton}>
-                      <PhoneCall size={18} color={colors.success} />
+                    <View style={[styles.callButton, { backgroundColor: themeColors.successLight }]}>
+                      <PhoneCall size={18} color={themeColors.success} />
                     </View>
                   </TouchableOpacity>
                 )}
@@ -290,18 +290,18 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
                     activeOpacity={0.7}
                   >
                     <View style={styles.contactLeft}>
-                      <View style={[styles.contactAvatar, styles.contactAvatarAlt]}>
-                        <Text style={[styles.contactAvatarText, styles.contactAvatarTextAlt]}>
+                      <View style={[styles.contactAvatar, { backgroundColor: themeColors.surface }]}>
+                        <Text style={[styles.contactAvatarText, { color: themeColors.text.secondary }]}>
                           {distributorInfo.name.charAt(0).toUpperCase()}
                         </Text>
                       </View>
                       <View>
-                        <Text style={styles.contactName}>{distributorInfo.name}</Text>
-                        <Text style={styles.contactRole}>Distributor</Text>
+                        <Text style={[styles.contactName, { color: themeColors.text.primary }]}>{distributorInfo.name}</Text>
+                        <Text style={[styles.contactRole, { color: themeColors.text.tertiary }]}>Distributor</Text>
                       </View>
                     </View>
-                    <View style={styles.callButton}>
-                      <PhoneCall size={18} color={colors.success} />
+                    <View style={[styles.callButton, { backgroundColor: themeColors.successLight }]}>
+                      <PhoneCall size={18} color={themeColors.success} />
                     </View>
                   </TouchableOpacity>
                 )}
@@ -310,65 +310,76 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
           )}
 
           {/* Need Help Section */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border.light }]} />
           <TouchableOpacity
             style={styles.helpRow}
             onPress={() => setShowFeedbackForm(true)}
             activeOpacity={0.7}
           >
             <View style={styles.helpLeft}>
-              <View style={styles.helpIconContainer}>
-                <HelpCircle size={20} color={colors.info} />
+              <View style={[styles.helpIconContainer, { backgroundColor: themeColors.infoLight }]}>
+                <HelpCircle size={20} color={themeColors.info} />
               </View>
               <View>
-                <Text style={styles.helpTitle}>Need Help?</Text>
-                <Text style={styles.helpSubtitle}>Send feedback or report an issue</Text>
+                <Text style={[styles.helpTitle, { color: themeColors.text.primary }]}>Need Help?</Text>
+                <Text style={[styles.helpSubtitle, { color: themeColors.text.tertiary }]}>Send feedback or report an issue</Text>
               </View>
             </View>
-            <ChevronRight size={20} color={colors.text.tertiary} />
+            <ChevronRight size={20} color={themeColors.text.tertiary} />
           </TouchableOpacity>
 
-          {/* Dark Mode Toggle */}
-          <View style={styles.divider} />
-          <View style={styles.themeRow}>
-            <View style={styles.themeLeft}>
-              <View style={[styles.themeIconContainer, { backgroundColor: isDark ? '#4A4235' : '#FFF3E0' }]}>
-                {isDark ? (
-                  <Moon size={20} color={themeColors.accent} />
-                ) : (
-                  <Sun size={20} color="#EF6C00" />
-                )}
+          {/* Dark Mode Toggle - Only shown for manager-level roles */}
+          {['area_manager', 'zonal_head', 'national_head', 'admin'].includes(role) && (
+            <>
+              <View style={[styles.divider, { backgroundColor: themeColors.border.light }]} />
+              <View style={styles.themeRow}>
+                <View style={styles.themeLeft}>
+                  <View style={[styles.themeIconContainer, { backgroundColor: isDark ? themeColors.accentLight : '#FFF3E0' }]}>
+                    {isDark ? (
+                      <Moon size={20} color={themeColors.accent} />
+                    ) : (
+                      <Sun size={20} color="#EF6C00" />
+                    )}
+                  </View>
+                  <View>
+                    <Text style={[styles.themeTitle, { color: themeColors.text.primary }]}>Dark Mode</Text>
+                    <Text style={[styles.themeSubtitle, { color: themeColors.text.tertiary }]}>
+                      {isDark ? 'Dark theme active' : 'Light theme active'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={isDark}
+                  onValueChange={toggleTheme}
+                  trackColor={{ false: '#E0E0E0', true: themeColors.accentLight }}
+                  thumbColor={isDark ? themeColors.accent : '#FFFFFF'}
+                  ios_backgroundColor="#E0E0E0"
+                />
               </View>
-              <View>
-                <Text style={styles.themeTitle}>Dark Mode</Text>
-                <Text style={styles.themeSubtitle}>
-                  {isDark ? 'Dark theme active' : 'Light theme active'}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={isDark}
-              onValueChange={toggleTheme}
-              trackColor={{ false: '#E0E0E0', true: '#4A4235' }}
-              thumbColor={isDark ? '#C9A961' : '#FFFFFF'}
-              ios_backgroundColor="#E0E0E0"
-            />
-          </View>
+            </>
+          )}
 
           {/* Sign Out Button */}
           <View style={styles.signOutSection}>
             <TouchableOpacity
-              style={styles.signOutButton}
+              style={[
+                styles.signOutButton,
+                {
+                  // In dark mode: softer background but keep red text for clarity
+                  backgroundColor: isDark ? themeColors.surfaceAlt : themeColors.errorLight,
+                  borderColor: isDark ? '#994444' : themeColors.error,
+                },
+              ]}
               onPress={handleSignOut}
               disabled={signingOut}
               activeOpacity={0.7}
             >
               {signingOut ? (
-                <ActivityIndicator size="small" color={colors.error} />
+                <ActivityIndicator size="small" color={isDark ? '#E57373' : themeColors.error} />
               ) : (
                 <>
-                  <LogOut size={20} color={colors.error} />
-                  <Text style={styles.signOutText}>Sign Out</Text>
+                  <LogOut size={20} color={isDark ? '#E57373' : themeColors.error} />
+                  <Text style={[styles.signOutText, { color: isDark ? '#E57373' : themeColors.error }]}>Sign Out</Text>
                 </>
               )}
             </TouchableOpacity>

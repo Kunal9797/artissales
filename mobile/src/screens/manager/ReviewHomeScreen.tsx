@@ -38,6 +38,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { PendingItem, PendingItemType } from '../../types';
 import { trackItemReviewed } from '../../services/analytics';
+import { useTheme, colors } from '../../theme';
 
 // Type filter options
 type TypeFilter = 'all' | 'sheets' | 'expense';
@@ -77,6 +78,7 @@ const ReviewItemCard = memo(({
   swipeableRef,
   onSwipeOpen,
 }: ReviewItemCardProps) => {
+  const { isDark, colors: themeColors } = useTheme();
   const isSheets = item.type === 'sheets';
   const hasDetails = item.description || (item.receiptPhotos && item.receiptPhotos.length > 0);
 
@@ -122,7 +124,7 @@ const ReviewItemCard = memo(({
   }, [item.id, swipeableRef]);
 
   return (
-    <View style={cardStyles.cardContainer}>
+    <View style={[cardStyles.cardContainer, { backgroundColor: themeColors.surface }]}>
       <Swipeable
         ref={handleRef}
         renderRightActions={renderRightActions}
@@ -136,7 +138,10 @@ const ReviewItemCard = memo(({
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handlePress}
-          style={isProcessing ? cardStyles.cardContentProcessing : cardStyles.cardContent}
+          style={[
+            isProcessing ? cardStyles.cardContentProcessing : cardStyles.cardContent,
+            { backgroundColor: themeColors.surface },
+          ]}
         >
           {/* Content container */}
           <View style={cardStyles.cardRow}>
@@ -153,15 +158,15 @@ const ReviewItemCard = memo(({
             <View style={cardStyles.contentContainer}>
               {/* Main row: Value + User/Notes */}
               <View style={cardStyles.mainRow}>
-                <Text style={cardStyles.valueText}>
+                <Text style={[cardStyles.valueText, { color: themeColors.text.primary }]}>
                   {isSheets ? `${item.sheetsCount} sheets` : `₹${item.amount?.toLocaleString('en-IN') || 0}`}
                 </Text>
                 {showUserName ? (
-                  <Text style={cardStyles.userNameText} numberOfLines={1}>
+                  <Text style={[cardStyles.userNameText, { color: themeColors.text.secondary }]} numberOfLines={1}>
                     {item.userName}
                   </Text>
                 ) : item.description ? (
-                  <Text style={cardStyles.notesPreviewText} numberOfLines={1}>
+                  <Text style={[cardStyles.notesPreviewText, { color: themeColors.text.tertiary }]} numberOfLines={1}>
                     "{item.description}"
                   </Text>
                 ) : null}
@@ -169,13 +174,13 @@ const ReviewItemCard = memo(({
 
               {/* Detail row: Category + Date */}
               <View style={cardStyles.detailRow}>
-                <Text style={cardStyles.categoryText} numberOfLines={1}>
+                <Text style={[cardStyles.categoryText, { color: themeColors.text.tertiary }]} numberOfLines={1}>
                   {isSheets ? item.catalog : item.category}
                   {!isSheets && item.receiptPhotos && item.receiptPhotos.length > 0 && (
                     <Text> • 📷</Text>
                   )}
                 </Text>
-                <Text style={cardStyles.dateText}>
+                <Text style={[cardStyles.dateText, { color: themeColors.text.tertiary }]}>
                   {formatDate(item.date)}
                 </Text>
               </View>
@@ -189,10 +194,10 @@ const ReviewItemCard = memo(({
 
           {/* Expanded section */}
           {isExpanded && (
-            <View style={cardStyles.expandedSection}>
+            <View style={[cardStyles.expandedSection, { borderTopColor: themeColors.border.default }]}>
               {/* Notes/Description */}
               {item.description && (
-                <Text style={cardStyles.descriptionText}>
+                <Text style={[cardStyles.descriptionText, { color: themeColors.text.secondary }]}>
                   {item.description}
                 </Text>
               )}
@@ -207,7 +212,7 @@ const ReviewItemCard = memo(({
                     >
                       <Image
                         source={{ uri: photo }}
-                        style={cardStyles.photoThumbnail}
+                        style={[cardStyles.photoThumbnail, { backgroundColor: themeColors.surfaceAlt }]}
                       />
                     </TouchableOpacity>
                   ))}
@@ -216,7 +221,7 @@ const ReviewItemCard = memo(({
 
               {/* Empty state */}
               {!hasDetails && (
-                <Text style={cardStyles.emptyDetailsText}>
+                <Text style={[cardStyles.emptyDetailsText, { color: themeColors.text.tertiary }]}>
                   No additional details
                 </Text>
               )}
@@ -258,6 +263,7 @@ interface ReviewHomeScreenProps {
 export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, route }) => {
   const bottomPadding = useBottomSafeArea(12);
   const queryClient = useQueryClient();
+  const { isDark, colors: themeColors } = useTheme();
 
   // Use transition for smooth tab switching - separates urgent (tab highlight) from non-urgent (list filter)
   const [isPending, startTransition] = useTransition();
@@ -554,11 +560,11 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   // Render empty state
   const renderEmptyState = () => (
     <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-      <CheckCircle size={48} color="#C8E6C9" />
-      <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A', marginTop: 16 }}>
+      <CheckCircle size={48} color={themeColors.success} />
+      <Text style={{ fontSize: 18, fontWeight: '600', color: themeColors.text.primary, marginTop: 16 }}>
         All caught up!
       </Text>
-      <Text style={{ fontSize: 14, color: '#666666', marginTop: 4, textAlign: 'center' }}>
+      <Text style={{ fontSize: 14, color: themeColors.text.secondary, marginTop: 4, textAlign: 'center' }}>
         No pending items to review
       </Text>
     </View>
@@ -567,8 +573,8 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   // Render loading state
   const renderLoading = () => (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 }}>
-      <ActivityIndicator size="large" color="#393735" />
-      <Text style={{ marginTop: 12, fontSize: 14, color: '#666666' }}>Loading...</Text>
+      <ActivityIndicator size="large" color={themeColors.accent} />
+      <Text style={{ marginTop: 12, fontSize: 14, color: themeColors.text.secondary }}>Loading...</Text>
     </View>
   );
 
@@ -576,10 +582,10 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
   const selectedUserName = userFilter === 'all' ? 'All Users' : userFilter;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: themeColors.background }}>
       {/* Header - matches TeamStatsScreen design */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : colors.primary,
         paddingTop: 52,
         paddingBottom: 14,
         paddingHorizontal: 16,
@@ -588,7 +594,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
         justifyContent: 'space-between',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-          <CheckCircle size={24} color="#C9A961" />
+          <CheckCircle size={24} color={themeColors.accent} />
           <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
             Review
           </Text>
@@ -606,24 +612,24 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
           }}
           onPress={() => setUserFilterModalVisible(true)}
         >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961', flexShrink: 1 }} numberOfLines={1}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: themeColors.accent, flexShrink: 1 }} numberOfLines={1}>
             {selectedUserName}
           </Text>
-          <ChevronDown size={16} color="#C9A961" />
+          <ChevronDown size={16} color={themeColors.accent} />
         </TouchableOpacity>
       </View>
 
       {/* Type Filter Toggle - color-coded pills */}
       <View style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: themeColors.background,
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#E8E8E8',
+        borderBottomColor: themeColors.border.default,
       }}>
         <View style={{
           flexDirection: 'row',
-          backgroundColor: '#F0F0F0',
+          backgroundColor: isDark ? themeColors.surface : '#F0F0F0',
           borderRadius: 10,
           padding: 3,
         }}>
@@ -728,7 +734,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
           onPress={() => setUserFilterModalVisible(false)}
         >
           <View style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: themeColors.surface,
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             maxHeight: '60%',
@@ -739,13 +745,13 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
               alignItems: 'center',
               padding: 16,
               borderBottomWidth: 1,
-              borderBottomColor: '#E0E0E0',
+              borderBottomColor: themeColors.border.default,
             }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A' }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: themeColors.text.primary }}>
                 Filter by User
               </Text>
               <TouchableOpacity onPress={() => setUserFilterModalVisible(false)}>
-                <X size={24} color="#666666" />
+                <X size={24} color={themeColors.text.secondary} />
               </TouchableOpacity>
             </View>
 
@@ -764,8 +770,10 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
                       justifyContent: 'space-between',
                       padding: 16,
                       borderBottomWidth: 1,
-                      borderBottomColor: '#F0F0F0',
-                      backgroundColor: isSelected ? '#E3F2FD' : '#FFFFFF',
+                      borderBottomColor: themeColors.border.light,
+                      backgroundColor: isSelected
+                        ? (isDark ? 'rgba(201, 169, 97, 0.15)' : '#E3F2FD')
+                        : themeColors.surface,
                     }}
                     onPress={() => {
                       setUserFilter(item.id === 'all' ? 'all' : item.name);
@@ -777,19 +785,19 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
                         width: 36,
                         height: 36,
                         borderRadius: 18,
-                        backgroundColor: '#F5F5F5',
+                        backgroundColor: themeColors.surfaceAlt,
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}>
                         {item.id === 'all' ? (
-                          <UserIcon size={16} color="#666666" />
+                          <UserIcon size={16} color={themeColors.text.secondary} />
                         ) : (
-                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#666' }}>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: themeColors.text.secondary }}>
                             {item.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                           </Text>
                         )}
                       </View>
-                      <Text style={{ fontSize: 15, fontWeight: '500', color: '#1A1A1A', flex: 1 }} numberOfLines={1}>
+                      <Text style={{ fontSize: 15, fontWeight: '500', color: themeColors.text.primary, flex: 1 }} numberOfLines={1}>
                         {item.name}
                       </Text>
                     </View>
@@ -798,20 +806,20 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
                       {item.id !== 'all' && pending && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           {pending.sheets > 0 && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF3E0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(255, 152, 0, 0.2)' : '#FFF3E0', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
                               <Layers size={12} color="#FF9800" />
                               <Text style={{ fontSize: 12, fontWeight: '600', color: '#FF9800' }}>{pending.sheets}</Text>
                             </View>
                           )}
                           {pending.expenses > 0 && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3E5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
-                              <IndianRupee size={12} color="#7B1FA2" />
-                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#7B1FA2' }}>{pending.expenses}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? 'rgba(186, 104, 200, 0.25)' : '#F3E5F5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, gap: 4 }}>
+                              <IndianRupee size={12} color={isDark ? '#CE93D8' : '#7B1FA2'} />
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#CE93D8' : '#7B1FA2' }}>{pending.expenses}</Text>
                             </View>
                           )}
                         </View>
                       )}
-                      {isSelected && <CheckCircle size={20} color="#1976D2" />}
+                      {isSelected && <CheckCircle size={20} color={themeColors.accent} />}
                     </View>
                   </TouchableOpacity>
                 );
@@ -836,16 +844,16 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
           padding: 24,
         }}>
           <View style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: themeColors.surface,
             borderRadius: 12,
             padding: 24,
             width: '100%',
             maxWidth: 400,
           }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: themeColors.text.primary, marginBottom: 8 }}>
               Reject {rejectingItem?.type === 'sheets' ? 'Sheet Sale' : 'Expense'}?
             </Text>
-            <Text style={{ fontSize: 14, color: '#666666', marginBottom: 16 }}>
+            <Text style={{ fontSize: 14, color: themeColors.text.secondary, marginBottom: 16 }}>
               {rejectingItem?.userName} • {rejectingItem?.type === 'sheets'
                 ? `${rejectingItem?.sheetsCount} sheets (${rejectingItem?.catalog})`
                 : `₹${rejectingItem?.amount?.toLocaleString('en-IN')} (${rejectingItem?.category})`
@@ -855,16 +863,18 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
             <TextInput
               style={{
                 borderWidth: 1,
-                borderColor: '#E0E0E0',
+                borderColor: themeColors.border.default,
                 borderRadius: 8,
                 padding: 12,
                 fontSize: 14,
                 minHeight: 80,
                 textAlignVertical: 'top',
                 marginBottom: 16,
+                color: themeColors.text.primary,
+                backgroundColor: themeColors.background,
               }}
               placeholder="Add a comment (optional)"
-              placeholderTextColor="#999999"
+              placeholderTextColor={themeColors.text.tertiary}
               value={rejectComment}
               onChangeText={setRejectComment}
               multiline
@@ -876,7 +886,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
                   flex: 1,
                   paddingVertical: 12,
                   borderRadius: 8,
-                  backgroundColor: '#F0F0F0',
+                  backgroundColor: themeColors.surfaceAlt,
                   alignItems: 'center',
                 }}
                 onPress={() => {
@@ -885,7 +895,7 @@ export const ReviewHomeScreen: React.FC<ReviewHomeScreenProps> = ({ navigation, 
                   setRejectComment('');
                 }}
               >
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#666666' }}>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: themeColors.text.secondary }}>
                   Cancel
                 </Text>
               </TouchableOpacity>

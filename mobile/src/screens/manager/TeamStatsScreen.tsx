@@ -13,7 +13,7 @@
  * - Number grid layout for breakdowns
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,7 +31,9 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  Linking,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
   Users,
@@ -63,6 +65,7 @@ import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { Skeleton } from '../../patterns/Skeleton';
 import { TargetProgress } from '../../types';
 import { formatPhoneForDisplay } from '../../utils/formatTime';
+import { useTheme, colors } from '../../theme';
 
 // User type for filter (managers and reps)
 interface FilterUser {
@@ -171,14 +174,26 @@ interface TeamStatsResponse {
   };
 }
 
-// Heatmap colors (GitHub-style green scale)
-const HEATMAP_COLORS = {
+// Heatmap colors (GitHub-style green scale) - Light mode
+const HEATMAP_COLORS_LIGHT = {
   EMPTY: '#EBEDF0',    // No activity (0%) - neutral gray
   LOW: '#C6E9C7',      // 1-25% active - light green
   MEDIUM: '#40C463',   // 26-50% active
   HIGH: '#30A14E',     // 51-75% active
   FULL: '#216E39',     // 76-100% active
 };
+
+// Heatmap colors - Dark mode (muted to avoid being too bright)
+const HEATMAP_COLORS_DARK = {
+  EMPTY: '#3D3D3D',    // No activity - matches dark surface
+  LOW: '#1B4D1E',      // 1-25% active - darker green
+  MEDIUM: '#2E7D32',   // 26-50% active
+  HIGH: '#388E3C',     // 51-75% active
+  FULL: '#4CAF50',     // 76-100% active
+};
+
+// Default to light (used in functions that don't have access to theme)
+const HEATMAP_COLORS = HEATMAP_COLORS_LIGHT;
 
 // Get heatmap color based on activity percentage
 const getHeatmapColor = (activeCount: number, totalCount: number): string => {
@@ -228,6 +243,8 @@ const ActivityHeatmap: React.FC<{
   isSingleRepView?: boolean;
 }> = ({ dailyActivity, loading, isWeekView = false, isCustomRange = false, isSingleRepView = false }) => {
   const { width: screenWidth } = useWindowDimensions();
+  const { isDark, colors: themeColors } = useTheme();
+  const heatmapColors = isDark ? HEATMAP_COLORS_DARK : HEATMAP_COLORS_LIGHT;
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
   // Calculate max visits for relative scale (only for single rep view)
@@ -236,6 +253,26 @@ const ActivityHeatmap: React.FC<{
     const validDays = dailyActivity.filter(d => d.date <= today);
     return Math.max(...validDays.map(d => d.visitCount || 0), 1); // Min 1 to avoid division by zero
   }, [dailyActivity, today, isSingleRepView]);
+
+  // Helper to get heatmap color with dark mode support
+  const getColor = (activeCount: number, totalCount: number): string => {
+    if (totalCount === 0 || activeCount === 0) return heatmapColors.EMPTY;
+    const percentage = (activeCount / totalCount) * 100;
+    if (percentage <= 25) return heatmapColors.LOW;
+    if (percentage <= 50) return heatmapColors.MEDIUM;
+    if (percentage <= 75) return heatmapColors.HIGH;
+    return heatmapColors.FULL;
+  };
+
+  const getRepColor = (visitCount: number, maxV: number): string => {
+    if (visitCount === 0) return heatmapColors.EMPTY;
+    if (maxV <= 0) return heatmapColors.LOW;
+    const percentage = (visitCount / maxV) * 100;
+    if (percentage <= 25) return heatmapColors.LOW;
+    if (percentage <= 50) return heatmapColors.MEDIUM;
+    if (percentage <= 75) return heatmapColors.HIGH;
+    return heatmapColors.FULL;
+  };
 
   // Build grid data
   const gridData = useMemo((): GridCell[] => {
@@ -248,7 +285,7 @@ const ActivityHeatmap: React.FC<{
         isToday: false,
         isFuture: false,
         isOutOfRange: false,
-        color: HEATMAP_COLORS.EMPTY,
+        color: heatmapColors.EMPTY,
         visitCount: 0,
       }));
     }
@@ -260,10 +297,10 @@ const ActivityHeatmap: React.FC<{
         // For single rep: use visitCount from API
         const visitCount = isSingleRepView ? (day.visitCount || 0) : 0;
         const color = isFuture
-          ? HEATMAP_COLORS.EMPTY
+          ? heatmapColors.EMPTY
           : isSingleRepView
-            ? getRepHeatmapColor(visitCount, maxVisits)
-            : getHeatmapColor(day.activeCount, day.totalCount);
+            ? getRepColor(visitCount, maxVisits)
+            : getColor(day.activeCount, day.totalCount);
         return {
           key: day.date,
           isEmpty: false,
@@ -339,10 +376,10 @@ const ActivityHeatmap: React.FC<{
       // For single rep: use visitCount from API
       const visitCount = isSingleRepView ? (day.visitCount || 0) : 0;
       const color = isFuture
-        ? HEATMAP_COLORS.EMPTY
+        ? heatmapColors.EMPTY
         : isSingleRepView
-          ? getRepHeatmapColor(visitCount, maxVisits)
-          : getHeatmapColor(day.activeCount, day.totalCount);
+          ? getRepColor(visitCount, maxVisits)
+          : getColor(day.activeCount, day.totalCount);
       grid.push({
         key: day.date,
         isEmpty: false,
@@ -436,22 +473,35 @@ const ActivityHeatmap: React.FC<{
                   styles.heatmapCell,
                   { width: CELL_WIDTH, height: CELL_HEIGHT },
                   { backgroundColor: cell.color },
-                  cell.isToday && styles.heatmapCellToday,
+                  // Today cell: theme-aware border
+                  cell.isToday && {
+                    borderWidth: 2,
+                    borderColor: isDark ? themeColors.accent : '#393735',
+                  },
                   cell.isEmpty && cell.color === 'transparent' && styles.heatmapCellInvisible,
-                  cell.isFuture && styles.heatmapCellFuture,
+                  // Future cells: theme-aware border styling (don't use static style that overrides backgroundColor)
+                  cell.isFuture && {
+                    borderWidth: 1,
+                    borderColor: isDark ? '#555555' : '#E0E0E0',
+                    borderStyle: 'dashed' as const,
+                  },
                   cell.isOutOfRange && styles.heatmapCellOutOfRange,
                   loading && styles.heatmapCellSkeleton,
                 ]}
               >
                 {/* Diagonal line for future days */}
                 {cell.isFuture && !loading && (
-                  <View style={styles.heatmapCellFutureLine} />
+                  <View style={[
+                    styles.heatmapCellFutureLine,
+                    { backgroundColor: isDark ? '#666666' : '#CCCCCC' },
+                  ]} />
                 )}
                 {/* Visit count for single rep view (non-future, non-empty cells) */}
                 {isSingleRepView && !cell.isFuture && !cell.isEmpty && !loading && cell.visitCount !== undefined && (
                   <Text style={[
                     styles.heatmapCellCount,
-                    cell.visitCount >= 4 && styles.heatmapCellCountLight,
+                    // Dark mode: always white text. Light mode: white only for high counts (darker cells)
+                    (isDark || cell.visitCount >= 4) && styles.heatmapCellCountLight,
                   ]}>
                     {cell.visitCount}
                   </Text>
@@ -466,11 +516,11 @@ const ActivityHeatmap: React.FC<{
       <View style={styles.heatmapLegend}>
         <Text style={styles.heatmapLegendText}>{isSingleRepView ? '0' : 'Less'}</Text>
         <View style={styles.heatmapLegendCells}>
-          <View style={[styles.heatmapLegendCell, { backgroundColor: HEATMAP_COLORS.EMPTY }]} />
-          <View style={[styles.heatmapLegendCell, { backgroundColor: HEATMAP_COLORS.LOW }]} />
-          <View style={[styles.heatmapLegendCell, { backgroundColor: HEATMAP_COLORS.MEDIUM }]} />
-          <View style={[styles.heatmapLegendCell, { backgroundColor: HEATMAP_COLORS.HIGH }]} />
-          <View style={[styles.heatmapLegendCell, { backgroundColor: HEATMAP_COLORS.FULL }]} />
+          <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.EMPTY }]} />
+          <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.LOW }]} />
+          <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.MEDIUM }]} />
+          <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.HIGH }]} />
+          <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.FULL }]} />
         </View>
         <Text style={styles.heatmapLegendText}>{isSingleRepView ? maxVisits : 'More'}</Text>
       </View>
@@ -488,11 +538,12 @@ const NumberGridCard: React.FC<{
   loading?: boolean;
   pendingCount?: number;
 }> = ({ icon, title, total, totalLabel, breakdowns, loading, pendingCount }) => {
+  const { colors: themeColors } = useTheme();
   return (
-    <View style={styles.splitCard}>
+    <View style={[styles.splitCard, { backgroundColor: themeColors.surface }]}>
       <View style={styles.splitCardHeader}>
         {icon}
-        <Text style={styles.splitCardTitle}>{title}</Text>
+        <Text style={[styles.splitCardTitle, { color: themeColors.text.secondary }]}>{title}</Text>
         {pendingCount !== undefined && pendingCount > 0 && !loading && (
           <View style={styles.pendingBadge}>
             <Text style={styles.pendingBadgeText}>+{pendingCount} pending</Text>
@@ -505,12 +556,12 @@ const NumberGridCard: React.FC<{
           {loading ? (
             <Skeleton width={60} height={42} />
           ) : (
-            <Text style={styles.splitCardNumber}>{formatNumber(total)}</Text>
+            <Text style={[styles.splitCardNumber, { color: themeColors.text.primary }]}>{formatNumber(total)}</Text>
           )}
-          <Text style={styles.splitCardNumberLabel}>{totalLabel}</Text>
+          <Text style={[styles.splitCardNumberLabel, { color: themeColors.text.secondary }]}>{totalLabel}</Text>
         </View>
         {/* Divider */}
-        <View style={styles.splitCardDivider} />
+        <View style={[styles.splitCardDivider, { backgroundColor: themeColors.border.default }]} />
         {/* Right - 2x2 Grid */}
         <View style={styles.numberGrid}>
           {breakdowns.map((item) => (
@@ -520,7 +571,7 @@ const NumberGridCard: React.FC<{
               ) : (
                 <Text style={[styles.numberGridValue, { color: item.color }]}>{formatNumber(item.value)}</Text>
               )}
-              <Text style={styles.numberGridLabel}>{item.label}</Text>
+              <Text style={[styles.numberGridLabel, { color: themeColors.text.secondary }]}>{item.label}</Text>
             </View>
           ))}
         </View>
@@ -790,6 +841,7 @@ const calendarStyles = StyleSheet.create({
 export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const bottomPadding = useBottomSafeArea(12);
+  const { isDark, colors: themeColors } = useTheme();
   const [selectedRange, setSelectedRange] = useState<TimeRange>('month');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [teamCardExpanded, setTeamCardExpanded] = useState(false);
@@ -1071,12 +1123,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
   const pendingTotal = (stats?.pending?.sheetsLogs || 0) + (stats?.pending?.expenses || 0);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
         <View style={styles.headerTitleRow}>
-          <BarChart3 size={24} color="#C9A961" />
-          <Text style={styles.headerTitle}>Stats</Text>
+          <BarChart3 size={24} color={themeColors.accent} />
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Stats</Text>
         </View>
         <TouchableOpacity
           style={styles.headerFilterChip}
@@ -1090,8 +1142,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
       </View>
 
       {/* Time Range Toggle - Full Width */}
-      <View style={styles.toggleContainer}>
-        <View style={styles.toggleRow}>
+      <View style={[styles.toggleContainer, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border.default }]}>
+        <View style={[styles.toggleRow, { backgroundColor: isDark ? themeColors.surface : '#F0F0F0' }]}>
           {(['today', 'week', 'month'] as TimeRange[]).map((range) => (
             <TouchableOpacity
               key={range}
@@ -1134,26 +1186,26 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
       >
         {/* Team Activity - Expandable card (week/month view) */}
         <TouchableOpacity
-          style={styles.teamCard}
+          style={[styles.teamCard, { backgroundColor: themeColors.surface }]}
           onPress={toggleTeamCardExpand}
           activeOpacity={supportsHeatmap ? 0.7 : 1}
           disabled={!supportsHeatmap}
         >
           <View style={styles.teamCardHeader}>
             {filterType === 'rep' ? (
-              <MapPin size={20} color="#666" />
+              <MapPin size={20} color={themeColors.text.secondary} />
             ) : (
-              <Users size={20} color="#666" />
+              <Users size={20} color={themeColors.text.secondary} />
             )}
-            <Text style={styles.teamCardTitle}>
+            <Text style={[styles.teamCardTitle, { color: themeColors.text.secondary }]}>
               {filterType === 'rep' ? 'ACTIVITY' : 'TEAM'}
             </Text>
             {supportsHeatmap && (
               <View style={styles.teamCardExpandIcon}>
                 {teamCardExpanded ? (
-                  <ChevronUp size={16} color="#888" />
+                  <ChevronUp size={16} color={themeColors.text.secondary} />
                 ) : (
-                  <ChevronDown size={16} color="#888" />
+                  <ChevronDown size={16} color={themeColors.text.secondary} />
                 )}
               </View>
             )}
@@ -1170,15 +1222,15 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 const totalDays = dailyActivity.filter(d => d.date <= today).length;
                 return (
                   <>
-                    <Text style={styles.teamActiveNumber}>{activeDays}</Text>
-                    <Text style={styles.teamActiveLabel}>of {totalDays} days active</Text>
+                    <Text style={[styles.teamActiveNumber, { color: themeColors.text.primary }]}>{activeDays}</Text>
+                    <Text style={[styles.teamActiveLabel, { color: themeColors.text.secondary }]}>of {totalDays} days active</Text>
                   </>
                 );
               })()
             ) : (
               <>
-                <Text style={styles.teamActiveNumber}>{stats?.team?.active || 0}</Text>
-                <Text style={styles.teamActiveLabel}>of {stats?.team?.total || 0} active</Text>
+                <Text style={[styles.teamActiveNumber, { color: themeColors.text.primary }]}>{stats?.team?.active || 0}</Text>
+                <Text style={[styles.teamActiveLabel, { color: themeColors.text.secondary }]}>of {stats?.team?.total || 0} active</Text>
               </>
             )}
           </View>
@@ -1197,7 +1249,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
         {/* Visits - Number Grid (Expandable for single rep) */}
         <TouchableOpacity
-          style={styles.splitCard}
+          style={[styles.splitCard, { backgroundColor: themeColors.surface }]}
           onPress={() => {
             if (filterType === 'rep' && stats?.visitDetails) {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -1208,13 +1260,13 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
         >
           <View style={styles.splitCardHeader}>
             <MapPin size={20} color="#2196F3" />
-            <Text style={styles.splitCardTitle}>VISITS</Text>
+            <Text style={[styles.splitCardTitle, { color: themeColors.text.secondary }]}>VISITS</Text>
             {filterType === 'rep' && stats?.visitDetails && (
               <View style={styles.teamCardExpandIcon}>
                 {visitsCardExpanded ? (
-                  <ChevronUp size={16} color="#888" />
+                  <ChevronUp size={16} color={themeColors.text.secondary} />
                 ) : (
-                  <ChevronDown size={16} color="#888" />
+                  <ChevronDown size={16} color={themeColors.text.secondary} />
                 )}
               </View>
             )}
@@ -1225,12 +1277,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               {isLoading ? (
                 <Skeleton width={60} height={42} />
               ) : (
-                <Text style={styles.splitCardNumber}>{formatNumber(stats?.visits?.total || 0)}</Text>
+                <Text style={[styles.splitCardNumber, { color: themeColors.text.primary }]}>{formatNumber(stats?.visits?.total || 0)}</Text>
               )}
-              <Text style={styles.splitCardNumberLabel}>total</Text>
+              <Text style={[styles.splitCardNumberLabel, { color: themeColors.text.secondary }]}>total</Text>
             </View>
             {/* Divider */}
-            <View style={styles.splitCardDivider} />
+            <View style={[styles.splitCardDivider, { backgroundColor: themeColors.border.default }]} />
             {/* Right - 2x2 Grid */}
             <View style={styles.numberGrid}>
               {[
@@ -1245,7 +1297,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                   ) : (
                     <Text style={[styles.numberGridValue, { color: item.color }]}>{formatNumber(item.value)}</Text>
                   )}
-                  <Text style={styles.numberGridLabel}>{item.label}</Text>
+                  <Text style={[styles.numberGridLabel, { color: themeColors.text.secondary }]}>{item.label}</Text>
                 </View>
               ))}
             </View>
@@ -1253,7 +1305,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
           {/* Expandable Visit Details (single rep only) - Clean Account Coverage */}
           {filterType === 'rep' && visitsCardExpanded && stats?.visitDetails && (
-            <View style={styles.visitDetailsContainer}>
+            <View style={[styles.visitDetailsContainer, { borderTopColor: themeColors.border.default }]}>
               {/* Header with unique accounts count and View All */}
               <TouchableOpacity
                 style={styles.accountCoverageHeaderRow}
@@ -1281,8 +1333,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 }}
                 activeOpacity={stats.visitDetails.topAccounts?.length ? 0.7 : 1}
               >
-                <Text style={styles.accountCoverageMainText}>
-                  <Text style={styles.accountCoverageNumber}>{stats.visitDetails.topAccounts?.length || 0}</Text> unique accounts
+                <Text style={[styles.accountCoverageMainText, { color: themeColors.text.secondary }]}>
+                  <Text style={[styles.accountCoverageNumber, { color: themeColors.text.primary }]}>{stats.visitDetails.topAccounts?.length || 0}</Text> unique accounts
                 </Text>
                 {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
                   <View style={styles.viewAllChip}>
@@ -1296,15 +1348,15 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               <View style={styles.accountHighlightRow}>
                 {/* Most Active Account */}
                 {stats.visitDetails.topAccounts && stats.visitDetails.topAccounts.length > 0 && (
-                  <View style={styles.accountHighlightCard}>
-                    <View style={styles.accountHighlightIcon}>
+                  <View style={[styles.accountHighlightCard, { backgroundColor: isDark ? themeColors.surfaceAlt : '#FFF8E1' }]}>
+                    <View style={[styles.accountHighlightIcon, { backgroundColor: isDark ? 'rgba(255, 152, 0, 0.2)' : '#FFE0B2' }]}>
                       <Target size={16} color="#FF9800" />
                     </View>
                     <View style={styles.accountHighlightContent}>
-                      <Text style={styles.accountHighlightName} numberOfLines={1}>
+                      <Text style={[styles.accountHighlightName, { color: themeColors.text.primary }]} numberOfLines={1}>
                         {stats.visitDetails.topAccounts[0].accountName}
                       </Text>
-                      <Text style={styles.accountHighlightMeta}>
+                      <Text style={[styles.accountHighlightMeta, { color: themeColors.text.secondary }]}>
                         {stats.visitDetails.topAccounts[0].visitCount} visits • Most active
                       </Text>
                     </View>
@@ -1313,15 +1365,15 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
                 {/* Latest Visit */}
                 {stats.visitDetails.recent && stats.visitDetails.recent.length > 0 && (
-                  <View style={styles.accountHighlightCard}>
-                    <View style={[styles.accountHighlightIcon, { backgroundColor: '#E8F5E9' }]}>
+                  <View style={[styles.accountHighlightCard, { backgroundColor: isDark ? themeColors.surfaceAlt : '#E8F5E9' }]}>
+                    <View style={[styles.accountHighlightIcon, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.2)' : '#C8E6C9' }]}>
                       <MapPin size={16} color="#4CAF50" />
                     </View>
                     <View style={styles.accountHighlightContent}>
-                      <Text style={styles.accountHighlightName} numberOfLines={1}>
+                      <Text style={[styles.accountHighlightName, { color: themeColors.text.primary }]} numberOfLines={1}>
                         {stats.visitDetails.recent[0].accountName}
                       </Text>
-                      <Text style={styles.accountHighlightMeta}>
+                      <Text style={[styles.accountHighlightMeta, { color: themeColors.text.secondary }]}>
                         {formatRelativeTime(stats.visitDetails.recent[0].timestamp)} • Last visit
                       </Text>
                     </View>
@@ -1335,7 +1387,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
         {/* Sheets - Number Grid (Expandable for single rep) */}
         {filterType === 'rep' ? (
           <TouchableOpacity
-            style={styles.splitCard}
+            style={[styles.splitCard, { backgroundColor: themeColors.surface }]}
             onPress={() => {
               LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
               setSheetsCardExpanded(!sheetsCardExpanded);
@@ -1344,7 +1396,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           >
             <View style={styles.splitCardHeader}>
               <Layers size={20} color="#FF9800" />
-              <Text style={styles.splitCardTitle}>SHEETS SOLD</Text>
+              <Text style={[styles.splitCardTitle, { color: themeColors.text.secondary }]}>SHEETS SOLD</Text>
               {!isLoading && (stats?.pending?.sheets ?? 0) > 0 && (
                 <View style={styles.pendingBadge}>
                   <Text style={styles.pendingBadgeText}>+{stats?.pending?.sheets} pending</Text>
@@ -1352,9 +1404,9 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               )}
               <View style={styles.teamCardExpandIcon}>
                 {sheetsCardExpanded ? (
-                  <ChevronUp size={16} color="#888" />
+                  <ChevronUp size={16} color={themeColors.text.secondary} />
                 ) : (
-                  <ChevronDown size={16} color="#888" />
+                  <ChevronDown size={16} color={themeColors.text.secondary} />
                 )}
               </View>
             </View>
@@ -1367,12 +1419,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                   {isLoading ? (
                     <Skeleton width={60} height={42} />
                   ) : (
-                    <Text style={styles.splitCardNumber}>{formatNumber(stats?.sheets?.total || 0)}</Text>
+                    <Text style={[styles.splitCardNumber, { color: themeColors.text.primary }]}>{formatNumber(stats?.sheets?.total || 0)}</Text>
                   )}
-                  <Text style={styles.splitCardNumberLabel}>approved</Text>
+                  <Text style={[styles.splitCardNumberLabel, { color: themeColors.text.secondary }]}>approved</Text>
                 </View>
                 {/* Divider */}
-                <View style={styles.splitCardDivider} />
+                <View style={[styles.splitCardDivider, { backgroundColor: themeColors.border.default }]} />
                 {/* Right - 2x2 Grid */}
                 <View style={styles.numberGrid}>
                   {[
@@ -1387,7 +1439,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                       ) : (
                         <Text style={[styles.numberGridValue, { color: item.color }]}>{formatNumber(item.value)}</Text>
                       )}
-                      <Text style={styles.numberGridLabel}>{item.label}</Text>
+                      <Text style={[styles.numberGridLabel, { color: themeColors.text.secondary }]}>{item.label}</Text>
                     </View>
                   ))}
                 </View>
@@ -1409,17 +1461,18 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                     {sheetsProgressData.map((item) => (
                       <View key={item.catalog} style={styles.catalogProgressRow}>
                         <View style={styles.catalogProgressHeader}>
-                          <Text style={styles.catalogProgressName}>{item.catalog}</Text>
+                          <Text style={[styles.catalogProgressName, { color: themeColors.text.primary }]}>{item.catalog}</Text>
                           <Text style={styles.catalogProgressValues}>
                             <Text style={{ fontWeight: '700', color: item.color }}>{item.achieved}</Text>
-                            <Text style={{ color: '#888' }}> / {item.target > 0 ? item.target : '—'}</Text>
+                            <Text style={{ color: themeColors.text.tertiary }}> / {item.target > 0 ? item.target : '—'}</Text>
                           </Text>
                         </View>
                         <View style={styles.catalogProgressBarRow}>
                           <ProgressBar progress={item.percentage} color={item.color} />
                           <Text style={[
                             styles.catalogProgressPercent,
-                            item.percentage >= 100 && styles.catalogProgressComplete,
+                            { color: themeColors.text.tertiary },
+                            item.percentage >= 100 && { color: themeColors.success },
                           ]}>
                             {item.target > 0 ? `${item.percentage}%` : 'No target'}
                             {item.percentage >= 100 && ' ✓'}
@@ -1430,20 +1483,20 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
                     {/* Total Summary */}
                     {totalSheetsProgress && totalSheetsProgress.target > 0 && (
-                      <View style={styles.totalProgressSection}>
+                      <View style={[styles.totalProgressSection, { borderTopColor: themeColors.border.default }]}>
                         <View style={styles.totalProgressHeader}>
-                          <Text style={styles.totalProgressLabel}>Total</Text>
+                          <Text style={[styles.totalProgressLabel, { color: themeColors.text.primary }]}>Total</Text>
                           <Text style={styles.totalProgressValues}>
-                            <Text style={{ fontWeight: '700', color: '#393735' }}>{totalSheetsProgress.achieved}</Text>
-                            <Text style={{ color: '#888' }}> / {totalSheetsProgress.target}</Text>
+                            <Text style={{ fontWeight: '700', color: themeColors.text.primary }}>{totalSheetsProgress.achieved}</Text>
+                            <Text style={{ color: themeColors.text.tertiary }}> / {totalSheetsProgress.target}</Text>
                           </Text>
                         </View>
                         <View style={styles.catalogProgressBarRow}>
-                          <ProgressBar progress={totalSheetsProgress.percentage} color="#393735" height={10} />
+                          <ProgressBar progress={totalSheetsProgress.percentage} color={isDark ? themeColors.accent : '#393735'} height={10} />
                           <Text style={[
                             styles.catalogProgressPercent,
-                            { fontWeight: '700' },
-                            totalSheetsProgress.percentage >= 100 && styles.catalogProgressComplete,
+                            { fontWeight: '700', color: themeColors.text.tertiary },
+                            totalSheetsProgress.percentage >= 100 && { color: themeColors.success },
                           ]}>
                             {totalSheetsProgress.percentage}%
                             {totalSheetsProgress.percentage >= 100 && ' ✓'}
@@ -1453,7 +1506,7 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                     )}
                   </>
                 ) : (
-                  <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 16 }}>
+                  <Text style={{ color: themeColors.text.tertiary, textAlign: 'center', paddingVertical: 16 }}>
                     No target data available
                   </Text>
                 )}
@@ -1479,11 +1532,11 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
         {/* Expenses Card - Single Rep View Only */}
         {filterType === 'rep' && selectedRepId && stats?.expenses && (
-          <View style={styles.expenseCard}>
+          <View style={[styles.expenseCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
             <View style={styles.expenseCardHeader}>
               <IndianRupee size={18} color="#4CAF50" />
-              <Text style={styles.expenseCardTitle}>EXPENSES</Text>
-              <Text style={styles.expenseCardTotal}>
+              <Text style={[styles.expenseCardTitle, { color: themeColors.text.secondary }]}>EXPENSES</Text>
+              <Text style={[styles.expenseCardTotal, { color: themeColors.text.primary }]}>
                 {stats.expenses.total > 0 ? formatRupee(stats.expenses.total) : '₹0'}
               </Text>
             </View>
@@ -1524,7 +1577,14 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
         )}
 
         {/* Pending Banner */}
-        <TouchableOpacity style={styles.pendingBanner} onPress={() => {
+        <TouchableOpacity style={[
+          styles.pendingBanner,
+          {
+            backgroundColor: isDark ? '#3D3830' : '#FFFBF0',
+            borderColor: isDark ? '#4D4840' : '#F0E6C8',
+            borderWidth: 1,
+          }
+        ]} onPress={() => {
           // If a specific rep is selected, pass their name to pre-filter the Review tab
           if (filterType === 'rep' && selectedRepId && filterDisplayName !== 'All Users') {
             navigation?.navigate('Home', { screen: 'ReviewTab', params: { filterUserName: filterDisplayName } });
@@ -1533,57 +1593,59 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           }
         }}>
           <View style={styles.pendingLeft}>
-            <View style={styles.pendingIconCircle}>
-              <Bell size={18} color="#C9A961" />
+            <View style={[styles.pendingIconCircle, { backgroundColor: isDark ? '#4A4235' : '#FFF8E7' }]}>
+              <Bell size={18} color={themeColors.accent} />
             </View>
             <View>
               {isLoading ? (
                 <Skeleton width={100} height={20} />
               ) : (
                 <>
-                  <Text style={styles.pendingTitle}>{pendingTotal} Pending Review</Text>
-                  <Text style={styles.pendingSub}>
+                  <Text style={[styles.pendingTitle, { color: themeColors.text.primary }]}>{pendingTotal} Pending Review</Text>
+                  <Text style={[styles.pendingSub, { color: themeColors.text.secondary }]}>
                     {stats?.pending?.sheetsLogs || 0} sheets, {stats?.pending?.expenses || 0} expenses
                   </Text>
                 </>
               )}
             </View>
           </View>
-          <ChevronRight size={20} color="#C9A961" />
+          <ChevronRight size={20} color={themeColors.accent} />
         </TouchableOpacity>
 
         {/* Rep Action Bar - Shows at bottom for single rep view */}
         {filterType === 'rep' && selectedRepId && (
-          <View style={styles.repActionBar}>
+          <View style={[styles.repActionBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border.default }]}>
             {/* Contact Info Row */}
-            <View style={styles.repActionInfoRow}>
+            <View style={[styles.repActionInfoRow, { borderBottomColor: themeColors.border.default }]}>
               <View style={styles.repActionInfoBlock}>
-                <Phone size={14} color="#888" />
-                <Text style={styles.repActionInfoLabel}>Phone</Text>
-                <Text style={styles.repActionInfoValue}>{formatPhoneForDisplay(selectedRepDetails?.phone) || '—'}</Text>
+                <Phone size={14} color={themeColors.text.secondary} />
+                <Text style={[styles.repActionInfoLabel, { color: themeColors.text.tertiary }]}>Phone</Text>
+                <Text style={[styles.repActionInfoValue, { color: themeColors.text.primary }]}>{formatPhoneForDisplay(selectedRepDetails?.phone) || '—'}</Text>
               </View>
-              <View style={styles.repActionInfoDivider} />
+              <View style={[styles.repActionInfoDivider, { backgroundColor: themeColors.border.default }]} />
               <View style={styles.repActionInfoBlock}>
-                <MapPin size={14} color="#888" />
-                <Text style={styles.repActionInfoLabel}>Territory</Text>
-                <Text style={styles.repActionInfoValue}>{selectedRepDetails?.territory || '—'}</Text>
+                <MapPin size={14} color={themeColors.text.secondary} />
+                <Text style={[styles.repActionInfoLabel, { color: themeColors.text.tertiary }]}>Territory</Text>
+                <Text style={[styles.repActionInfoValue, { color: themeColors.text.primary }]}>{selectedRepDetails?.territory || '—'}</Text>
               </View>
             </View>
             {/* Action Buttons */}
             <View style={styles.repActionButtons}>
               <TouchableOpacity
-                style={[styles.repActionBtn, styles.repActionBtnPrimary]}
+                style={[styles.repActionBtn, styles.repActionBtnPrimary, { backgroundColor: isDark ? themeColors.accent : colors.primary }]}
                 onPress={() => navigation?.navigate('SetTarget', {
                   userId: selectedRepId,
                   userName: filterDisplayName,
                   currentMonth: currentMonth,
+                  // Pass existing target data to avoid re-fetch
+                  existingTarget: targetData?.target || null,
                 })}
               >
-                <Target size={16} color="#FFFFFF" />
-                <Text style={[styles.repActionBtnText, { color: '#FFFFFF' }]}>Set Target</Text>
+                <Target size={16} color={isDark ? '#1A1A1A' : '#FFFFFF'} />
+                <Text style={[styles.repActionBtnText, { color: isDark ? '#1A1A1A' : '#FFFFFF' }]}>Set Target</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.repActionBtn}
+                style={[styles.repActionBtn, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                 onPress={() => {
                   // Populate all edit fields from selected rep
                   setEditRepName(selectedRepDetails?.name || '');
@@ -1601,8 +1663,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                   setEditRepModalVisible(true);
                 }}
               >
-                <Edit2 size={16} color="#393735" />
-                <Text style={[styles.repActionBtnText, { color: '#393735' }]}>Edit</Text>
+                <Edit2 size={16} color={themeColors.text.primary} />
+                <Text style={[styles.repActionBtnText, { color: themeColors.text.primary }]}>Edit</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1626,13 +1688,13 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={styles.modalContent}
+            style={[styles.modalContent, { backgroundColor: isDark ? '#404040' : '#FFFFFF' }]}
           >
             {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter by Team</Text>
+            <View style={[styles.modalHeader, { backgroundColor: isDark ? '#4A4A4A' : '#FAFAFA', borderBottomColor: themeColors.border.default }]}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Filter by Team</Text>
               <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-                <X size={24} color="#666" />
+                <X size={24} color={themeColors.text.primary} />
               </TouchableOpacity>
             </View>
 
@@ -1653,7 +1715,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                       key="all-users"
                       style={[
                         styles.modalOption,
-                        filterType === 'all' && styles.modalOptionSelected,
+                        { borderBottomColor: isDark ? '#555555' : '#F0F0F0' },
+                        filterType === 'all' && { backgroundColor: isDark ? '#4A6B4A' : '#E8F5E9' },
                       ]}
                       onPress={() => {
                         setFilterType('all');
@@ -1663,12 +1726,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                       }}
                     >
                       <View style={styles.modalOptionLeft}>
-                        <View style={styles.modalOptionAvatar}>
-                          <Users size={16} color="#666" />
+                        <View style={[styles.modalOptionAvatar, { backgroundColor: isDark ? '#555555' : '#F0F0F0' }]}>
+                          <Users size={16} color={isDark ? '#E0E0E0' : '#666666'} />
                         </View>
-                        <Text style={styles.modalOptionName}>All Users</Text>
+                        <Text style={[styles.modalOptionName, { color: isDark ? '#FFFFFF' : '#1A1A1A' }]}>All Users</Text>
                       </View>
-                      {filterType === 'all' && <Check size={20} color="#2E7D32" />}
+                      {filterType === 'all' && <Check size={20} color={isDark ? '#81C784' : '#2E7D32'} />}
                     </TouchableOpacity>
                   );
                 }
@@ -1697,7 +1760,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                       <TouchableOpacity
                         style={[
                           styles.modalOption,
-                          isManagerTeamSelected && styles.modalOptionSelected,
+                          { borderBottomColor: isDark ? '#555555' : '#F0F0F0' },
+                          isManagerTeamSelected && { backgroundColor: isDark ? '#4A6B4A' : '#E8F5E9' },
                         ]}
                         onPress={() => {
                           // Toggle expand/collapse
@@ -1721,19 +1785,19 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                           {/* Expand chevron */}
                           {managerReps.length > 0 ? (
                             isExpanded ? (
-                              <ChevronDown size={16} color="#888" style={{ marginRight: 8 }} />
+                              <ChevronDown size={16} color={isDark ? '#AAAAAA' : '#888888'} style={{ marginRight: 8 }} />
                             ) : (
-                              <ChevronRight size={16} color="#888" style={{ marginRight: 8 }} />
+                              <ChevronRight size={16} color={isDark ? '#AAAAAA' : '#888888'} style={{ marginRight: 8 }} />
                             )
                           ) : (
                             <View style={{ width: 24 }} />
                           )}
-                          <View style={styles.modalOptionAvatar}>
-                            <Users size={16} color="#666" />
+                          <View style={[styles.modalOptionAvatar, { backgroundColor: isDark ? '#555555' : '#F0F0F0' }]}>
+                            <Users size={16} color={isDark ? '#E0E0E0' : '#666666'} />
                           </View>
                           <View>
-                            <Text style={styles.modalOptionName}>{manager.name}</Text>
-                            <Text style={styles.modalOptionRole}>
+                            <Text style={[styles.modalOptionName, { color: isDark ? '#FFFFFF' : '#1A1A1A' }]}>{manager.name}</Text>
+                            <Text style={[styles.modalOptionRole, { color: isDark ? '#AAAAAA' : '#888888' }]}>
                               {manager.role === 'area_manager' ? 'Area Manager' :
                                manager.role === 'national_head' ? 'National Head' :
                                manager.role}
@@ -1741,18 +1805,19 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                             </Text>
                           </View>
                         </View>
-                        {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
+                        {isManagerTeamSelected && <Check size={20} color={isDark ? '#81C784' : '#2E7D32'} />}
                       </TouchableOpacity>
 
                       {/* Expanded content: Team option + Individual reps */}
                       {isExpanded && managerReps.length > 0 && (
-                        <View style={styles.expandedSection}>
+                        <View style={[styles.expandedSection, { backgroundColor: isDark ? '#383838' : '#FAFAFA' }]}>
                           {/* Team aggregate option */}
                           <TouchableOpacity
                             style={[
                               styles.modalOption,
                               styles.modalOptionIndented,
-                              isManagerTeamSelected && styles.modalOptionSelected,
+                              { borderBottomColor: isDark ? '#555555' : '#F0F0F0' },
+                              isManagerTeamSelected && { backgroundColor: isDark ? '#4A6B4A' : '#E8F5E9' },
                             ]}
                             onPress={() => {
                               setFilterType('manager');
@@ -1762,12 +1827,12 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                             }}
                           >
                             <View style={styles.modalOptionLeft}>
-                              <View style={[styles.modalOptionAvatar, { backgroundColor: '#E3F2FD' }]}>
-                                <Users size={14} color="#1976D2" />
+                              <View style={[styles.modalOptionAvatar, { backgroundColor: isDark ? '#2A4A5A' : '#E3F2FD' }]}>
+                                <Users size={14} color={isDark ? '#64B5F6' : '#1976D2'} />
                               </View>
-                              <Text style={styles.modalOptionName}>Team ({managerReps.length} reps)</Text>
+                              <Text style={[styles.modalOptionName, { color: isDark ? '#FFFFFF' : '#1A1A1A' }]}>Team ({managerReps.length} reps)</Text>
                             </View>
-                            {isManagerTeamSelected && <Check size={20} color="#2E7D32" />}
+                            {isManagerTeamSelected && <Check size={20} color={isDark ? '#81C784' : '#2E7D32'} />}
                           </TouchableOpacity>
 
                           {/* Individual rep options */}
@@ -1779,7 +1844,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                                 style={[
                                   styles.modalOption,
                                   styles.modalOptionIndented,
-                                  isRepSelected && styles.modalOptionSelected,
+                                  { borderBottomColor: isDark ? '#555555' : '#F0F0F0' },
+                                  isRepSelected && { backgroundColor: isDark ? '#4A6B4A' : '#E8F5E9' },
                                 ]}
                                 onPress={() => {
                                   setFilterType('rep');
@@ -1789,19 +1855,19 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                                 }}
                               >
                                 <View style={styles.modalOptionLeft}>
-                                  <View style={[styles.modalOptionAvatar, { backgroundColor: '#F5F5F5' }]}>
-                                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>
+                                  <View style={[styles.modalOptionAvatar, { backgroundColor: isDark ? '#555555' : '#F5F5F5' }]}>
+                                    <Text style={{ fontSize: 12, fontWeight: '600', color: isDark ? '#E0E0E0' : '#666666' }}>
                                       {rep.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                     </Text>
                                   </View>
                                   <View>
-                                    <Text style={styles.modalOptionName}>{rep.name}</Text>
+                                    <Text style={[styles.modalOptionName, { color: isDark ? '#FFFFFF' : '#1A1A1A' }]}>{rep.name}</Text>
                                     {rep.territory && (
-                                      <Text style={styles.modalOptionRole}>{rep.territory}</Text>
+                                      <Text style={[styles.modalOptionRole, { color: isDark ? '#AAAAAA' : '#888888' }]}>{rep.territory}</Text>
                                     )}
                                   </View>
                                 </View>
-                                {isRepSelected && <Check size={20} color="#2E7D32" />}
+                                {isRepSelected && <Check size={20} color={isDark ? '#81C784' : '#2E7D32'} />}
                               </TouchableOpacity>
                             );
                           })}
@@ -1903,65 +1969,65 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
           <TouchableOpacity
             activeOpacity={1}
             onPress={(e) => e.stopPropagation()}
-            style={styles.editRepModalContent}
+            style={[styles.editRepModalContent, { backgroundColor: themeColors.surface }]}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit {filterDisplayName}</Text>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Edit {filterDisplayName}</Text>
               <TouchableOpacity onPress={() => setEditRepModalVisible(false)}>
-                <X size={24} color="#666" />
+                <X size={24} color={themeColors.text.tertiary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.editRepScrollContent} showsVerticalScrollIndicator={false}>
               {/* Name Field */}
               <View style={styles.editRepField}>
-                <Text style={styles.editRepLabel}>Name</Text>
+                <Text style={[styles.editRepLabel, { color: themeColors.text.secondary }]}>Name</Text>
                 <TextInput
-                  style={styles.editRepInput}
+                  style={[styles.editRepInput, { backgroundColor: themeColors.background, borderColor: themeColors.border.default, color: themeColors.text.primary }]}
                   value={editRepName}
                   onChangeText={setEditRepName}
                   placeholder="Enter name"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={themeColors.text.tertiary}
                   autoCapitalize="words"
                 />
               </View>
 
               {/* Phone Field */}
               <View style={styles.editRepField}>
-                <Text style={styles.editRepLabel}>Phone</Text>
+                <Text style={[styles.editRepLabel, { color: themeColors.text.secondary }]}>Phone</Text>
                 <TextInput
-                  style={styles.editRepInput}
+                  style={[styles.editRepInput, { backgroundColor: themeColors.background, borderColor: themeColors.border.default, color: themeColors.text.primary }]}
                   value={editRepPhone}
                   onChangeText={setEditRepPhone}
                   placeholder="Enter phone number"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={themeColors.text.tertiary}
                   keyboardType="phone-pad"
                 />
               </View>
 
               {/* Territory Field */}
               <View style={styles.editRepField}>
-                <Text style={styles.editRepLabel}>Territory</Text>
+                <Text style={[styles.editRepLabel, { color: themeColors.text.secondary }]}>Territory</Text>
                 <TextInput
-                  style={styles.editRepInput}
+                  style={[styles.editRepInput, { backgroundColor: themeColors.background, borderColor: themeColors.border.default, color: themeColors.text.primary }]}
                   value={editRepTerritory}
                   onChangeText={setEditRepTerritory}
                   placeholder="Enter territory"
-                  placeholderTextColor="#999"
+                  placeholderTextColor={themeColors.text.tertiary}
                 />
               </View>
 
               {/* Primary Distributor Field */}
               <View style={styles.editRepField}>
-                <Text style={styles.editRepLabel}>Primary Distributor</Text>
+                <Text style={[styles.editRepLabel, { color: themeColors.text.secondary }]}>Primary Distributor</Text>
                 <TouchableOpacity
-                  style={styles.editRepInput}
+                  style={[styles.editRepInput, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                   onPress={() => setDistributorModalVisible(true)}
                 >
                   {loadingDistributors ? (
-                    <ActivityIndicator size="small" color="#666" />
+                    <ActivityIndicator size="small" color={themeColors.text.tertiary} />
                   ) : (
-                    <Text style={{ fontSize: 16, color: editRepDistributorId ? '#1A1A1A' : '#999' }}>
+                    <Text style={{ fontSize: 16, color: editRepDistributorId ? themeColors.text.primary : themeColors.text.tertiary }}>
                       {editRepDistributorName || 'Select distributor (optional)'}
                     </Text>
                   )}
@@ -1970,39 +2036,42 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
 
               {/* Manager (Reports To) Field - Admin sees all, others see only themselves */}
               <View style={styles.editRepField}>
-                <Text style={styles.editRepLabel}>Reports To</Text>
+                <Text style={[styles.editRepLabel, { color: themeColors.text.secondary }]}>Reports To</Text>
                 {isAdmin ? (
                   <View style={styles.editRepManagerPicker}>
-                    {managers.map((manager) => (
-                      <TouchableOpacity
-                        key={manager.id}
-                        style={[
-                          styles.editRepManagerOption,
-                          editRepManagerId === manager.id && styles.editRepManagerOptionSelected,
-                        ]}
-                        onPress={() => setEditRepManagerId(manager.id)}
-                      >
-                        <Text style={[
-                          styles.editRepManagerOptionText,
-                          editRepManagerId === manager.id && styles.editRepManagerOptionTextSelected,
-                        ]}>
-                          {manager.name}
-                        </Text>
-                        {editRepManagerId === manager.id && (
-                          <Check size={16} color="#FFFFFF" />
-                        )}
-                      </TouchableOpacity>
-                    ))}
+                    {managers.map((manager) => {
+                      const isSelected = editRepManagerId === manager.id;
+                      return (
+                        <TouchableOpacity
+                          key={manager.id}
+                          style={[
+                            styles.editRepManagerOption,
+                            { backgroundColor: isSelected ? themeColors.accent : themeColors.background, borderColor: isSelected ? themeColors.accent : themeColors.border.default },
+                          ]}
+                          onPress={() => setEditRepManagerId(manager.id)}
+                        >
+                          <Text style={[
+                            styles.editRepManagerOptionText,
+                            { color: isSelected ? '#FFFFFF' : themeColors.text.primary },
+                          ]}>
+                            {manager.name}
+                          </Text>
+                          {isSelected && (
+                            <Check size={16} color="#FFFFFF" />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 ) : (
                   <View style={styles.editRepManagerPicker}>
-                    <View style={[styles.editRepManagerOption, styles.editRepManagerOptionSelected]}>
-                      <Text style={[styles.editRepManagerOptionText, styles.editRepManagerOptionTextSelected]}>
+                    <View style={[styles.editRepManagerOption, { backgroundColor: themeColors.accent, borderColor: themeColors.accent }]}>
+                      <Text style={[styles.editRepManagerOptionText, { color: '#FFFFFF' }]}>
                         {managers.find(m => m.id === user?.uid)?.name || 'You'}
                       </Text>
                       <Check size={16} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.editRepFieldHint}>
+                    <Text style={[styles.editRepFieldHint, { color: themeColors.text.tertiary }]}>
                       Only admins can reassign reps to other managers
                     </Text>
                   </View>
@@ -2012,8 +2081,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
               {/* Active Status Toggle */}
               <View style={styles.editRepFieldRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.editRepLabel, { marginBottom: 0 }]}>Active Status</Text>
-                  <Text style={styles.editRepFieldHint}>
+                  <Text style={[styles.editRepLabel, { marginBottom: 0, color: themeColors.text.secondary }]}>Active Status</Text>
+                  <Text style={[styles.editRepFieldHint, { color: themeColors.text.tertiary }]}>
                     {editRepIsActive ? 'User can log in and appears in team list' : 'User is hidden from team and cannot log in'}
                   </Text>
                 </View>
@@ -2021,8 +2090,8 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                   <Switch
                     value={editRepIsActive}
                     onValueChange={setEditRepIsActive}
-                    trackColor={{ false: '#E0E0E0', true: '#81C784' }}
-                    thumbColor={editRepIsActive ? '#2E7D32' : '#BDBDBD'}
+                    trackColor={{ false: isDark ? '#555' : '#E0E0E0', true: '#81C784' }}
+                    thumbColor={editRepIsActive ? '#2E7D32' : isDark ? '#888' : '#BDBDBD'}
                     style={{ transform: [{ scaleX: 1.2 }, { scaleY: 1.2 }] }}
                   />
                 </View>
@@ -2035,13 +2104,13 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
             {/* Action Buttons - with safe area padding for Android nav bar */}
             <View style={[styles.editRepButtons, { paddingBottom: bottomPadding }]}>
               <TouchableOpacity
-                style={styles.editRepCancelBtn}
+                style={[styles.editRepCancelBtn, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                 onPress={() => setEditRepModalVisible(false)}
               >
-                <Text style={styles.editRepCancelText}>Cancel</Text>
+                <Text style={[styles.editRepCancelText, { color: themeColors.text.secondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.editRepSaveBtn, editRepSaving && { opacity: 0.6 }]}
+                style={[styles.editRepSaveBtn, { backgroundColor: themeColors.accent }, editRepSaving && { opacity: 0.6 }]}
                 onPress={async () => {
                   if (!selectedRepId) return;
                   setEditRepSaving(true);
@@ -2068,9 +2137,9 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
                 disabled={editRepSaving}
               >
                 {editRepSaving ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <ActivityIndicator size="small" color={colors.primary} />
                 ) : (
-                  <Text style={styles.editRepSaveText}>Save</Text>
+                  <Text style={[styles.editRepSaveText, { color: colors.primary }]}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -2092,65 +2161,73 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
         >
           <TouchableOpacity
             activeOpacity={1}
-            style={[styles.modalContent, { maxHeight: '60%' }]}
+            style={[styles.modalContent, { maxHeight: '60%', backgroundColor: themeColors.surface }]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Distributor</Text>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Select Distributor</Text>
               <TouchableOpacity onPress={() => setDistributorModalVisible(false)}>
-                <X size={24} color="#666" />
+                <X size={24} color={themeColors.text.tertiary} />
               </TouchableOpacity>
             </View>
 
             {/* Clear Selection Option */}
             <TouchableOpacity
-              style={[styles.distributorOption, !editRepDistributorId && styles.distributorOptionSelected]}
+              style={[
+                styles.distributorOption,
+                { borderBottomColor: themeColors.border.default },
+                !editRepDistributorId && { backgroundColor: themeColors.accent + '20' },
+              ]}
               onPress={() => {
                 setEditRepDistributorId(null);
                 setEditRepDistributorName('');
                 setDistributorModalVisible(false);
               }}
             >
-              <Text style={[styles.distributorOptionText, !editRepDistributorId && styles.distributorOptionTextSelected]}>
+              <Text style={[styles.distributorOptionText, { color: !editRepDistributorId ? themeColors.accent : themeColors.text.primary }]}>
                 None (No Distributor)
               </Text>
-              {!editRepDistributorId && <Check size={18} color="#393735" />}
+              {!editRepDistributorId && <Check size={18} color={themeColors.accent} />}
             </TouchableOpacity>
 
             {/* Distributors List */}
             <FlatList
               data={distributors}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.distributorOption,
-                    editRepDistributorId === item.id && styles.distributorOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setEditRepDistributorId(item.id);
-                    setEditRepDistributorName(item.name);
-                    setDistributorModalVisible(false);
-                  }}
-                >
-                  <Text style={[
-                    styles.distributorOptionText,
-                    editRepDistributorId === item.id && styles.distributorOptionTextSelected,
-                  ]}>
-                    {item.name}
-                  </Text>
-                  {editRepDistributorId === item.id && <Check size={18} color="#393735" />}
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected = editRepDistributorId === item.id;
+                return (
+                  <TouchableOpacity
+                    style={[
+                      styles.distributorOption,
+                      { borderBottomColor: themeColors.border.default },
+                      isSelected && { backgroundColor: themeColors.accent + '20' },
+                    ]}
+                    onPress={() => {
+                      setEditRepDistributorId(item.id);
+                      setEditRepDistributorName(item.name);
+                      setDistributorModalVisible(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.distributorOptionText,
+                      { color: isSelected ? themeColors.accent : themeColors.text.primary },
+                    ]}>
+                      {item.name}
+                    </Text>
+                    {isSelected && <Check size={18} color={themeColors.accent} />}
+                  </TouchableOpacity>
+                );
+              }}
               ListEmptyComponent={
                 loadingDistributors ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color="#666" />
-                    <Text style={{ marginTop: 8, color: '#666' }}>Loading distributors...</Text>
+                    <ActivityIndicator size="small" color={themeColors.text.tertiary} />
+                    <Text style={{ marginTop: 8, color: themeColors.text.tertiary }}>Loading distributors...</Text>
                   </View>
                 ) : (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Text style={{ color: '#888' }}>No distributors found</Text>
+                    <Text style={{ color: themeColors.text.tertiary }}>No distributors found</Text>
                   </View>
                 )
               }
