@@ -14,6 +14,7 @@ import { Home, Users, Building2, CheckCircle, BarChart3 } from 'lucide-react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTheme, colors } from '../theme';
 
 // Animated Icon Wrapper with subtle scale on focus
 const AnimatedTabIcon: React.FC<{
@@ -115,6 +116,7 @@ const Placeholder: React.FC<{ title: string }> = ({ title }) => (
 export const ManagerTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { isDark, colors: themeColors } = useTheme();
 
   // Get today's date to match the query key used in ManagerHomeScreen
   const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
@@ -150,19 +152,19 @@ export const ManagerTabNavigator: React.FC = () => {
   // Set Android navigation bar color to match navbar
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync('#393735');
+      NavigationBar.setBackgroundColorAsync(isDark ? themeColors.surface : '#393735');
       NavigationBar.setButtonStyleAsync('light'); // White buttons for dark background
     }
-  }, []);
+  }, [isDark, themeColors.surface]);
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#C9A961',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased from 0.5 to 0.75 to reduce overlap darkening
+        tabBarActiveTintColor: themeColors.accent,
+        tabBarInactiveTintColor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.75)',
         tabBarStyle: {
-          backgroundColor: '#393735',
+          backgroundColor: isDark ? themeColors.surface : '#393735',
           paddingBottom: Math.max(insets.bottom, 8), // Use safe area inset or minimum 8px
           paddingTop: 8, // Reduced from 12 to move icons up
           height: 65 + Math.max(insets.bottom, 8), // Adjust height based on bottom inset

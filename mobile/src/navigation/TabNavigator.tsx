@@ -15,7 +15,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Platform, Animated } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, BarChart2, Plus, Folder, MapPin, Layers, IndianRupee } from 'lucide-react-native';
-import { colors, spacing, typography, featureColors } from '../theme';
+import { colors, spacing, typography, featureColors, useTheme } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 
@@ -164,24 +164,26 @@ const FABMenu: React.FC<FABMenuProps> = ({ visible, onClose, navigation }) => {
 export const TabNavigator: React.FC<{ navigation: any }> = ({ navigation }) => {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
   const insets = useSafeAreaInsets();
+  const { isDark, colors: themeColors } = useTheme();
 
   // Set Android navigation bar color to match navbar
   useEffect(() => {
     if (Platform.OS === 'android') {
-      NavigationBar.setBackgroundColorAsync(colors.primary); // #393735
+      NavigationBar.setBackgroundColorAsync(isDark ? themeColors.surface : colors.primary);
       NavigationBar.setButtonStyleAsync('light'); // White buttons for dark background
     }
-  }, []);
+  }, [isDark, themeColors.surface]);
 
   return (
     <>
       <Tab.Navigator
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.accent,
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.75)', // Increased for clarity
+          tabBarActiveTintColor: themeColors.accent,
+          tabBarInactiveTintColor: isDark ? 'rgba(255, 255, 255, 0.6)' : 'rgba(255, 255, 255, 0.75)',
           tabBarStyle: {
             ...styles.tabBar,
+            backgroundColor: isDark ? themeColors.surface : colors.primary,
             paddingBottom: Math.max(insets.bottom, 8), // Dynamic safe area padding
             height: (Platform.OS === 'ios' ? 75 : 65) + Math.max(insets.bottom, 8), // Adjust height
           },

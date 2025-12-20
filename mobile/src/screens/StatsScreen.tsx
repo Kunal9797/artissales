@@ -24,7 +24,7 @@ import {
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { DetailedStatsView } from '../components/DetailedStatsView';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, useTheme } from '../theme';
 import { api } from '../services/api';
 import { Skeleton } from '../patterns';
 import { logger } from '../utils/logger';
@@ -433,6 +433,9 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   const authInstance = getAuth();
   const user = authInstance.currentUser;
 
+  // Theme context for dark mode
+  const { isDark, colors: themeColors } = useTheme();
+
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
 
@@ -714,14 +717,14 @@ export const StatsScreen: React.FC<StatsScreenProps> = ({ navigation }) => {
   }, [user?.uid, currentMonth]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Dark Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
         {/* Title Row */}
         <View style={styles.headerTop}>
           <View style={styles.headerTitleRow}>
-            <BarChart2 size={20} color="#C9A961" />
-            <Text style={styles.headerTitle}>Stats</Text>
+            <BarChart2 size={20} color={themeColors.accent} />
+            <Text style={[styles.headerTitle, { color: themeColors.text.inverse }]}>Stats</Text>
           </View>
         </View>
       </View>

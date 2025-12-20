@@ -26,7 +26,7 @@ import { FlashList, ListRenderItemInfo } from '@shopify/flash-list';
 import { useRoute } from '@react-navigation/native';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as Sharing from 'expo-sharing';
-import { colors, spacing, typography, featureColors } from '../theme';
+import { colors, spacing, typography, featureColors, useTheme } from '../theme';
 import { api } from '../services/api';
 import { documentCache, DownloadProgress } from '../services/documentCache';
 import { Document } from '../types';
@@ -59,6 +59,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   const route = useRoute();
   const { user } = useAuth();
   const bottomPadding = useBottomSafeArea(12);
+  const { isDark, colors: themeColors } = useTheme();
 
   // Determine if this is a stack screen (managers) or tab screen (sales reps)
   const isStackScreen = route.name === 'Documents';
@@ -482,10 +483,10 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   const renderDocumentItem = useCallback(({ item, index }: ListRenderItemInfo<ListItem>) => {
     if (item.type === 'storage_footer') {
       return (
-        <View style={styles.storageFooter}>
+        <View style={[styles.storageFooter, { borderTopColor: themeColors.border.default }]}>
           <View style={styles.storageTotalContainer}>
-            <Text style={styles.storageTotalLabel}>Total Storage Used</Text>
-            <Text style={styles.storageTotalSize}>{formatFileSize(totalCacheSize)}</Text>
+            <Text style={[styles.storageTotalLabel, { color: themeColors.text.secondary }]}>Total Storage Used</Text>
+            <Text style={[styles.storageTotalSize, { color: themeColors.accent }]}>{formatFileSize(totalCacheSize)}</Text>
           </View>
 
           <TouchableOpacity style={styles.clearAllButton} onPress={handleClearAllCache}>
@@ -493,8 +494,8 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
           </TouchableOpacity>
 
           {totalCacheSize > 100 * 1024 * 1024 && (
-            <View style={styles.warningContainer}>
-              <Text style={styles.warningText}>
+            <View style={[styles.warningContainer, { backgroundColor: isDark ? '#4D3D1A' : '#FFF3E0', borderColor: isDark ? '#806020' : '#FFB300' }]}>
+              <Text style={[styles.warningText, { color: isDark ? '#FFB74D' : '#F57C00' }]}>
                 {totalCacheSize > 500 * 1024 * 1024
                   ? 'Consider clearing old documents'
                   : 'Using significant storage'}
@@ -517,26 +518,27 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       <TouchableOpacity
         style={[
           styles.documentCard,
+          { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border.light },
           isLastItem && styles.documentCardLast,
         ]}
         onPress={() => handleDocumentPress(doc)}
         disabled={isDownloading}
       >
-        <View style={styles.documentInitial}>
-          <Text style={styles.documentInitialText}>
+        <View style={[styles.documentInitial, { backgroundColor: isDark ? themeColors.accent : colors.primary }]}>
+          <Text style={[styles.documentInitialText, { color: isDark ? '#1A1A1A' : '#FFFFFF' }]}>
             {getDocInitials(doc.name)}
           </Text>
         </View>
 
         <View style={styles.documentInfo}>
-          <Text style={styles.documentName} numberOfLines={1}>
+          <Text style={[styles.documentName, { color: themeColors.text.primary }]} numberOfLines={1}>
             {doc.name}
           </Text>
-          <Text style={styles.documentMeta}>
+          <Text style={[styles.documentMeta, { color: themeColors.text.tertiary }]}>
             {formatFileSize(doc.fileSizeBytes)} • {formatDate(doc.uploadedAt)}
           </Text>
           {isDownloading && progress !== undefined && (
-            <Text style={styles.downloadingText}>
+            <Text style={[styles.downloadingText, { color: themeColors.accent }]}>
               Downloading... {progress}%
             </Text>
           )}
@@ -544,7 +546,7 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
 
         <View style={styles.documentActions}>
           {isDownloading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
+            <ActivityIndicator size="small" color={themeColors.accent} />
           ) : isCached ? (
             <TouchableOpacity
               style={styles.actionButton}
@@ -571,12 +573,12 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Dark Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
         <View style={styles.headerTitleRow}>
-          <Folder size={24} color={colors.accent} />
-          <Text style={styles.headerTitle}>Documents</Text>
+          <Folder size={24} color={themeColors.accent} />
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Documents</Text>
         </View>
 
         {/* Upload button (managers only) */}
@@ -592,21 +594,29 @@ export const DocumentsScreen: React.FC<DocumentsScreenProps> = ({ navigation }) 
       </View>
 
       {/* Filter Row - Single toggle chip */}
-      <View style={styles.filterRow}>
+      <View style={[styles.filterRow, { backgroundColor: themeColors.background }]}>
         <TouchableOpacity
-          style={filterMode === 'offline' ? styles.filterChipActive : styles.filterChipInactive}
+          style={[
+            filterMode === 'offline' ? styles.filterChipActive : styles.filterChipInactive,
+            filterMode !== 'offline' && { backgroundColor: themeColors.surface, borderColor: themeColors.border.default },
+            filterMode === 'offline' && { backgroundColor: isDark ? themeColors.accent : colors.primary },
+          ]}
           onPress={() => setFilterMode(filterMode === 'offline' ? 'all' : 'offline')}
         >
           {filterMode === 'offline' ? (
-            <Check size={14} color="#FFFFFF" />
+            <Check size={14} color={isDark ? '#1A1A1A' : '#FFFFFF'} />
           ) : (
-            <Download size={14} color={colors.text.secondary} />
+            <Download size={14} color={themeColors.text.secondary} />
           )}
-          <Text style={filterMode === 'offline' ? styles.filterChipTextActive : styles.filterChipTextInactive}>
+          <Text style={[
+            filterMode === 'offline' ? styles.filterChipTextActive : styles.filterChipTextInactive,
+            filterMode === 'offline' && { color: isDark ? '#1A1A1A' : '#FFFFFF' },
+            filterMode !== 'offline' && { color: themeColors.text.secondary },
+          ]}>
             Offline only
           </Text>
         </TouchableOpacity>
-        <Text style={styles.docCount}>
+        <Text style={[styles.docCount, { color: themeColors.text.tertiary }]}>
           {filterMode === 'offline' ? offlineCount : documents.length} documents
         </Text>
       </View>

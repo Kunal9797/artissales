@@ -14,7 +14,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Building2, User, Phone, Mail, MapPin, Hash, Calendar, Briefcase, PenTool, ChevronDown, X, Clock } from 'lucide-react-native';
 import { api } from '../services/api';
-import { colors, spacing, typography } from '../theme';
+import { colors, spacing, typography, useTheme } from '../theme';
 import { AccountType } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { useBottomSafeArea } from '../hooks/useBottomSafeArea';
@@ -46,6 +46,7 @@ const INDIAN_STATES = [
 
 export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, route }) => {
   const { user } = useAuth();
+  const { isDark, colors: themeColors } = useTheme();
   const bottomPadding = useBottomSafeArea(12);
   const preSelectedAccountId = route.params?.preSelectedAccountId;
   const onAccountCreated = route.params?.onAccountCreated;
@@ -211,15 +212,15 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       {/* Compact Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: isDark ? themeColors.surface : colors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backButtonText}>Cancel</Text>
+          <Text style={[styles.backButtonText, { color: themeColors.accent }]}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>New Account</Text>
+        <Text style={[styles.title, { color: '#FFFFFF' }]}>New Account</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -229,7 +230,7 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         keyboardShouldPersistTaps="handled"
       >
         {/* Account Type Grid */}
-        <Text style={styles.sectionLabel}>Account Type</Text>
+        <Text style={[styles.sectionLabel, { color: themeColors.text.secondary }]}>Account Type</Text>
         <View style={styles.typeGrid}>
           {visibleAccountTypes.map(({ value, label, Icon, color }) => {
             const isSelected = accountType === value;
@@ -238,15 +239,16 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
                 key={value}
                 style={[
                   styles.typeCard,
-                  isSelected && { borderColor: color, backgroundColor: color + '10' },
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border.default },
+                  isSelected && { borderColor: color, backgroundColor: color + (isDark ? '20' : '10') },
                 ]}
                 onPress={() => setAccountType(value as AccountType)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.typeIconContainer, { backgroundColor: color + '15' }]}>
+                <View style={[styles.typeIconContainer, { backgroundColor: color + (isDark ? '30' : '15') }]}>
                   <Icon size={20} color={color} />
                 </View>
-                <Text style={[styles.typeLabel, isSelected && { color, fontWeight: '600' }]}>
+                <Text style={[styles.typeLabel, { color: themeColors.text.primary }, isSelected && { color, fontWeight: '600' }]}>
                   {label}
                 </Text>
               </TouchableOpacity>
@@ -255,59 +257,59 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
         </View>
 
         {/* Form Card */}
-        <View style={styles.formCard}>
+        <View style={[styles.formCard, { backgroundColor: themeColors.surface }]}>
           {/* Basic Info Section */}
-          <Text style={styles.formSectionTitle}>Basic Info</Text>
+          <Text style={[styles.formSectionTitle, { color: themeColors.text.tertiary }]}>Basic Info</Text>
 
           {/* Account Name */}
-          <View style={styles.fieldRow}>
-            <Building2 size={18} color={colors.text.tertiary} />
+          <View style={[styles.fieldRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+            <Building2 size={18} color={themeColors.text.tertiary} />
             <TextInput
-              style={styles.fieldInput}
+              style={[styles.fieldInput, { color: themeColors.text.primary }]}
               value={name}
               onChangeText={setName}
               placeholder="Account name *"
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor={themeColors.text.tertiary}
             />
           </View>
           {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
 
           {/* Contact Person */}
-          <View style={styles.fieldRow}>
-            <User size={18} color={colors.text.tertiary} />
+          <View style={[styles.fieldRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+            <User size={18} color={themeColors.text.tertiary} />
             <TextInput
-              style={styles.fieldInput}
+              style={[styles.fieldInput, { color: themeColors.text.primary }]}
               value={contactPerson}
               onChangeText={setContactPerson}
               placeholder="Contact person"
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor={themeColors.text.tertiary}
             />
           </View>
 
           {/* Phone & Email in row */}
           <View style={styles.twoColumnRow}>
-            <View style={[styles.fieldRow, styles.halfWidth]}>
-              <Phone size={18} color={colors.text.tertiary} />
+            <View style={[styles.fieldRow, styles.halfWidth, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+              <Phone size={18} color={themeColors.text.tertiary} />
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: themeColors.text.primary }]}
                 value={phone}
                 onChangeText={setPhone}
                 placeholder="Phone *"
                 keyboardType="phone-pad"
                 maxLength={10}
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={themeColors.text.tertiary}
               />
             </View>
-            <View style={[styles.fieldRow, styles.halfWidth]}>
-              <Mail size={18} color={colors.text.tertiary} />
+            <View style={[styles.fieldRow, styles.halfWidth, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+              <Mail size={18} color={themeColors.text.tertiary} />
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: themeColors.text.primary }]}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Email"
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={themeColors.text.tertiary}
               />
             </View>
           </View>
@@ -316,31 +318,31 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
           {/* Birthdate (only for non-distributors) */}
           {accountType !== 'distributor' && (
-            <View style={styles.fieldRow}>
-              <Calendar size={18} color={colors.text.tertiary} />
+            <View style={[styles.fieldRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+              <Calendar size={18} color={themeColors.text.tertiary} />
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: themeColors.text.primary }]}
                 value={birthdate}
                 onChangeText={setBirthdate}
                 placeholder="Birthdate (YYYY-MM-DD)"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={themeColors.text.tertiary}
               />
             </View>
           )}
           {errors.birthdate && <Text style={styles.errorText}>{errors.birthdate}</Text>}
 
           {/* Divider */}
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeColors.border.default }]} />
 
           {/* Location Section */}
-          <Text style={styles.formSectionTitle}>Location</Text>
+          <Text style={[styles.formSectionTitle, { color: themeColors.text.tertiary }]}>Location</Text>
 
           {/* Recent Locations Chips */}
           {recentLocations.length > 0 && (
             <View style={styles.recentLocationsContainer}>
               <View style={styles.recentLocationsHeader}>
-                <Clock size={14} color={colors.text.tertiary} />
-                <Text style={styles.recentLocationsLabel}>Recent:</Text>
+                <Clock size={14} color={themeColors.text.tertiary} />
+                <Text style={[styles.recentLocationsLabel, { color: themeColors.text.tertiary }]}>Recent:</Text>
               </View>
               <ScrollView
                 horizontal
@@ -357,7 +359,8 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
                       key={`${location.pincode}-${index}`}
                       style={[
                         styles.recentLocationChip,
-                        isSelected && styles.recentLocationChipSelected,
+                        { backgroundColor: themeColors.background, borderColor: themeColors.border.default },
+                        isSelected && { backgroundColor: themeColors.accent + '15', borderColor: themeColors.accent },
                       ]}
                       onPress={() => handleSelectRecentLocation(location)}
                       activeOpacity={0.7}
@@ -365,7 +368,8 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
                       <Text
                         style={[
                           styles.recentLocationChipText,
-                          isSelected && styles.recentLocationChipTextSelected,
+                          { color: themeColors.text.secondary },
+                          isSelected && { color: themeColors.accent },
                         ]}
                       >
                         {formatLocationLabel(location)}
@@ -379,26 +383,26 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
           {/* City & Pincode in row */}
           <View style={styles.twoColumnRow}>
-            <View style={[styles.fieldRow, styles.halfWidth]}>
-              <MapPin size={18} color={colors.text.tertiary} />
+            <View style={[styles.fieldRow, styles.halfWidth, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+              <MapPin size={18} color={themeColors.text.tertiary} />
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: themeColors.text.primary }]}
                 value={city}
                 onChangeText={setCity}
                 placeholder="City *"
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={themeColors.text.tertiary}
               />
             </View>
-            <View style={[styles.fieldRow, styles.halfWidth]}>
-              <Hash size={18} color={colors.text.tertiary} />
+            <View style={[styles.fieldRow, styles.halfWidth, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
+              <Hash size={18} color={themeColors.text.tertiary} />
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: themeColors.text.primary }]}
                 value={pincode}
                 onChangeText={setPincode}
                 placeholder="Pincode *"
                 keyboardType="number-pad"
                 maxLength={6}
-                placeholderTextColor={colors.text.tertiary}
+                placeholderTextColor={themeColors.text.tertiary}
               />
             </View>
           </View>
@@ -407,43 +411,43 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
 
           {/* State Dropdown */}
           <TouchableOpacity
-            style={styles.fieldRow}
+            style={[styles.fieldRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
             onPress={() => setShowStateModal(true)}
             activeOpacity={0.7}
           >
-            <MapPin size={18} color={colors.text.tertiary} />
-            <Text style={[styles.fieldInput, !state && styles.placeholderText]}>
+            <MapPin size={18} color={themeColors.text.tertiary} />
+            <Text style={[styles.fieldInput, { color: state ? themeColors.text.primary : themeColors.text.tertiary }]}>
               {state || 'Select state *'}
             </Text>
-            <ChevronDown size={18} color={colors.text.tertiary} />
+            <ChevronDown size={18} color={themeColors.text.tertiary} />
           </TouchableOpacity>
           {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
 
           {/* Address */}
-          <View style={[styles.fieldRow, styles.textAreaRow]}>
+          <View style={[styles.fieldRow, styles.textAreaRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}>
             <TextInput
-              style={[styles.fieldInput, styles.textAreaInput]}
+              style={[styles.fieldInput, styles.textAreaInput, { color: themeColors.text.primary }]}
               value={address}
               onChangeText={setAddress}
               placeholder="Full address (optional)"
               multiline
               numberOfLines={2}
-              placeholderTextColor={colors.text.tertiary}
+              placeholderTextColor={themeColors.text.tertiary}
             />
           </View>
 
           {/* Parent Distributor (for dealers/architects/OEMs) */}
           {accountType !== 'distributor' && (
             <>
-              <View style={styles.divider} />
-              <Text style={styles.formSectionTitle}>Parent Distributor</Text>
+              <View style={[styles.divider, { backgroundColor: themeColors.border.default }]} />
+              <Text style={[styles.formSectionTitle, { color: themeColors.text.tertiary }]}>Parent Distributor</Text>
               <TouchableOpacity
-                style={styles.fieldRow}
+                style={[styles.fieldRow, { backgroundColor: themeColors.background, borderColor: themeColors.border.default }]}
                 onPress={() => setShowDistributorModal(true)}
                 activeOpacity={0.7}
               >
-                <Building2 size={18} color={colors.text.tertiary} />
-                <Text style={[styles.fieldInput, !selectedDistributor && styles.placeholderText]}>
+                <Building2 size={18} color={themeColors.text.tertiary} />
+                <Text style={[styles.fieldInput, { color: selectedDistributor ? themeColors.text.primary : themeColors.text.tertiary }]}>
                   {selectedDistributor?.name || 'Select distributor (optional)'}
                 </Text>
                 {selectedDistributor ? (
@@ -454,10 +458,10 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
                     }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <X size={18} color={colors.text.tertiary} />
+                    <X size={18} color={themeColors.text.tertiary} />
                   </TouchableOpacity>
                 ) : (
-                  <ChevronDown size={18} color={colors.text.tertiary} />
+                  <ChevronDown size={18} color={themeColors.text.tertiary} />
                 )}
               </TouchableOpacity>
             </>
@@ -482,24 +486,24 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
       {/* State Selection Modal */}
       {showStateModal && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select State</Text>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#404040' : '#FFFFFF' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: themeColors.border.default }]}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Select State</Text>
               <TouchableOpacity onPress={() => setShowStateModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Text style={[styles.modalClose, { color: themeColors.text.tertiary }]}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScroll}>
               {INDIAN_STATES.map((st) => (
                 <TouchableOpacity
                   key={st}
-                  style={styles.modalItem}
+                  style={[styles.modalItem, { borderBottomColor: themeColors.border.default }]}
                   onPress={() => {
                     setState(st);
                     setShowStateModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>{st}</Text>
+                  <Text style={[styles.modalItemText, { color: themeColors.text.primary }]}>{st}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -510,37 +514,37 @@ export const AddAccountScreen: React.FC<AddAccountScreenProps> = ({ navigation, 
       {/* Distributor Selection Modal */}
       {showDistributorModal && (
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Distributor</Text>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#404040' : '#FFFFFF' }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: themeColors.border.default }]}>
+              <Text style={[styles.modalTitle, { color: themeColors.text.primary }]}>Select Distributor</Text>
               <TouchableOpacity onPress={() => setShowDistributorModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
+                <Text style={[styles.modalClose, { color: themeColors.text.tertiary }]}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScroll}>
               <TouchableOpacity
-                style={styles.modalItem}
+                style={[styles.modalItem, { borderBottomColor: themeColors.border.default }]}
                 onPress={() => {
                   setSelectedDistributor(null);
                   setParentDistributorId('');
                   setShowDistributorModal(false);
                 }}
               >
-                <Text style={[styles.modalItemText, { fontWeight: 'bold' }]}>
+                <Text style={[styles.modalItemText, { fontWeight: 'bold', color: themeColors.text.primary }]}>
                   No distributor (independent)
                 </Text>
               </TouchableOpacity>
               {distributors.map((dist) => (
                 <TouchableOpacity
                   key={dist.id}
-                  style={styles.modalItem}
+                  style={[styles.modalItem, { borderBottomColor: themeColors.border.default }]}
                   onPress={() => {
                     setSelectedDistributor(dist);
                     setParentDistributorId(dist.id);
                     setShowDistributorModal(false);
                   }}
                 >
-                  <Text style={styles.modalItemText}>
+                  <Text style={[styles.modalItemText, { color: themeColors.text.primary }]}>
                     {dist.name} - {dist.city}
                   </Text>
                 </TouchableOpacity>

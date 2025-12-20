@@ -16,7 +16,7 @@ import { Search, Plus, Info, WifiOff, RefreshCw, CloudOff, Building2 } from 'luc
 import { getAuth } from '@react-native-firebase/auth';
 import { useAccounts, Account } from '../../hooks/useAccounts';
 import { useMyVisits } from '../../hooks/useMyVisits';
-import { colors, spacing, typography } from '../../theme';
+import { colors, spacing, typography, useTheme } from '../../theme';
 import { Skeleton } from '../../patterns';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 
@@ -44,6 +44,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   const filterByUserVisits = route?.params?.filterByUserVisits;
   const { accounts, loading, syncing, error, isOffline, isStale, hasPendingCreations, refreshAccounts } = useAccounts();
   const { visitMap, loading: visitsLoading } = useMyVisits();
+  const { isDark, colors: themeColors } = useTheme();
 
   // Safe area insets for bottom padding (accounts for Android nav bar)
   const bottomPadding = useBottomSafeArea(12);
@@ -215,6 +216,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
       <TouchableOpacity
         style={[
           styles.accountCard,
+          { backgroundColor: themeColors.surface, borderColor: themeColors.border.default },
           isPending && styles.accountCardPending,
           isFailed && styles.accountCardFailed,
         ]}
@@ -233,7 +235,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
           {/* Main content - name and location */}
           <View style={styles.accountInfo}>
             <View style={styles.accountNameRow}>
-              <Text style={styles.accountName} numberOfLines={1}>
+              <Text style={[styles.accountName, { color: themeColors.text.primary }]} numberOfLines={1}>
                 {item.name}
               </Text>
               {isPending && (
@@ -247,12 +249,12 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
                 </View>
               )}
             </View>
-            <Text style={styles.accountLocation} numberOfLines={1}>
+            <Text style={[styles.accountLocation, { color: themeColors.text.secondary }]} numberOfLines={1}>
               {item.city}, {item.state.substring(0, 2).toUpperCase()}
             </Text>
             {/* Visit badge - manager viewing rep's accounts (with count) */}
             {filterByUserVisits?.visitData[item.id] && (
-              <View style={styles.visitBadge}>
+              <View style={[styles.visitBadge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : '#E3F2FD' }]}>
                 <Text style={styles.visitBadgeText}>
                   {filterByUserVisits.visitData[item.id].count} visits
                   {filterByUserVisits.visitData[item.id].lastVisit && (
@@ -263,7 +265,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             )}
             {/* Visit badge - sales rep's own last visit (from visitMap) */}
             {!filterByUserVisits && visitMap.get(item.id) && (
-              <View style={styles.visitBadge}>
+              <View style={[styles.visitBadge, { backgroundColor: isDark ? 'rgba(33, 150, 243, 0.2)' : '#E3F2FD' }]}>
                 <Text style={styles.visitBadgeText}>
                   Last visit: {new Date(visitMap.get(item.id)!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </Text>
@@ -271,23 +273,26 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             )}
           </View>
 
-          {/* Info button - view account details */}
-          {!isPending && !isFailed && (
+          {/* Info button - view account details (only in select mode, redundant in manage mode) */}
+          {!isPending && !isFailed && mode === 'select' && (
             <TouchableOpacity
               onPress={(e) => {
                 e.stopPropagation();
                 navigation.navigate('AccountDetail', { accountId: item.id, account: item });
               }}
-              style={styles.infoButton}
+              style={[
+                styles.infoButton,
+                { backgroundColor: isDark ? themeColors.surfaceAlt : '#F5F5F5' },
+              ]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Info size={18} color={colors.primary} />
+              <Info size={18} color={themeColors.accent} />
             </TouchableOpacity>
           )}
 
           {/* Chevron indicator */}
           <View style={styles.chevronContainer}>
-            <Text style={styles.chevron}>›</Text>
+            <Text style={[styles.chevron, { color: themeColors.text.tertiary }]}>›</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -296,16 +301,16 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
         {/* Real header - no skeleton needed here */}
         <View style={{
-          backgroundColor: '#393735',
+          backgroundColor: isDark ? themeColors.surface : colors.primary,
           paddingTop: 52,
           paddingBottom: 14,
           paddingHorizontal: 16,
         }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Building2 size={24} color="#C9A961" />
+            <Building2 size={24} color={themeColors.accent} />
             <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
               {filterByUserVisits
                 ? `${filterByUserVisits.userName}'s Accounts`
@@ -325,11 +330,11 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
   if (error && accounts.length === 0) {
     return (
-      <View style={styles.centerContainer}>
-        <WifiOff size={48} color={colors.text.tertiary} style={{ marginBottom: 16 }} />
-        <Text style={styles.errorText}>{error}</Text>
+      <View style={[styles.centerContainer, { backgroundColor: themeColors.background }]}>
+        <WifiOff size={48} color={themeColors.text.tertiary} style={{ marginBottom: 16 }} />
+        <Text style={[styles.errorText, { color: themeColors.text.secondary }]}>{error}</Text>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[styles.retryButton, { backgroundColor: themeColors.accent }]}
           onPress={refreshAccounts}
         >
           <Text style={styles.retryButtonText}>Retry</Text>
@@ -348,10 +353,10 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       {/* Header - Compact single row design */}
       <View style={{
-        backgroundColor: '#393735',
+        backgroundColor: isDark ? themeColors.surface : colors.primary,
         paddingTop: 52,
         paddingBottom: 14,
         paddingHorizontal: 16,
@@ -360,7 +365,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         justifyContent: 'space-between',
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-          <Building2 size={24} color="#C9A961" />
+          <Building2 size={24} color={themeColors.accent} />
           <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>
             {filterByUserVisits
               ? `${filterByUserVisits.userName}'s Accounts`
@@ -389,8 +394,8 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
             }
           }}
         >
-          <Plus size={16} color="#C9A961" />
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#C9A961' }}>Add</Text>
+          <Plus size={16} color={themeColors.accent} />
+          <Text style={{ fontSize: 14, fontWeight: '600', color: themeColors.accent }}>Add</Text>
         </TouchableOpacity>
       </View>
 
@@ -399,23 +404,23 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
         <View style={{
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: themeColors.surface,
           borderRadius: 8,
           paddingHorizontal: 12,
           borderWidth: 1,
-          borderColor: '#E0E0E0',
+          borderColor: themeColors.border.default,
         }}>
-          <Search size={20} color="#999999" />
+          <Search size={20} color={themeColors.text.tertiary} />
           <TextInput
             style={{
               flex: 1,
               paddingVertical: 12,
               paddingHorizontal: 8,
               fontSize: 16,
-              color: '#1A1A1A',
+              color: themeColors.text.primary,
             }}
             placeholder="Search accounts..."
-            placeholderTextColor="#999999"
+            placeholderTextColor={themeColors.text.tertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -451,16 +456,16 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
                   paddingHorizontal: 16,
                   paddingVertical: 8,
                   borderRadius: 16,
-                  backgroundColor: isActive ? '#393735' : '#FFFFFF',
+                  backgroundColor: isActive ? (isDark ? themeColors.accent : colors.primary) : themeColors.surface,
                   borderWidth: 1,
-                  borderColor: isActive ? '#393735' : '#E0E0E0',
+                  borderColor: isActive ? (isDark ? themeColors.accent : colors.primary) : themeColors.border.default,
                 }}
                 onPress={() => setSelectedType(option.value)}
               >
                 <Text style={{
                   fontSize: 14,
                   fontWeight: '600',
-                  color: isActive ? '#FFFFFF' : '#666666',
+                  color: isActive ? '#FFFFFF' : themeColors.text.secondary,
                 }}>
                   {option.label}{isActive ? ` (${filteredAccounts.length})` : ''}
                 </Text>
@@ -472,7 +477,7 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
       {filteredAccounts.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: themeColors.text.secondary }]}>
             {searchQuery ? 'No accounts found matching your search' : 'No accounts assigned to you'}
           </Text>
         </View>
