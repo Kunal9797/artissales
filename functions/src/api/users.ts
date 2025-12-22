@@ -13,7 +13,7 @@ import {
 import {requireAuth} from "../utils/auth";
 import {UserRole, ApiError} from "../types";
 import {setUserRoleClaim} from "../utils/customClaims";
-import {isManagerRole} from "../utils/team";
+import {isManagerRole, getDirectReportIds} from "../utils/team";
 
 const db = getFirestore();
 
@@ -527,18 +527,38 @@ export const getUserStats = onRequest(async (request, response) => {
     // 2. Parse parameters
     const {userId, startDate, endDate} = request.body;
 
-    // Allow users to view their own stats, or require National Head/Admin for others
+    // Allow users to view their own stats, or managers to view their team's stats
     const managerRole = managerDoc.data()?.role;
     const isViewingSelf = auth.uid === userId;
 
-    if (!isViewingSelf && managerRole !== "national_head" && managerRole !== "admin") {
-      const error: ApiError = {
-        ok: false,
-        error: "Only National Head or Admin can view other users' stats",
-        code: "INSUFFICIENT_PERMISSIONS",
-      };
-      response.status(403).json(error);
-      return;
+    // Permission check: self, admin, national_head, or area_manager viewing direct report
+    if (!isViewingSelf) {
+      if (managerRole === "admin" || managerRole === "national_head") {
+        // Admin and National Head can view anyone's stats
+        logger.info(`[getUserStats] ${managerRole} viewing stats for user ${userId}`);
+      } else if (managerRole === "area_manager") {
+        // Area Manager can only view their direct reports' stats
+        const directReportIds = await getDirectReportIds(auth.uid);
+        if (!directReportIds.includes(userId)) {
+          const error: ApiError = {
+            ok: false,
+            error: "You can only view statistics for your direct reports",
+            code: "INSUFFICIENT_PERMISSIONS",
+          };
+          response.status(403).json(error);
+          return;
+        }
+        logger.info(`[getUserStats] Area Manager viewing direct report ${userId}`);
+      } else {
+        // Other roles cannot view other users' stats
+        const error: ApiError = {
+          ok: false,
+          error: "You do not have permission to view other users' stats",
+          code: "INSUFFICIENT_PERMISSIONS",
+        };
+        response.status(403).json(error);
+        return;
+      }
     }
 
     if (!userId) {
