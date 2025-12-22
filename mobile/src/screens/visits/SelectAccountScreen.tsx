@@ -117,12 +117,18 @@ export const SelectAccountScreen: React.FC<SelectAccountScreenProps> = ({ naviga
 
     // Sort based on context
     if (filterByUserVisits) {
-      // When viewing user's visited accounts: sort by visit count (highest first)
+      // When viewing user's visited accounts: sort by visit count (highest first), then by last visit date
       filtered = [...filtered].sort((a, b) => {
         const aCount = filterByUserVisits.visitData[a.id]?.count || 0;
         const bCount = filterByUserVisits.visitData[b.id]?.count || 0;
         if (aCount !== bCount) {
           return bCount - aCount; // Highest visit count first
+        }
+        // Tie-breaker: most recently visited first
+        const aLastVisit = filterByUserVisits.visitData[a.id]?.lastVisit || '';
+        const bLastVisit = filterByUserVisits.visitData[b.id]?.lastVisit || '';
+        if (aLastVisit !== bLastVisit) {
+          return bLastVisit.localeCompare(aLastVisit); // More recent date string comes first
         }
         return a.name.localeCompare(b.name);
       });
