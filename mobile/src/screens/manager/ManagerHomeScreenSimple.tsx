@@ -38,6 +38,7 @@ import {
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
 import { useProfileSheet } from '../../providers/ProfileSheetProvider';
+import { useAuth } from '../../hooks/useAuth';
 import { Skeleton } from '../../patterns/Skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { colors, spacing, typography, featureColors, useTheme } from '../../theme';
@@ -82,6 +83,7 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
   const queryClient = useQueryClient();
   const { showProfileSheet } = useProfileSheet();
   const { isDark, colors: themeColors } = useTheme();
+  const { userName: authUserName } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [activeSheet, setActiveSheet] = useState<SheetType>(null);
 
@@ -157,8 +159,8 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
     }
   };
 
-  // Extract data from response
-  const userName = dashboardData?.user?.name || 'Manager';
+  // Extract data from response (use authUserName as fallback for faster cold starts)
+  const userName = dashboardData?.user?.name || authUserName || 'Manager';
   const teamSize = dashboardData?.user?.teamSize || 0;
   const pendingTotal = dashboardData?.summary?.pendingTotal || 0;
   const todayVisits = dashboardData?.summary?.todayVisits || 0;

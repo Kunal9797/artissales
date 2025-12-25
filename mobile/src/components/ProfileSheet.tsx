@@ -43,6 +43,8 @@ import { colors, spacing, typography, useTheme } from '../theme';
 import { getLocalProfilePhoto } from '../services/storage';
 import { logger } from '../utils/logger';
 import { FeedbackForm } from './FeedbackForm';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateHomeStatsCache } from '../screens/HomeScreen_v2';
 
 interface ProfileSheetProps {
   visible: boolean;
@@ -63,6 +65,9 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
 
   // Theme context for dark mode
   const { isDark, toggleTheme, colors: themeColors } = useTheme();
+
+  // React Query client for cache management
+  const queryClient = useQueryClient();
 
   // User data state
   const [name, setName] = useState('');
@@ -188,6 +193,11 @@ export const ProfileSheet: React.FC<ProfileSheetProps> = ({ visible, onClose }) 
             setSigningOut(true);
             try {
               onClose(); // Close sheet first
+
+              // SECURITY: Clear all caches BEFORE logout to prevent data leakage
+              queryClient.clear(); // Clear React Query cache (manager dashboard)
+              invalidateHomeStatsCache(); // Clear custom stats cache (sales rep)
+
               await signOut(authInstance);
             } catch (error: any) {
               logger.error('Sign out error:', error);

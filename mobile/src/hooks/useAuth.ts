@@ -13,6 +13,7 @@ export interface UserWithRole extends FirebaseAuthTypes.User {
 export const useAuth = () => {
   const [user, setUser] = useState<UserWithRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState<string>('');
 
   useEffect(() => {
     const authInstance = getAuth();
@@ -33,6 +34,7 @@ export const useAuth = () => {
           if (userDoc.exists()) {
             logger.log('[Auth] User document found by UID');
             userRole = userDoc.data()?.role || 'rep';
+            setUserName(userDoc.data()?.name || '');
 
             // Safety check: Clean up any duplicate docs with same phone
             // This handles cases where migration delete failed previously
@@ -75,6 +77,7 @@ export const useAuth = () => {
               logger.log('[Auth] Migrating to Auth UID:', authUser.uid);
 
               userRole = existingUserData.role || 'rep';
+              setUserName(existingUserData.name || '');
 
               // Copy the user document to the correct UID with migration metadata
               await setDoc(userDocRef, {
@@ -138,10 +141,11 @@ export const useAuth = () => {
           setUser(authUser as UserWithRole);
         }
       } else {
-        // User logged out - clear analytics identity
+        // User logged out - clear analytics identity and user state
         clearAnalyticsUser();
         trackEvent('logout');
         setUser(null);
+        setUserName('');
       }
 
       setLoading(false);
@@ -150,5 +154,5 @@ export const useAuth = () => {
     return unsubscribe;
   }, []);
 
-  return { user, loading };
+  return { user, loading, userName };
 };

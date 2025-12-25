@@ -75,6 +75,7 @@ const STATS_CACHE_KEY = '@artis_home_stats_cache';
 // In-memory cache for immediate access (also persisted to AsyncStorage)
 const statsCache: {
   data?: any;
+  userName?: string;
   timestamp?: number;
   userId?: string;
   date?: string;
@@ -94,30 +95,33 @@ const getCachedStats = (userId: string, date: string) => {
   return null;
 };
 
-const setCachedStats = (userId: string, date: string, data: any) => {
+const setCachedStats = (userId: string, date: string, data: any, userName?: string) => {
   statsCache.data = data;
+  statsCache.userName = userName;
   statsCache.userId = userId;
   statsCache.date = date;
   statsCache.timestamp = Date.now();
 
   // Persist to AsyncStorage for faster cold starts
-  persistCacheToStorage(userId, date, data).catch(err =>
+  persistCacheToStorage(userId, date, data, userName).catch(err =>
     logger.error('Failed to persist cache:', err)
   );
 };
 
 export const invalidateHomeStatsCache = () => {
   statsCache.data = undefined;
+  statsCache.userName = undefined;
   statsCache.timestamp = undefined;
   // Also clear persisted cache
   AsyncStorage.removeItem(STATS_CACHE_KEY).catch(() => {});
 };
 
 // Persist cache to AsyncStorage for faster app restarts
-const persistCacheToStorage = async (userId: string, date: string, data: any) => {
+const persistCacheToStorage = async (userId: string, date: string, data: any, userName?: string) => {
   try {
     const cacheData = {
       data,
+      userName,
       timestamp: Date.now(),
       userId,
       date,
@@ -146,6 +150,7 @@ const loadCacheFromStorage = async (userId: string, date: string): Promise<any |
     ) {
       // Also populate in-memory cache
       statsCache.data = parsed.data;
+      statsCache.userName = parsed.userName;
       statsCache.userId = parsed.userId;
       statsCache.date = parsed.date;
       statsCache.timestamp = parsed.timestamp;
@@ -176,7 +181,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   // Profile sheet
   const { showProfileSheet } = useProfileSheet();
 
-  const [userName, setUserName] = useState<string>('');
+  const [userName, setUserName] = useState<string>(statsCache.userName || '');
   const [loading, setLoading] = useState(true);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -507,7 +512,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
           })),
           stats: { visits: todayVisits, sheets: totalSheets, expenses: totalExpenses },
         };
-        setCachedStats(user.uid, todayString, cacheData);
+        setCachedStats(user.uid, todayString, cacheData, statsCache.userName);
       }
 
       // Store last visible documents for pagination (using refs to avoid re-renders)
@@ -569,7 +574,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            setUserName(userData?.name || 'User');
+            const name = userData?.name || 'User';
+            setUserName(name);
+            // Also update cache so it's available on next cold start
+            statsCache.userName = name;
 
             // Managers are routed via RootNavigator based on role
             // No need to manually redirect here
@@ -604,6 +612,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         }));
         setTodayActivities(restoredActivities);
         setTodayStats(cachedData.stats);
+        // Restore userName from cache for instant display
+        if (statsCache.userName) {
+          setUserName(statsCache.userName);
+        }
         setLoading(false);
         logger.info('[HomeScreen] Loaded data from cache - instant display');
       }
