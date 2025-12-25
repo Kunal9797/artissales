@@ -44,6 +44,125 @@ async function batchFetchUserRoles(userIds: string[]): Promise<Map<string, strin
 }
 
 /**
+ * Get all admin user IDs (cached for efficiency)
+ * Used to identify admin-created accounts that should be visible to all users
+ */
+async function getAdminUserIds(): Promise<string[]> {
+  const adminSnapshot = await db.collection("users")
+    .where("role", "==", "admin")
+    .select("__name__")
+    .get();
+  return adminSnapshot.docs.map((doc) => doc.id);
+}
+
+/**
+ * Fetch accounts visible to a rep using targeted queries (optimized)
+ * Instead of fetching all accounts and filtering, we query specifically for:
+ * 1. Accounts created by the rep
+ * 2. Accounts created by their manager
+ * 3. Accounts created by admins
+ * 4. Their assigned distributor
+ * 5. Legacy accounts (no createdByUserId)
+ */
+async function fetchRepVisibleAccounts(
+  userId: string,
+  reportsToUserId: string | undefined,
+  migratedFromId: string | undefined,
+  primaryDistributorId: string | undefined,
+  type: string | undefined
+): Promise<any[]> {
+  const adminIds = await getAdminUserIds();
+
+  // Build list of creator IDs to query (rep + manager + admins)
+  const creatorIds: string[] = [userId];
+  if (migratedFromId) creatorIds.push(migratedFromId);
+  if (reportsToUserId) creatorIds.push(reportsToUserId);
+
+  // Parallel queries for maximum efficiency
+  const queries: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
+
+  // Query 1: Accounts created by rep, manager, or migrated ID (up to 30 IDs)
+  // We combine these since they're all "trusted" creators
+  if (creatorIds.length > 0) {
+    let creatorQuery = db.collection("accounts")
+      .where("status", "==", "active")
+      .where("createdByUserId", "in", creatorIds.slice(0, 30));
+    if (type) creatorQuery = creatorQuery.where("type", "==", type);
+    queries.push(creatorQuery.get());
+  }
+
+  // Query 2: Accounts created by admins (chunk if > 30)
+  if (adminIds.length > 0) {
+    const adminChunks: string[][] = [];
+    for (let i = 0; i < adminIds.length; i += 30) {
+      adminChunks.push(adminIds.slice(i, i + 30));
+    }
+    for (const chunk of adminChunks) {
+      let adminQuery = db.collection("accounts")
+        .where("status", "==", "active")
+        .where("createdByUserId", "in", chunk);
+      if (type) adminQuery = adminQuery.where("type", "==", type);
+      queries.push(adminQuery.get());
+    }
+  }
+
+  // Query 3: Their assigned distributor (single doc fetch, only if not filtering by type or type is distributor)
+  if (primaryDistributorId && (!type || type === "distributor")) {
+    queries.push(
+      db.collection("accounts")
+        .where("__name__", "==", primaryDistributorId)
+        .where("status", "==", "active")
+        .get()
+    );
+  }
+
+  // Query 4: Legacy accounts with empty/missing createdByUserId
+  // These are older accounts that predate the createdByUserId field
+  let legacyQuery = db.collection("accounts")
+    .where("status", "==", "active")
+    .where("createdByUserId", "==", "");
+  if (type) legacyQuery = legacyQuery.where("type", "==", type);
+  queries.push(legacyQuery.get());
+
+  // Execute all queries in parallel
+  const snapshots = await Promise.all(queries);
+
+  // Merge and dedupe results
+  const accountMap = new Map<string, any>();
+  for (const snapshot of snapshots) {
+    for (const doc of snapshot.docs) {
+      if (!accountMap.has(doc.id)) {
+        const data = doc.data();
+        // Filter out distributors that aren't the rep's assigned one
+        if (data.type === "distributor" && data.id !== primaryDistributorId) {
+          continue;
+        }
+        accountMap.set(doc.id, {
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          contactPerson: data.contactPerson || undefined,
+          phone: data.phone,
+          email: data.email || undefined,
+          birthdate: data.birthdate || undefined,
+          address: data.address || undefined,
+          city: data.city,
+          state: data.state,
+          pincode: data.pincode,
+          territory: data.territory,
+          assignedRepUserId: data.assignedRepUserId,
+          parentDistributorId: data.parentDistributorId || undefined,
+          createdByUserId: data.createdByUserId,
+          lastVisitAt: data.lastVisitAt?.toDate().toISOString() || undefined,
+        });
+      }
+    }
+  }
+
+  return Array.from(accountMap.values());
+}
+
+/**
  * Helper function to check if user can create this account type
  */
 function canCreateAccount(
@@ -364,221 +483,178 @@ export const getAccountsList = onRequest({invoker: "public"}, async (request, re
       return;
     }
 
-    // 3. Build query with sorting and pagination
-    let query: FirebaseFirestore.Query = db.collection("accounts")
-      .where("status", "==", "active");
-
-    // Filter by type if provided
-    if (type) {
-      if (!["distributor", "dealer", "architect", "OEM"].includes(type)) {
-        const error: ApiError = {
-          ok: false,
-          error: "Invalid account type filter",
-          code: "INVALID_TYPE",
-        };
-        response.status(400).json(error);
-        return;
-      }
-      query = query.where("type", "==", type);
-    }
-
-    // Filter by createdBy if provided
-    // 'mine' = only accounts created by the current user
-    // 'all' or undefined = all visible accounts (based on role)
-    if (createdBy === "mine") {
-      query = query.where("createdByUserId", "==", userId);
-    }
-
-    // Add sorting
-    query = query.orderBy(sortBy, sortDir as "asc" | "desc");
-
-    // NOTE: For reps/managers, we need to fetch more accounts because visibility
-    // filtering happens AFTER the query. If we only fetch 50 and most are hidden,
-    // the user sees fewer accounts than expected.
-    //
-    // Strategy:
-    // - For admins: Use normal pagination (they see all accounts)
-    // - For reps/managers: Fetch a larger batch, filter, then paginate
-    //
-    // We'll fetch up to 500 accounts for non-admins to ensure enough visible results
-    // after filtering. This is a tradeoff between query size and user experience.
-    const isAdmin = callerRole === "admin";
-    const actualFetchLimit = isAdmin ? fetchLimit : 500;
-
-    // Apply cursor if provided (pagination) - only for admins
-    // For non-admins, we handle pagination after filtering
-    if (startAfter && isAdmin) {
-      const cursorDoc = await db.collection("accounts").doc(startAfter).get();
-      if (cursorDoc.exists) {
-        query = query.startAfter(cursorDoc);
-      }
-    }
-
-    // Apply limit
-    query = query.limit(actualFetchLimit);
-
-    // 4. Execute query
-    const accountsSnap = await query.get();
-
-    // 5. Format response and apply visibility rules
-    let accounts = accountsSnap.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: data.id,
-        name: data.name,
-        type: data.type,
-        contactPerson: data.contactPerson || undefined,
-        phone: data.phone,
-        email: data.email || undefined,
-        birthdate: data.birthdate || undefined,
-        address: data.address || undefined,
-        city: data.city,
-        state: data.state,
-        pincode: data.pincode,
-        territory: data.territory,
-        assignedRepUserId: data.assignedRepUserId,
-        parentDistributorId: data.parentDistributorId || undefined,
-        createdByUserId: data.createdByUserId,
-        lastVisitAt: data.lastVisitAt?.toDate().toISOString() || undefined,
+    // Validate type if provided
+    if (type && !["distributor", "dealer", "architect", "OEM"].includes(type)) {
+      const error: ApiError = {
+        ok: false,
+        error: "Invalid account type filter",
+        code: "INVALID_TYPE",
       };
-    });
+      response.status(400).json(error);
+      return;
+    }
 
-    // 6. Apply visibility rules based on role
-    // - Admin: sees all accounts
-    // - National Head / Area Manager: sees distributors assigned to team + accounts created by self/reports/admin
-    // - Reps: see only their assigned distributor + their own accounts + manager/admin accounts
+    const isAdmin = callerRole === "admin";
+    const isManager = callerRole === "national_head" || callerRole === "area_manager";
+    const isRep = !isAdmin && !isManager;
 
-    if (callerRole === "admin") {
-      // Admin sees all - no filtering needed
-    } else if (callerRole === "national_head" || callerRole === "area_manager") {
-      // National Head / Area Manager: filter to accounts created by:
-      // - Themselves (including pre-migration ID)
-      // - Their direct reports
-      // - Admin (admin-created accounts are shared)
-      // PLUS: Distributors assigned to their team members via primaryDistributorId
-      const directReportIds = await getDirectReportIds(userId);
-      const migratedFromId = userDoc.data()?.migratedFrom;
+    let accounts: any[];
 
-      // Include both current ID and migratedFrom ID for the manager
-      const managerIds = migratedFromId ? [userId, migratedFromId] : [userId];
-      const teamMemberIds = new Set([...managerIds, ...directReportIds]);
+    // 3. Fetch accounts based on role
+    // - Reps: Use optimized targeted queries (scalable, fast)
+    // - Admins/Managers: Use general query with visibility filtering
 
-      // Get distributor IDs assigned to team members (for distributor visibility)
-      const teamDistributorIds = await getTeamDistributorIds([...teamMemberIds]);
-
-      // Get unique creator IDs to check which are admins
-      const creatorIds = [
-        ...new Set(
-          accounts
-            .map((acc) => acc.createdByUserId)
-            .filter((id): id is string => !!id && id.trim().length > 0)
-        ),
-      ];
-
-      // Batch fetch creator roles (fixes N+1 query problem)
-      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
-
-      // Identify admin creators
-      const adminCreatorIds = new Set<string>();
-      creatorRoleMap.forEach((role, id) => {
-        if (role === "admin") adminCreatorIds.add(id);
-      });
-
-      // Filter accounts
-      accounts = accounts.filter((account) => {
-        // Distributors: only show if assigned to a team member
-        if (account.type === "distributor") {
-          return teamDistributorIds.has(account.id);
-        }
-
-        // Legacy data (no createdByUserId) - show it
-        if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
-          return true;
-        }
-
-        // Created by self or a direct report
-        if (teamMemberIds.has(account.createdByUserId)) {
-          return true;
-        }
-
-        // Created by admin (shared accounts)
-        if (adminCreatorIds.has(account.createdByUserId)) {
-          return true;
-        }
-
-        // Hide accounts created by other teams
-        return false;
-      });
-    } else {
-      // Reps: visibility rules
-      // Can see:
-      // - Only their assigned distributor (via primaryDistributorId)
-      // - Accounts created by self
-      // - Accounts created by their specific manager (reportsToUserId)
-      // - Accounts created by admin
-
-      // Get the rep's assigned distributor, manager ID, and migratedFrom ID
+    if (isRep && createdBy !== "mine") {
+      // OPTIMIZED PATH FOR REPS
+      // Uses targeted queries instead of fetching 1000+ accounts and filtering
       const primaryDistributorId = userDoc.data()?.primaryDistributorId;
       const reportsToUserId = userDoc.data()?.reportsToUserId;
       const migratedFromId = userDoc.data()?.migratedFrom;
 
-      // Get unique creator IDs to check their roles (filter out empty/undefined)
-      const creatorIds = [
-        ...new Set(
-          accounts
-            .filter((acc) => ["dealer", "architect", "OEM"].includes(acc.type))
-            .map((acc) => acc.createdByUserId)
-            .filter((id): id is string => !!id && id.trim().length > 0)
-        ),
-      ];
+      accounts = await fetchRepVisibleAccounts(
+        userId,
+        reportsToUserId,
+        migratedFromId,
+        primaryDistributorId,
+        type
+      );
 
-      // Batch fetch creator roles (fixes N+1 query problem)
-      const creatorRoleMap = await batchFetchUserRoles(creatorIds);
+      logger.info(`[getAccountsList] Rep optimized query returned ${accounts.length} accounts`);
+    } else {
+      // STANDARD PATH FOR ADMINS/MANAGERS (and reps with createdBy='mine')
+      let query: FirebaseFirestore.Query = db.collection("accounts")
+        .where("status", "==", "active");
 
-      // Identify admin creators
-      const adminCreatorIds = new Set<string>();
-      creatorRoleMap.forEach((role, id) => {
-        if (role === "admin") adminCreatorIds.add(id);
+      // Filter by type if provided
+      if (type) {
+        query = query.where("type", "==", type);
+      }
+
+      // Filter by createdBy if provided
+      // 'mine' = only accounts created by the current user
+      if (createdBy === "mine") {
+        query = query.where("createdByUserId", "==", userId);
+      }
+
+      // Add sorting
+      query = query.orderBy(sortBy, sortDir as "asc" | "desc");
+
+      // For managers, we still need to fetch a larger batch because visibility
+      // filtering happens AFTER the query. 1000 should be sufficient for most teams.
+      const actualFetchLimit = isAdmin ? fetchLimit : 1000;
+
+      // Apply cursor if provided (pagination) - only for admins
+      if (startAfter && isAdmin) {
+        const cursorDoc = await db.collection("accounts").doc(startAfter).get();
+        if (cursorDoc.exists) {
+          query = query.startAfter(cursorDoc);
+        }
+      }
+
+      // Apply limit
+      query = query.limit(actualFetchLimit);
+
+      // Execute query
+      const accountsSnap = await query.get();
+
+      // Format response
+      accounts = accountsSnap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: data.id,
+          name: data.name,
+          type: data.type,
+          contactPerson: data.contactPerson || undefined,
+          phone: data.phone,
+          email: data.email || undefined,
+          birthdate: data.birthdate || undefined,
+          address: data.address || undefined,
+          city: data.city,
+          state: data.state,
+          pincode: data.pincode,
+          territory: data.territory,
+          assignedRepUserId: data.assignedRepUserId,
+          parentDistributorId: data.parentDistributorId || undefined,
+          createdByUserId: data.createdByUserId,
+          lastVisitAt: data.lastVisitAt?.toDate().toISOString() || undefined,
+        };
       });
 
-      // Filter accounts based on rep visibility rules
-      accounts = accounts.filter((account) => {
-        // Distributors: only show if it's their assigned distributor
-        if (account.type === "distributor") {
-          return primaryDistributorId && account.id === primaryDistributorId;
-        }
+      // Apply visibility rules for managers (admins see all, reps with 'mine' already filtered)
+      if (isManager && createdBy !== "mine") {
+        // National Head / Area Manager: filter to accounts created by:
+        // - Themselves (including pre-migration ID)
+        // - Their direct reports
+        // - Admin (admin-created accounts are shared)
+        // PLUS: Distributors assigned to their team members via primaryDistributorId
+        const directReportIds = await getDirectReportIds(userId);
+        const migratedFromId = userDoc.data()?.migratedFrom;
 
-        // For dealer/architect/OEM:
-        // 1. If createdByUserId is empty/missing, show it (legacy data)
-        if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
-          return true;
-        }
+        // Include both current ID and migratedFrom ID for the manager
+        const managerIds = migratedFromId ? [userId, migratedFromId] : [userId];
+        const teamMemberIds = new Set([...managerIds, ...directReportIds]);
 
-        // 2. Created by current user (or their pre-migration ID)
-        if (account.createdByUserId === userId) {
-          return true;
-        }
-        // Also check migratedFrom ID for accounts created before user ID migration
-        if (migratedFromId && account.createdByUserId === migratedFromId) {
-          return true;
-        }
+        // Get distributor IDs assigned to team members (for distributor visibility)
+        const teamDistributorIds = await getTeamDistributorIds([...teamMemberIds]);
 
-        // 3. Created by their specific manager (reportsToUserId)
-        if (reportsToUserId && account.createdByUserId === reportsToUserId) {
-          return true;
-        }
+        // Get unique creator IDs to check which are admins
+        const creatorIds = [
+          ...new Set(
+            accounts
+              .map((acc) => acc.createdByUserId)
+              .filter((id): id is string => !!id && id.trim().length > 0)
+          ),
+        ];
 
-        // 4. Created by admin (shared accounts)
-        if (adminCreatorIds.has(account.createdByUserId)) {
-          return true;
-        }
+        // Batch fetch creator roles (fixes N+1 query problem)
+        const creatorRoleMap = await batchFetchUserRoles(creatorIds);
 
-        // Otherwise, hide (created by another rep or another manager's team)
-        return false;
-      });
+        // Identify admin creators
+        const adminCreatorIds = new Set<string>();
+        creatorRoleMap.forEach((role, id) => {
+          if (role === "admin") adminCreatorIds.add(id);
+        });
+
+        // Filter accounts
+        accounts = accounts.filter((account) => {
+          // Distributors: only show if assigned to a team member
+          if (account.type === "distributor") {
+            return teamDistributorIds.has(account.id);
+          }
+
+          // Legacy data (no createdByUserId) - show it
+          if (!account.createdByUserId || account.createdByUserId.trim().length === 0) {
+            return true;
+          }
+
+          // Created by self or a direct report
+          if (teamMemberIds.has(account.createdByUserId)) {
+            return true;
+          }
+
+          // Created by admin (shared accounts)
+          if (adminCreatorIds.has(account.createdByUserId)) {
+            return true;
+          }
+
+          // Hide accounts created by other teams
+          return false;
+        });
+      }
     }
 
-    // 7. Apply pagination to filtered results
+    // 4. Apply sorting (for rep optimized path, sorting wasn't applied in queries)
+    const multiplier = sortDir === "asc" ? 1 : -1;
+    accounts.sort((a, b) => {
+      if (sortBy === "lastVisitAt") {
+        const aTime = a.lastVisitAt ? new Date(a.lastVisitAt).getTime() : 0;
+        const bTime = b.lastVisitAt ? new Date(b.lastVisitAt).getTime() : 0;
+        return (aTime - bTime) * multiplier;
+      }
+      return a.name.localeCompare(b.name) * multiplier;
+    });
+
+    // 5. Apply pagination to filtered results
     // For non-admins, we need to handle cursor-based pagination after filtering
     if (!isAdmin && startAfter) {
       // Find the cursor position in the filtered results
