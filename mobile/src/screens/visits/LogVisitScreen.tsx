@@ -65,6 +65,9 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Prevent duplicate submissions - tracks if form was already successfully submitted
+  const hasSubmittedRef = useRef(false);
+
   // GPS verification state
   const [gpsStatus, setGpsStatus] = useState<'loading' | 'success' | 'failed'>('loading');
   const [gpsData, setGpsData] = useState<{ lat: number; lon: number; accuracyM: number } | null>(null);
@@ -250,6 +253,12 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
   };
 
   const handleSubmit = async () => {
+    // Prevent duplicate submissions (user navigated back and resubmitted)
+    if (hasSubmittedRef.current) {
+      logger.warn('[LogVisit] Blocked duplicate submission attempt');
+      return;
+    }
+
     // Validation
     if (!visitAccount) {
       Alert.alert('Error', 'No account selected');
@@ -339,6 +348,14 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             purpose: purpose,
           });
 
+          // Mark as submitted to prevent duplicate submissions
+          hasSubmittedRef.current = true;
+
+          // Reset form state before navigating (prevents resubmit if user navigates back)
+          setPurpose('');
+          setNotes('');
+          setPhotoUri(null);
+
           // Show toast and navigate immediately - photo uploads in background!
           toast.show({ kind: 'success', text: 'Visit logged!', duration: 2000 });
           navigation.navigate('Home');
@@ -367,6 +384,14 @@ export const LogVisitScreen: React.FC<LogVisitScreenProps> = ({ navigation, rout
             hasPhoto: !!photoUri,
             purpose: purpose,
           });
+
+          // Mark as submitted to prevent duplicate submissions
+          hasSubmittedRef.current = true;
+
+          // Reset form state before navigating (prevents resubmit if user navigates back)
+          setPurpose('');
+          setNotes('');
+          setPhotoUri(null);
 
           // Show toast and navigate immediately
           toast.show({ kind: 'success', text: 'Visit logged!', duration: 2000 });
