@@ -462,10 +462,8 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
         }
         dailyVisitsByUser[visitDate].add(data.userId);
 
-        // For single rep view: count actual visits per day
-        if (isSingleRepView) {
-          dailyVisitCounts[visitDate] = (dailyVisitCounts[visitDate] || 0) + 1;
-        }
+        // Count actual visits per day (for both team and single rep view)
+        dailyVisitCounts[visitDate] = (dailyVisitCounts[visitDate] || 0) + 1;
       }
 
       // For single rep view: collect visit details
@@ -655,7 +653,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           date: dateStr,
           activeCount: activeOnDay,
           totalCount: totalTeamMembers,
-          ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+          visitCount: dailyVisitCounts[dateStr] || 0,
         });
       }
       logger.info(`[getTeamStats] Built dailyActivity for ${daysInMonth} days`);
@@ -672,7 +670,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
           date: dateStr,
           activeCount: activeOnDay,
           totalCount: totalTeamMembers,
-          ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+          visitCount: dailyVisitCounts[dateStr] || 0,
         });
       }
       logger.info(`[getTeamStats] Built dailyActivity for 7 days (week view)`);
@@ -694,7 +692,7 @@ export const getTeamStats = onRequest({cors: true}, async (request, response) =>
             activeCount: activeOnDay,
             totalCount: totalTeamMembers,
             isInRange, // Flag to indicate if day is within custom range
-            ...(isSingleRepView && {visitCount: dailyVisitCounts[dateStr] || 0}),
+            visitCount: dailyVisitCounts[dateStr] || 0,
           });
         }
         logger.info(`[getTeamStats] Built dailyActivity for custom range (same month: ${startMonth}/${startYear})`);

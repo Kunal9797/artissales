@@ -247,12 +247,12 @@ const ActivityHeatmap: React.FC<{
   const heatmapColors = isDark ? HEATMAP_COLORS_DARK : HEATMAP_COLORS_LIGHT;
   const today = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-  // Calculate max visits for relative scale (only for single rep view)
+  // Calculate max visits for relative scale (for both team and single rep view)
   const maxVisits = useMemo(() => {
-    if (!isSingleRepView || !dailyActivity) return 0;
+    if (!dailyActivity) return 0;
     const validDays = dailyActivity.filter(d => d.date <= today);
     return Math.max(...validDays.map(d => d.visitCount || 0), 1); // Min 1 to avoid division by zero
-  }, [dailyActivity, today, isSingleRepView]);
+  }, [dailyActivity, today]);
 
   // Helper to get heatmap color with dark mode support
   const getColor = (activeCount: number, totalCount: number): string => {
@@ -294,13 +294,12 @@ const ActivityHeatmap: React.FC<{
     if (isWeekView) {
       return dailyActivity.map((day): GridCell => {
         const isFuture = day.date > today;
-        // For single rep: use visitCount from API
-        const visitCount = isSingleRepView ? (day.visitCount || 0) : 0;
+        // Use visitCount from API for both team and single rep view
+        const visitCount = day.visitCount || 0;
+        // Use visit-based coloring for both views
         const color = isFuture
           ? heatmapColors.EMPTY
-          : isSingleRepView
-            ? getRepColor(visitCount, maxVisits)
-            : getColor(day.activeCount, day.totalCount);
+          : getRepColor(visitCount, maxVisits);
         return {
           key: day.date,
           isEmpty: false,
@@ -373,13 +372,12 @@ const ActivityHeatmap: React.FC<{
       const isFuture = day.date > today;
       // For custom range, check if day is outside the selected range
       const isOutOfRange = isCustomRange && day.isInRange === false;
-      // For single rep: use visitCount from API
-      const visitCount = isSingleRepView ? (day.visitCount || 0) : 0;
+      // Use visitCount from API for both team and single rep view
+      const visitCount = day.visitCount || 0;
+      // Use visit-based coloring for both views (team: total visits, rep: individual visits)
       const color = isFuture
         ? heatmapColors.EMPTY
-        : isSingleRepView
-          ? getRepColor(visitCount, maxVisits)
-          : getColor(day.activeCount, day.totalCount);
+        : getRepColor(visitCount, maxVisits);
       grid.push({
         key: day.date,
         isEmpty: false,
@@ -421,7 +419,7 @@ const ActivityHeatmap: React.FC<{
     }
 
     return grid;
-  }, [dailyActivity, today, isWeekView, isCustomRange, isSingleRepView, maxVisits]);
+  }, [dailyActivity, today, isWeekView, isCustomRange, maxVisits]);
 
   // Calculate cell size dynamically based on screen width
   // Card has 16px padding on each side, plus 16px screen padding on each side = 64px total
@@ -496,8 +494,8 @@ const ActivityHeatmap: React.FC<{
                     { backgroundColor: isDark ? '#666666' : '#CCCCCC' },
                   ]} />
                 )}
-                {/* Visit count for single rep view (non-future, non-empty cells) */}
-                {isSingleRepView && !cell.isFuture && !cell.isEmpty && !loading && cell.visitCount !== undefined && (
+                {/* Visit count for both team and single rep view (non-future, non-empty cells) */}
+                {!cell.isFuture && !cell.isEmpty && !loading && cell.visitCount !== undefined && (
                   <Text style={[
                     styles.heatmapCellCount,
                     // Dark mode: always white text. Light mode: white only for high counts (darker cells)
@@ -514,7 +512,7 @@ const ActivityHeatmap: React.FC<{
 
       {/* Legend */}
       <View style={styles.heatmapLegend}>
-        <Text style={styles.heatmapLegendText}>{isSingleRepView ? '0' : 'Less'}</Text>
+        <Text style={styles.heatmapLegendText}>0</Text>
         <View style={styles.heatmapLegendCells}>
           <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.EMPTY }]} />
           <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.LOW }]} />
@@ -522,7 +520,7 @@ const ActivityHeatmap: React.FC<{
           <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.HIGH }]} />
           <View style={[styles.heatmapLegendCell, { backgroundColor: heatmapColors.FULL }]} />
         </View>
-        <Text style={styles.heatmapLegendText}>{isSingleRepView ? maxVisits : 'More'}</Text>
+        <Text style={styles.heatmapLegendText}>{maxVisits}</Text>
       </View>
     </View>
   );
@@ -1031,8 +1029,11 @@ export const TeamStatsScreen: React.FC<{ navigation?: any }> = ({ navigation }) 
     }
   };
 
-  // Get today's date
-  const today = useMemo(() => new Date().toISOString().substring(0, 10), []);
+  // Get today's date in local timezone (not UTC)
+  const today = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
 
   // Fetch team stats
   const {
