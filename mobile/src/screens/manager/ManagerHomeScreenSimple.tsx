@@ -34,6 +34,7 @@ import {
   BookOpen,
   X,
   Clock,
+  Palette,
 } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useBottomSafeArea } from '../../hooks/useBottomSafeArea';
@@ -318,6 +319,26 @@ export const ManagerHomeScreen: React.FC<{ navigation?: any }> = ({ navigation }
             <ChevronRight size={20} color={themeColors.text.tertiary} />
           </View>
         </TouchableOpacity>
+
+        {/* Dev: Nav Bar Styles */}
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[styles.documentsCard, { marginTop: spacing.md, backgroundColor: '#7B1FA2' + '14', borderColor: '#7B1FA2' + '26' }]}
+            onPress={() => navigation?.navigate('NavBarStyles')}
+            activeOpacity={0.7}
+          >
+            <View style={styles.documentsHeader}>
+              <View style={[styles.documentsIconCircle, { backgroundColor: '#7B1FA2' + '20' }]}>
+                <Palette size={20} color="#7B1FA2" />
+              </View>
+              <View style={styles.documentsTextContainer}>
+                <Text style={[styles.documentsTitle, { color: themeColors.text.primary }]}>Nav Bar Styles</Text>
+                <Text style={[styles.documentsSubtitle, { color: themeColors.text.secondary }]}>Design mockups & variations</Text>
+              </View>
+              <ChevronRight size={20} color={themeColors.text.tertiary} />
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Bottom Sheet Modal */}

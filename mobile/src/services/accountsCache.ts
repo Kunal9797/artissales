@@ -286,7 +286,7 @@ class AccountsCacheService {
 
       // Then fetch all accounts from server
       const response = await api.getAccountsList({
-        limit: 500,  // Get all accounts in one request
+        limit: 1000,  // Get all accounts in one request (backend supports up to 1000)
         sortBy: 'name',
         sortDir: 'asc',
       });

@@ -22,6 +22,7 @@ import { DesignLabScreen } from '../screens/DesignLabScreen';
 // DISABLED FOR V1 LAUNCH - Re-enable after attendance decision finalized
 // import { HomeScreenV3 } from '../screens/HomeScreen_v3';
 import { KitchenSinkScreen as AccountDesignKitchenSink } from '../screens/design/KitchenSinkScreen';
+import { NavBarStylesScreen } from '../screens/design/NavBarStylesScreen';
 // Incrementally re-enabling manager stack screens as we test them
 import { AddUserScreen } from '../screens/manager/AddUserScreen';
 import { UserDetailScreen } from '../screens/manager/UserDetailScreen';
@@ -60,6 +61,7 @@ export type RootStackParamList = {
   KitchenSink: undefined;
   AccountDesignKitchenSink: undefined;
   DesignLab: undefined;
+  NavBarStyles: undefined;
   AddUser: undefined;
   UserList: undefined;
   UserDetail: { userId: string };
@@ -166,6 +168,8 @@ export const RootNavigator: React.FC = () => {
           <Stack.Screen name="KitchenSink" component={KitchenSinkScreen} />
           <Stack.Screen name="AccountDesignKitchenSink" component={AccountDesignKitchenSink} />
           <Stack.Screen name="DesignLab" component={DesignLabScreen} />
+          {/* Dev-only design exploration screens */}
+          {__DEV__ && <Stack.Screen name="NavBarStyles" component={NavBarStylesScreen} />}
 
           {/* Manager stack screens - Team Management */}
           <Stack.Screen name="AddUser" component={AddUserScreen} />
